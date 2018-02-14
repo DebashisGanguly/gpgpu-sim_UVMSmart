@@ -469,6 +469,43 @@ __host__ cudaError_t CUDARTAPI cudaMalloc(void **devPtr, size_t size)
 	}
 }
 
+__host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, unsigned int flags = cudaMemAttachGlobal) 
+{
+        if (size == 0) {
+        	return g_last_cudaError = cudaErrorInvalidValue;
+        }
+
+        CUctx_st* context = GPGPUSim_Context();
+	
+	//create a piece of memory for cpu side so that cpu side initialization code doesn't get SIGSEGV
+	void *cpuMemPtr = (void *)malloc(size);
+
+	//get a regular cudaMalloc memory
+	void *gpuMemPtr = context->get_device()->get_gpgpu()->gpu_malloc(size);
+
+	//maintain a map keyed by cpu memory pointer 
+	//with a tuple of gpu malloc memory pointe and allocation size as value
+	context->get_device()->get_gpgpu()->gpu_mapManagedAllocations((uint64_t)cpuMemPtr, (uint64_t)gpuMemPtr, size);
+
+	//at the begining itself allocate memory storage for gpu malloced allocation
+	//note after this point data is not initialized on CPU 
+	//so we need to copy the actual data on kernel launch 
+	context->get_device()->get_gpgpu()->memcpy_to_gpu((size_t)gpuMemPtr, (void *)cpuMemPtr, size);
+
+	//return cpu memory pointer to the user code 
+	//such that cpu side code can access the memory
+	*devPtr = cpuMemPtr;
+
+	if(g_debug_execution >= 3)
+		printf("GPGPU-Sim PTX: cudaMallocing %zu bytes starting at 0x%llx..\n",size, (unsigned long long) *devPtr);
+	
+	if ( gpuMemPtr ) {
+		return g_last_cudaError = cudaSuccess;
+	} else {
+		return g_last_cudaError = cudaErrorMemoryAllocation;
+	}
+}
+
 __host__ cudaError_t CUDARTAPI cudaMallocHost(void **ptr, size_t size)
 {
 	GPGPUSim_Context();
@@ -699,6 +736,26 @@ __host__ cudaError_t CUDARTAPI cudaMemcpyFromSymbol(void *dst, const char *symbo
  *                                                                              *
  *                                                                              *
  *******************************************************************************/
+
+__host__ cudaError_t CUDARTAPI cudaMemPrefetchAsync(const void *devPtr, size_t count, int dstDevice, cudaStream_t stream = 0)
+{
+	// If dstDevice is a GPU, then the device attribute cudaDevAttrConcurrentManagedAccess must be non-zero.
+	// Additionally, stream must be associated with a device that has a non-zero value for the device attribute cudaDevAttrConcurrentManagedAccess.
+	// The memory range must refer to managed memory allocated via cudaMallocManaged or declared via __managed__ variables.
+
+	struct CUstream_st *s = (struct CUstream_st *)stream;
+	
+	if (dstDevice == cudaCpuDeviceId) {
+		//declare new stream_operation for cudaMallocManaged type address
+		//g_stream_manager->push( stream_operation((size_t)src,dst,count,s) );
+	} else if (dstDevice == g_active_device) {
+		//g_stream_manager->push( stream_operation(src,(size_t)dst,count,s) );
+	} else {
+		abort();
+	}
+	return g_last_cudaError = cudaSuccess;
+}
+
 
 __host__ cudaError_t CUDARTAPI cudaMemcpyAsync(void *dst, const void *src, size_t count, enum cudaMemcpyKind kind, cudaStream_t stream)
 {
@@ -951,6 +1008,23 @@ __host__ cudaError_t CUDARTAPI cudaSetupArgument(const void *arg, size_t size, s
 {
 	gpgpusim_ptx_assert( !g_cuda_launch_stack.empty(), "empty launch stack" );
 	kernel_config &config = g_cuda_launch_stack.back();
+
+	CUctx_st* context = GPGPUSim_Context();
+
+	uint64_t devPtr;
+	uint64_t hostPtr = *(uint64_t *)arg;
+	size_t allocationSize = context->get_device()->get_gpgpu()->gpu_getManagedAllocation(hostPtr, &devPtr);
+
+	if (allocationSize != 0) { //verify whether a pointer to malloc managed memory
+	    //during the kernel launch copy all the data from cpu to gpu
+	    //pages are valid or invalid are tested later
+	    context->get_device()->get_gpgpu()->memcpy_to_gpu( (size_t)devPtr, (void *)hostPtr, allocationSize);
+
+	    //override the pointer argument to refer to gpu side allocation rather than cpu side memory
+	    //gpgpu-sim only understands pointer reference from m_dev_malloc 
+	    *(uint64_t *)arg = devPtr;
+        }
+	    
 	config.set_arg(arg,size,offset);
 
 	return g_last_cudaError = cudaSuccess;
@@ -1869,7 +1943,22 @@ cudaError_t cudaDeviceReset ( void ) {
 	return g_last_cudaError = cudaSuccess;
 }
 cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
-	// I don't know what this should do
+	CUctx_st* context = GPGPUSim_Context();
+	std::map<uint64_t, std::pair<uint64_t, size_t> > managedAllocations = context->get_device()->get_gpgpu()->gpu_getManagedAllocations();
+
+	std::map<uint64_t, std::pair<uint64_t, size_t> >::iterator it;
+
+	//at this point kernel execution is over
+	//loop over all managed allocations
+	//copy the data back from gpu to cpu
+	for ( it = managedAllocations.begin(); it != managedAllocations.end(); it++ ) {
+		uint64_t hostPtr = it->first;
+		uint64_t devPtr  = it->second.first;
+		size_t   size    = it->second.second;
+
+		context->get_device()->get_gpgpu()->memcpy_from_gpu( (void *)hostPtr, (size_t)devPtr, size );	
+	}
+
 	return g_last_cudaError = cudaSuccess;
 }
 

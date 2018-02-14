@@ -359,6 +359,26 @@ addr_t generic_to_global( addr_t addr )
 }
 
 
+std::map<uint64_t, std::pair<uint64_t, size_t> > gpgpu_t::gpu_getManagedAllocations()
+{
+   return managedAllocations;
+}
+
+size_t gpgpu_t::gpu_getManagedAllocation( uint64_t cpuMemAddr, uint64_t *devMemAddr )
+{
+   if(managedAllocations.find(cpuMemAddr) == managedAllocations.end()) {
+      return 0;
+   } else {
+      *devMemAddr = managedAllocations.find(cpuMemAddr)->second.first;
+      return managedAllocations.find(cpuMemAddr)->second.second;
+   } 
+}
+
+void gpgpu_t::gpu_mapManagedAllocations( uint64_t cpuMemAddr, uint64_t gpuMemAddr, size_t size)
+{
+   managedAllocations.insert(std::pair<uint64_t, std::pair<uint64_t, size_t> >(cpuMemAddr, std::pair<uint64_t, size_t>(gpuMemAddr, size)));
+}
+
 void* gpgpu_t::gpu_malloc( size_t size )
 {
    unsigned long long result = m_dev_malloc;

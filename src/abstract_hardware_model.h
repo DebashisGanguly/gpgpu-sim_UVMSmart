@@ -152,6 +152,7 @@ enum _memory_op_t {
 #include <vector>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <map>
 #include <deque>
 #include <algorithm>
@@ -496,6 +497,11 @@ private:
 class gpgpu_t {
 public:
     gpgpu_t( const gpgpu_functional_sim_config &config );
+   
+    std::map<uint64_t, std::pair<uint64_t, size_t> >	gpu_getManagedAllocations(); 
+    size_t						gpu_getManagedAllocation( uint64_t cpuMemAddr, uint64_t *devMemAddr );
+    void						gpu_mapManagedAllocations( uint64_t cpuMemAddr, uint64_t gpuMemAddr, size_t size );
+    
     void* gpu_malloc( size_t size );
     void* gpu_mallocarray( size_t count );
     void  gpu_memset( size_t dst_start_addr, int c, size_t count );
@@ -549,6 +555,8 @@ protected:
     class memory_space *m_surf_mem;
 
     unsigned long long m_dev_malloc;
+
+    std::map<uint64_t, std::pair<uint64_t, size_t> > managedAllocations;
     
     std::map<std::string, const struct textureReference*> m_NameToTextureRef;
     std::map<const struct textureReference*,const struct cudaArray*> m_TextureRefToCudaArray;
