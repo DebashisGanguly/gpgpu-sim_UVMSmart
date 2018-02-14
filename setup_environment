@@ -2,6 +2,10 @@
 
 ps -p $$ | awk '/bash/ || / sh/ || /zsh/ {exit 1;}' && echo "ERROR ** source setup_environment must be run in a bash, zsh or sh shell; see README" && exit
 
+export CUDA_INSTALL_PATH=/usr/local/cuda-8.0
+export PATH=$PATH:$CUDA_INSTALL_PATH/bin
+export LD_LIBRARY_PATH=/usr/local/lib64:/usr/local/lib:$CUDA_INSTALL_PATH/lib64:$CUDA_INSTALL_PATH/lib
+
 export GPGPUSIM_SETUP_ENVIRONMENT_WAS_RUN=
 export GPGPUSIM_ROOT="$( cd "$( dirname "$BASH_SOURCE" )" && pwd )"
 
