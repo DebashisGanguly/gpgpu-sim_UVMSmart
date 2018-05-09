@@ -4,7 +4,7 @@ if [ ! -n "$GPGPUSIM_ROOT" ]; then
 	echo "ERROR ** GPGPUSIM_ROOT not set. Run setup_environment first.";
 fi
 
-BENCHMARKS=`ls -1 -F | awk '/\//' | sed 's/\///'`;
+BENCHMARKS=`find . -mindepth 2 -maxdepth 2 -type d`;
 
 GPGPUSIM_CONFIG=$1
 if [ "x$GPGPUSIM_CONFIG" = "x" ]; then 
