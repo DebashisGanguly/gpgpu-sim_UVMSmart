@@ -4,7 +4,7 @@ if [ ! -n "$GPGPUSIM_ROOT" ]; then
 	echo "ERROR ** GPGPUSIM_ROOT not set. Run setup_environment first.";
 fi
 
-BENCHMARKS=`find . -mindepth 2 -maxdepth 2 -type d`;
+BENCHMARKS=`find . -mindepth 2 -maxdepth 2 -type d -not -path "./data/*"`;
 
 GPGPUSIM_CONFIG=$1
 if [ "x$GPGPUSIM_CONFIG" = "x" ]; then 
