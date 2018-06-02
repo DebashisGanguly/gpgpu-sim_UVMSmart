@@ -94,6 +94,7 @@ unsigned int gpu_stall_icnt2sh = 0;
 #define  L2    0x02
 #define  DRAM  0x04
 #define  ICNT  0x08  
+#define  PCIE  0x10
 
 
 #define MEM_LATENCY_STAT_IMPL
@@ -412,8 +413,8 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "Select between Performance (default) or Functional simulation (1)", 
                "0");
    option_parser_register(opp, "-gpgpu_clock_domains", OPT_CSTR, &gpgpu_clock_domains, 
-                  "Clock Domain Frequencies in MhZ {<Core Clock>:<ICNT Clock>:<L2 Clock>:<DRAM Clock>}",
-                  "500.0:2000.0:2000.0:2000.0");
+                  "Clock Domain Frequencies in MhZ {<Core Clock>:<ICNT Clock>:<L2 Clock>:<DRAM Clock>:<PCIe Clock>}",
+                  "500.0:2000.0:2000.0:2000.0:50000.0");
    option_parser_register(opp, "-gpgpu_max_concurrent_kernel", OPT_INT32, &max_concurrent_kernel,
                           "maximum kernels that can run concurrently on GPU", "8" );
    option_parser_register(opp, "-gpgpu_cflog_interval", OPT_INT32, &gpgpu_cflog_interval, 
@@ -692,18 +693,20 @@ enum divergence_support_t gpgpu_sim::simd_model() const
 
 void gpgpu_sim_config::init_clock_domains(void ) 
 {
-   sscanf(gpgpu_clock_domains,"%lf:%lf:%lf:%lf", 
-          &core_freq, &icnt_freq, &l2_freq, &dram_freq);
+   sscanf(gpgpu_clock_domains,"%lf:%lf:%lf:%lf:%lf", 
+          &core_freq, &icnt_freq, &l2_freq, &dram_freq, &pcie_freq);
    core_freq = core_freq MhZ;
    icnt_freq = icnt_freq MhZ;
    l2_freq = l2_freq MhZ;
    dram_freq = dram_freq MhZ;        
+   pcie_freq = pcie_freq MhZ;        
    core_period = 1/core_freq;
    icnt_period = 1/icnt_freq;
    dram_period = 1/dram_freq;
+   pcie_period = 1/pcie_freq;
    l2_period = 1/l2_freq;
-   printf("GPGPU-Sim uArch: clock freqs: %lf:%lf:%lf:%lf\n",core_freq,icnt_freq,l2_freq,dram_freq);
-   printf("GPGPU-Sim uArch: clock periods: %.20lf:%.20lf:%.20lf:%.20lf\n",core_period,icnt_period,l2_period,dram_period);
+   printf("GPGPU-Sim uArch: clock freqs: %lf:%lf:%lf:%lf:%lf\n",core_freq,icnt_freq,l2_freq,dram_freq,pcie_freq);
+   printf("GPGPU-Sim uArch: clock periods: %.20lf:%.20lf:%.20lf:%.20lf:%.20lf\n",core_period,icnt_period,l2_period,dram_period,pcie_period);
 }
 
 void gpgpu_sim::reinit_clock_domains(void)
@@ -1320,8 +1323,8 @@ void dram_t::dram_log( int task )
 //Find next clock domain and increment its time
 int gpgpu_sim::next_clock_domain(void) 
 {
-   double smallest = min3(core_time,icnt_time,dram_time);
-   int mask = 0x00;
+   double smallest = min4(core_time,icnt_time,dram_time,pcie_time);
+   int mask = 0x000;
    if ( l2_time <= smallest ) {
       smallest = l2_time;
       mask |= L2 ;
@@ -1338,6 +1341,10 @@ int gpgpu_sim::next_clock_domain(void)
    if ( core_time <= smallest ) {
       mask |= CORE;
       core_time += m_config.core_period;
+   }
+   if ( pcie_time <= smallest ) {
+      mask |= PCIE;
+      pcie_time += m_config.pcie_period;
    }
    return mask;
 }

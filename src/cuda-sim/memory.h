@@ -91,9 +91,17 @@ public:
       fflush(fout);
    }
 
+   // methods to query and modify page table flags
+   unsigned isValid () { return valid; }
+   void validate () { valid = 1; }
+   void invalidate () { valid = 0; }
+
 private:
    unsigned m_nbytes;
    unsigned char *m_data;
+
+   // flags for page table
+   unsigned valid;
 };
 
 class ptx_thread_info;

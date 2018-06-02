@@ -326,10 +326,12 @@ private:
     double core_freq;
     double icnt_freq;
     double dram_freq;
+    double pcie_freq;
     double l2_freq;
     double core_period;
     double icnt_period;
     double dram_period;
+    double pcie_period;
     double l2_period;
 
     // GPGPU-Sim timing model options
@@ -464,6 +466,7 @@ private:
    double core_time;
    double icnt_time;
    double dram_time;
+   double pcie_time;
    double l2_time;
 
    // debug
