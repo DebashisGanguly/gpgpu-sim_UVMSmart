@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <string>
 #include <map>
+#include <list>
 #include <stdlib.h>
 
 typedef address_type mem_addr_t;
@@ -55,10 +56,16 @@ public:
    {
       m_data = (unsigned char*)calloc(1,BSIZE);
       memcpy(m_data,another.m_data,BSIZE);
+
+      // initialize page flags to default value
+      valid = false;
    }
    mem_storage()
    {
       m_data = (unsigned char*)calloc(1,BSIZE);
+
+      // initialize page flags to default value
+      valid = false;
    }
    ~mem_storage()
    {
@@ -81,7 +88,7 @@ public:
    {
       unsigned int *i_data = (unsigned int*)m_data;
       for (int d = 0; d < (BSIZE / sizeof(unsigned int)); d++) {
-         if (d % 8 == 0) {
+	 if (d % 8 == 0) {
             fprintf(fout, "\n");
          }
          fprintf(fout, format, i_data[d]);
@@ -90,10 +97,18 @@ public:
       fprintf(fout, "\n");
       fflush(fout);
    }
+   
+   // methods to query and modify page table flags
+   bool is_valid	()	{ return valid;  }
+   void validate_page	()	{ valid = true;  }
+   void invalidate_page	()	{ valid = false; }
 
 private:
    unsigned m_nbytes;
    unsigned char *m_data;
+
+   // flags for page table
+   bool valid;
 };
 
 class ptx_thread_info;
@@ -107,6 +122,11 @@ public:
    virtual void read( mem_addr_t addr, size_t length, void *data ) const = 0;
    virtual void print( const char *format, FILE *fout ) const = 0;
    virtual void set_watch( addr_t addr, unsigned watchpoint ) = 0;
+
+   // methods to query page table
+   virtual void				validate_page	(mem_addr_t pg_index) = 0;
+   virtual void				invalidate_page	(mem_addr_t pg_index)  = 0;
+   virtual std::list<mem_addr_t>	get_faulty_pages(mem_addr_t addr, size_t length) = 0;
 };
 
 template<unsigned BSIZE> class memory_space_impl : public memory_space {
@@ -117,14 +137,28 @@ public:
    virtual void read( mem_addr_t addr, size_t length, void *data ) const;
    virtual void print( const char *format, FILE *fout ) const;
    virtual void set_watch( addr_t addr, unsigned watchpoint ); 
+   
+   // methods to query page table
+   virtual void				validate_page	(mem_addr_t pg_index);
+   virtual void				invalidate_page	(mem_addr_t pg_index);
+   virtual std::list<mem_addr_t>	get_faulty_pages(mem_addr_t addr, size_t length);
 
 private:
    void read_single_block( mem_addr_t blk_idx, mem_addr_t addr, size_t length, void *data) const; 
    std::string m_name;
    unsigned m_log2_block_size;
+   
+   // map_t m_data closely resembles to a page table
+   // the dictionary is keyed by the virtual address
+   // mem_storage acts as the physical page
    typedef mem_map<mem_addr_t,mem_storage<BSIZE> > map_t;
    map_t m_data;
+
    std::map<unsigned,mem_addr_t> m_watchpoints;
+   
+   // private methods for page table manipulation
+   virtual mem_addr_t		get_page_num	(mem_addr_t addr);
+   virtual bool			is_valid	(mem_addr_t pg_index);
 };
 
 #endif

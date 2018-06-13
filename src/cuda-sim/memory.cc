@@ -153,6 +153,56 @@ template<unsigned BSIZE> void memory_space_impl<BSIZE>::set_watch( addr_t addr, 
    m_watchpoints[watchpoint]=addr;
 }
 
+// get page number from a virtual address
+template<unsigned BSIZE> mem_addr_t memory_space_impl<BSIZE>::get_page_num (mem_addr_t addr) 
+{
+   return addr >> m_log2_block_size;
+}
+
+// check whether the valid flag of corresponding physical page is set or not
+template<unsigned BSIZE> bool memory_space_impl<BSIZE>::is_valid (mem_addr_t pg_index) 
+{
+   // asserts whether the physical page is allocated. 
+   // should never happen as they are allocated while memcpy.
+   assert(m_data.find(pg_index) != m_data.end()); 
+   return m_data[pg_index].is_valid();
+}
+
+// set the valid flag of corresponding physical page 
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::validate_page (mem_addr_t pg_index)
+{
+   assert(m_data.find(pg_index) != m_data.end());
+   m_data[pg_index].validate_page();
+}
+
+// clear the valid flag of corresponding physical page 
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::invalidate_page (mem_addr_t pg_index)
+{
+   assert(m_data.find(pg_index) != m_data.end());
+   m_data[pg_index].invalidate_page();
+}
+
+// a variable accessed by a memory address and the datatype size may exceed a page boundary
+// method returns list of page numbers if at all they are faulty or invalid
+template<unsigned BSIZE> std::list<mem_addr_t> memory_space_impl<BSIZE>::get_faulty_pages (mem_addr_t addr, size_t length)
+{
+  std::list<unsigned> page_list;
+
+  mem_addr_t start_page = get_page_num (addr);
+  mem_addr_t end_page   = get_page_num (addr+length-1);
+  
+  while(start_page <= end_page) {
+      if (!is_valid(start_page)) {
+          page_list.push_back(start_page);
+      }
+      start_page++;
+  }
+
+  return page_list;
+}
+
+
+
 template class memory_space_impl<32>;
 template class memory_space_impl<64>;
 template class memory_space_impl<8192>;
