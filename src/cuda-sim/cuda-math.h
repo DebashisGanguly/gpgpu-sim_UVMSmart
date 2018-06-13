@@ -357,7 +357,7 @@ int __signbitd(double d)
 #ifdef __APPLE__
 int isnanf(float a) 
 {
-   return (std::isnan(a)); 
+   return (isnan(a)); 
 }
 #endif 
 
