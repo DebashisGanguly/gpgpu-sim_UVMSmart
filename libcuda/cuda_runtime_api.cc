@@ -481,7 +481,7 @@ __host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, uns
 	void *cpuMemPtr = (void *)malloc(size);
 
 	//get a regular cudaMalloc memory
-	void *gpuMemPtr = context->get_device()->get_gpgpu()->gpu_malloc(size);
+	void *gpuMemPtr = context->get_device()->get_gpgpu()->gpu_mallocmanaged(size);
 
 	//maintain a map keyed by cpu memory pointer 
 	//with a tuple of gpu malloc memory pointe and allocation size as value
@@ -1019,6 +1019,9 @@ __host__ cudaError_t CUDARTAPI cudaSetupArgument(const void *arg, size_t size, s
 	    //during the kernel launch copy all the data from cpu to gpu
 	    //pages are valid or invalid are tested later
 	    context->get_device()->get_gpgpu()->memcpy_to_gpu( (size_t)devPtr, (void *)hostPtr, allocationSize);
+	    
+	    //mark the pages as managed
+	    context->get_device()->get_gpgpu()->set_pages_managed( (size_t)devPtr, allocationSize);
 
 	    //override the pointer argument to refer to gpu side allocation rather than cpu side memory
 	    //gpgpu-sim only understands pointer reference from m_dev_malloc 

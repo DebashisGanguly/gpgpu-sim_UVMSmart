@@ -42,6 +42,9 @@ template<unsigned BSIZE> memory_space_impl<BSIZE>::memory_space_impl( std::strin
       }
    }
    assert( m_log2_block_size != (unsigned)-1 );
+
+   // initialize the number of free pages based on size of GDDR5 and page size
+   num_free_pages = GDDR_SIZE/BSIZE;
 }
 
 template<unsigned BSIZE> void memory_space_impl<BSIZE>::write( mem_addr_t addr, size_t length, const void *data, class ptx_thread_info *thd, const ptx_instruction *pI)
@@ -84,6 +87,22 @@ template<unsigned BSIZE> void memory_space_impl<BSIZE>::write( mem_addr_t addr, 
             hit_watchpoint(i->first,thd,pI);
       }
    }
+}
+
+template<unsigned BSIZE> bool memory_space_impl<BSIZE>::is_page_managed(mem_addr_t addr, size_t length)
+{
+  mem_addr_t page_index   = get_page_num (addr+length-1);
+  return m_data[page_index].is_managed();
+}
+
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::set_pages_managed( mem_addr_t addr, size_t length)
+{
+  mem_addr_t start_page = get_page_num (addr);
+  mem_addr_t end_page   = get_page_num (addr+length-1);
+  while(start_page <= end_page) {
+      m_data[start_page].set_managed();
+      start_page++;
+  }
 }
 
 template<unsigned BSIZE> void memory_space_impl<BSIZE>::read_single_block( mem_addr_t blk_idx, mem_addr_t addr, size_t length, void *data) const
@@ -186,7 +205,7 @@ template<unsigned BSIZE> void memory_space_impl<BSIZE>::invalidate_page (mem_add
 // method returns list of page numbers if at all they are faulty or invalid
 template<unsigned BSIZE> std::list<mem_addr_t> memory_space_impl<BSIZE>::get_faulty_pages (mem_addr_t addr, size_t length)
 {
-  std::list<unsigned> page_list;
+  std::list<mem_addr_t> page_list;
 
   mem_addr_t start_page = get_page_num (addr);
   mem_addr_t end_page   = get_page_num (addr+length-1);
@@ -202,6 +221,16 @@ template<unsigned BSIZE> std::list<mem_addr_t> memory_space_impl<BSIZE>::get_fau
 }
 
 
+template<unsigned BSIZE> bool memory_space_impl<BSIZE>::alloc_page(size_t size)
+{
+  size_t page_num = (size-1)/BSIZE + 1;
+  if( num_free_pages >= page_num) {
+	num_free_pages -= page_num;
+	return true;
+  } else {
+	return false;
+  }
+}
 
 template class memory_space_impl<32>;
 template class memory_space_impl<64>;

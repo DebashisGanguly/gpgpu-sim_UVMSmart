@@ -384,6 +384,8 @@ protected:
     std::deque<simt_stack_entry> m_stack;
 };
 
+#define MEM_SPACE_LIMIT 0x100000000
+// the memory space limit for 32bit memory address is 4GB
 #define GLOBAL_HEAP_START 0xC0000000
    // start allocating from this address (lower values used for allocating globals in .ptx file)
 #define SHARED_MEM_SIZE_MAX (64*1024)
@@ -502,6 +504,13 @@ public:
     size_t						gpu_getManagedAllocation( uint64_t cpuMemAddr, uint64_t *devMemAddr );
     void						gpu_mapManagedAllocations( uint64_t cpuMemAddr, uint64_t gpuMemAddr, size_t size );
     
+    // set the allocated pages as managed   
+    void  set_pages_managed(size_t addr, size_t size);
+
+    // method used to managed allocation which ensures the unmanaged & managed allocation
+    // does not fall into same page
+    void* gpu_mallocmanaged( size_t size );
+ 
     void* gpu_malloc( size_t size );
     void* gpu_mallocarray( size_t count );
     void  gpu_memset( size_t dst_start_addr, int c, size_t count );
@@ -554,7 +563,8 @@ protected:
     class memory_space *m_tex_mem;
     class memory_space *m_surf_mem;
 
-    unsigned long long m_dev_malloc;
+    unsigned long long m_dev_malloc; // variable to store a known heap pointer for unmanaged allocation (cudaMalloc, cudaMallocArray)
+    unsigned long long m_dev_malloc_managed; // variable to store a known heap pointer for any managed allocation
 
     std::map<uint64_t, std::pair<uint64_t, size_t> > managedAllocations;
     

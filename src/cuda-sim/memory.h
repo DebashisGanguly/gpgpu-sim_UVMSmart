@@ -49,6 +49,8 @@
 typedef address_type mem_addr_t;
 
 #define MEM_BLOCK_SIZE (4*1024)
+// using macro temporarily
+#define GDDR_SIZE 1024*1024*1024/2
 
 template<unsigned BSIZE> class mem_storage {
 public:
@@ -57,12 +59,18 @@ public:
       m_data = (unsigned char*)calloc(1,BSIZE);
       memcpy(m_data,another.m_data,BSIZE);
 
+      // initialize page as unmanaged
+      managed = false;
+
       // initialize page flags to default value
       valid = false;
    }
    mem_storage()
    {
       m_data = (unsigned char*)calloc(1,BSIZE);
+
+      // initialize page as unmanaged
+      managed = false;
 
       // initialize page flags to default value
       valid = false;
@@ -97,7 +105,10 @@ public:
       fprintf(fout, "\n");
       fflush(fout);
    }
-   
+   // set the flag of managed into true in order to distinguish it from the unmanaged allocation
+   void set_managed() { managed = true; }
+   bool is_managed()  { return managed; }
+
    // methods to query and modify page table flags
    bool is_valid	()	{ return valid;  }
    void validate_page	()	{ valid = true;  }
@@ -106,6 +117,13 @@ public:
 private:
    unsigned m_nbytes;
    unsigned char *m_data;
+
+   // flag to differentiate whether a page is a managed allocation or traditional unmanged
+   // by deafult it is false to denote cudaMalloc and cudaMallocArray
+   // on managed allocation set this to true
+   // check this at the generation of mem_fetch to determine which path to take
+   // managed may take the longer latency path
+   bool managed;
 
    // flags for page table
    bool valid;
@@ -123,6 +141,14 @@ public:
    virtual void print( const char *format, FILE *fout ) const = 0;
    virtual void set_watch( addr_t addr, unsigned watchpoint ) = 0;
 
+   // method to find out whether or not to follow the managed time simulation
+   virtual bool is_page_managed(mem_addr_t addr, size_t length) = 0;
+   // method to set the pages as managed allocation
+   virtual void set_pages_managed( mem_addr_t addr, size_t length) = 0;
+
+   // method to allocate page(s) from free pages and change the count of free pages
+   virtual bool alloc_page(size_t size) = 0;
+
    // methods to query page table
    virtual void				validate_page	(mem_addr_t pg_index) = 0;
    virtual void				invalidate_page	(mem_addr_t pg_index)  = 0;
@@ -137,12 +163,19 @@ public:
    virtual void read( mem_addr_t addr, size_t length, void *data ) const;
    virtual void print( const char *format, FILE *fout ) const;
    virtual void set_watch( addr_t addr, unsigned watchpoint ); 
+
+   // method to find out whether or not to follow the managed time simulation
+   virtual bool is_page_managed(mem_addr_t addr, size_t length);
+   // method to set the pages as managed allocation
+   virtual void set_pages_managed( mem_addr_t addr, size_t length);
    
    // methods to query page table
    virtual void				validate_page	(mem_addr_t pg_index);
    virtual void				invalidate_page	(mem_addr_t pg_index);
    virtual std::list<mem_addr_t>	get_faulty_pages(mem_addr_t addr, size_t length);
 
+   // methods to implement gddr size constraint
+   virtual bool alloc_page(size_t size);
 private:
    void read_single_block( mem_addr_t blk_idx, mem_addr_t addr, size_t length, void *data) const; 
    std::string m_name;
@@ -153,6 +186,13 @@ private:
    // mem_storage acts as the physical page
    typedef mem_map<mem_addr_t,mem_storage<BSIZE> > map_t;
    map_t m_data;
+
+   // variable to store total number of 8KB pages in global memory
+   // calculated based on the GDDR5 size specified in config
+   // it is used to enforce size restriction on both managed and unmanaged malloc
+   // it should be decremented on every allocation either managed or unmanaged 
+   // i.e., gpu_malloc, gpu_mallocmanaged, gpu_mallocarray
+   size_t num_free_pages;
 
    std::map<unsigned,mem_addr_t> m_watchpoints;
    

@@ -386,8 +386,30 @@ void* gpgpu_t::gpu_malloc( size_t size )
       printf("GPGPU-Sim PTX: allocating %zu bytes on GPU starting at address 0x%Lx\n", size, m_dev_malloc );
       fflush(stdout);
    }
+   // make sure there is still memory space for allocation
+   if(!m_global_mem->alloc_page(size)) { 
+      return NULL;
+   }
+
    m_dev_malloc += size;
    if (size%256) m_dev_malloc += (256 - size%256); //align to 256 byte boundaries
+   return(void*) result;
+}
+
+void* gpgpu_t::gpu_mallocmanaged( size_t size )
+{
+   unsigned long long result = m_dev_malloc_managed;
+   if(g_debug_execution >= 3) {
+      printf("GPGPU-Sim PTX: allocating %zu bytes on GPU starting at address 0x%Lx\n", size, m_dev_malloc_managed );
+      fflush(stdout);
+   }
+
+   // make sure the m_dev_malloc_managed does not go beyond the 32 bit address limit
+   assert (m_dev_malloc_managed + size <= MEM_SPACE_LIMIT);
+
+   // using seperate address range to distinguish between managed and unmanaged memory
+   m_dev_malloc_managed += size;
+   if (size%256) m_dev_malloc_managed += (256 - size%256); //align to 256 byte boundaries
    return(void*) result;
 }
 
@@ -398,6 +420,11 @@ void* gpgpu_t::gpu_mallocarray( size_t size )
       printf("GPGPU-Sim PTX: allocating %zu bytes on GPU starting at address 0x%Lx\n", size, m_dev_malloc );
       fflush(stdout);
    }
+    // make sure there is still memory space for allocation
+   if(!m_global_mem->alloc_page(size)) {
+      return NULL;
+   }
+
    m_dev_malloc += size;
    if (size%256) m_dev_malloc += (256 - size%256); //align to 256 byte boundaries
    return(void*) result;
@@ -417,6 +444,11 @@ void gpgpu_t::memcpy_to_gpu( size_t dst_start_addr, const void *src, size_t coun
       printf( " done.\n");
       fflush(stdout);
    }
+}
+
+void gpgpu_t::set_pages_managed( size_t addr, size_t count)
+{
+   m_global_mem->set_pages_managed(addr, count);
 }
 
 void gpgpu_t::memcpy_from_gpu( void *dst, size_t src_start_addr, size_t count )

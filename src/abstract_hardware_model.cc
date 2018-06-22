@@ -96,7 +96,17 @@ gpgpu_t::gpgpu_t( const gpgpu_functional_sim_config &config )
    m_tex_mem = new memory_space_impl<8192>("tex",64*1024);
    m_surf_mem = new memory_space_impl<8192>("surf",64*1024);
 
-   m_dev_malloc=GLOBAL_HEAP_START; 
+   // make sure the memory address that would be used for m_dev_malloc_managed 
+   // doesn't go accross the 32 bit addressing limit
+   assert( ((unsigned long long) GLOBAL_HEAP_START + GDDR_SIZE * 2 ) <= MEM_SPACE_LIMIT );  
+ 
+    m_dev_malloc=GLOBAL_HEAP_START;
+  
+   // latter is different from former as managed and unmanaged allocations behave differently
+   // managed allocations can be evicted on memory overflow whereas unmanaged are pinned
+   // also only managed pages may suffer latency for page table walkthrough/access and PCI-E
+   // because of this managed and unmanaged allocation can not be from same page
+   m_dev_malloc_managed=GLOBAL_HEAP_START + GDDR_SIZE; //size of GDDR5; remove hardcoding and read from config 
 
    if(m_function_model_config.get_ptx_inst_debug_to_file() != 0) 
       ptx_inst_debug_file = fopen(m_function_model_config.get_ptx_inst_debug_file(), "w");
