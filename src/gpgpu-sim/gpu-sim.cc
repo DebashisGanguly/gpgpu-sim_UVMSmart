@@ -104,7 +104,7 @@ unsigned long long partiton_replys_in_parallel_total = 0;
 #define  L2    0x02
 #define  DRAM  0x04
 #define  ICNT  0x08  
-
+#define  GMMU  0x10
 
 #define MEM_LATENCY_STAT_IMPL
 
@@ -631,6 +631,7 @@ gpgpu_sim::gpgpu_sim( const gpgpu_sim_config &config )
     m_total_cta_launched = 0;
     gpu_deadlock = false;
 
+    m_gmmu = new gmmu_t(this, config );
 
     m_cluster = new simt_core_cluster*[m_shader_config->n_simt_clusters];
     for (unsigned i=0;i<m_shader_config->n_simt_clusters;i++) 
@@ -722,6 +723,7 @@ void gpgpu_sim::reinit_clock_domains(void)
    dram_time = 0;
    icnt_time = 0;
    l2_time = 0;
+   gmmu_time = 0;
 }
 
 bool gpgpu_sim::active()
@@ -1357,7 +1359,7 @@ void dram_t::dram_log( int task )
 //Find next clock domain and increment its time
 int gpgpu_sim::next_clock_domain(void) 
 {
-   double smallest = min3(core_time,icnt_time,dram_time);
+   double smallest = min4(core_time,icnt_time,dram_time,gmmu_time);
    int mask = 0x00;
    if ( l2_time <= smallest ) {
       smallest = l2_time;
@@ -1375,6 +1377,10 @@ int gpgpu_sim::next_clock_domain(void)
    if ( core_time <= smallest ) {
       mask |= CORE;
       core_time += m_config.core_period;
+   }
+   if ( gmmu_time <= smallest) {
+      mask |= GMMU; 
+      gmmu_time += m_config.core_period;
    }
    return mask;
 }
@@ -1394,9 +1400,133 @@ void gpgpu_sim::issue_block2core()
 
 unsigned long long g_single_step=0; // set this in gdb to single step the pipeline
 
+
+// for now just use macro
+
+// pcie latency is the number of cu cycles to finish transfer a pge 
+#define PCIE_LATENCY 12000
+ 
+// page table walk latency
+#define PAGE_TABLE_WALK_DELAY 200
+
+// number of lanes for pcie
+#define PCIE_NUM_LANE 16
+
+gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config)
+	:m_gpu(gpu),m_config(config)
+{
+    m_shader_config = &m_config.m_shader_config;
+}
+
+void gmmu_t::cycle()
+{
+    int simt_cluster_id = 0;
+
+    // check the pcie queue
+    if ( !pcie_read_latency_queue.empty() ) {
+             
+        std::list<pcie_latency_t>::iterator iter = pcie_read_latency_queue.begin();
+             
+        // only if the first page finishes trasfer
+        if ((gpu_sim_cycle+gpu_tot_sim_cycle) >= iter->ready_cycle) {
+               
+            // pcie transfer for multiple lanes may finish transer 
+            while ( iter != pcie_read_latency_queue.end() &&
+                    ((gpu_sim_cycle+gpu_tot_sim_cycle) >= iter->ready_cycle) ) {
+
+                // validate the page in page table
+                m_gpu->get_global_memory()->validate_page(iter->page_num);
+		
+                // for all memory fetches that were waiting for this page, should be replayed back for cache access 
+                for ( std::list<mem_fetch*>::iterator iter2 = req_info[iter->page_num].begin();
+                    iter2 != req_info[iter->page_num].end(); iter2++){
+                    mem_fetch* mf = *iter2;
+                        
+                    simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
+
+                    // push the memory fetch into the gmmu to cu queue
+                    (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
+                }    
+                
+                // erase the page from the MSHR map
+                req_info.erase(req_info.find(iter->page_num));
+  
+                pcie_read_latency_queue.pop_front();
+
+                iter = pcie_read_latency_queue.begin();
+            }    
+        } 
+    }
+
+    unsigned schedule = pcie_read_latency_queue.size();
+
+    // schedule a transfer if there is a page request in staging queue and a free lane
+    while ( !pcie_read_stage_queue.empty() && schedule < PCIE_NUM_LANE) {
+        struct pcie_latency_t p_t;
+
+        p_t.page_num = pcie_read_stage_queue.front();
+        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + PCIE_LATENCY;
+        pcie_read_latency_queue.push_back(p_t);
+
+	pcie_read_stage_queue.pop_front();
+
+        schedule++;
+    }
+
+    // check the page_table_walk_delay_queue
+    while ( !page_table_walk_queue.empty() &&
+            ((gpu_sim_cycle+gpu_tot_sim_cycle) >= page_table_walk_queue.front().ready_cycle )) {
+
+        mem_fetch* mf = page_table_walk_queue.front().mf;
+
+        list<mem_addr_t> page_list = m_gpu->get_global_memory()->get_faulty_pages(mf->get_addr(), mf->get_access_size());
+
+        // if there is no page fault, directly return to the upward queue of cluster
+        if ( page_list.empty() ) {
+            simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
+            (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
+        } else {
+            // one mf should only have one page fault
+            // because they are always coalesced
+            assert(page_list.size() == 1);
+          
+	    // if there is already a page in the staging queue, don't need to add it again
+            if ( req_info.find( *(page_list.begin()) ) == req_info.end()) {
+                pcie_read_stage_queue.push_back(page_list.front());
+            }
+
+            req_info[*(page_list.begin())].push_back(mf);
+        }
+
+        page_table_walk_queue.pop_front();
+    }
+    
+    // fetch from cluster's cu to gmmu queue and push it into the page table way delay queue
+    for (unsigned i=0; i<m_shader_config->n_simt_clusters; i++) {
+
+        if(!(m_gpu->getSIMTCluster(i))->empty_cu_gmmu_queue()) {
+
+            mem_fetch* mf = (m_gpu->getSIMTCluster(i))->front_cu_gmmu_queue();
+
+            struct page_table_walk_latency_t pt_t;
+            pt_t.mf = mf;
+            pt_t.ready_cycle = gpu_sim_cycle+gpu_tot_sim_cycle + PAGE_TABLE_WALK_DELAY;
+
+            page_table_walk_queue.push_back(pt_t);    
+
+            (m_gpu->getSIMTCluster(i))->pop_cu_gmmu_queue();
+        }
+    }
+}
+
 void gpgpu_sim::cycle()
 {
    int clock_mask = next_clock_domain();
+
+   // the gmmu has the same clock as the core
+   if (clock_mask & GMMU) { 
+       m_gmmu->cycle();
+   }
 
    if (clock_mask & CORE ) {
        // shader core loading (pop from ICNT into core) follows CORE clock
@@ -1652,8 +1782,8 @@ const struct memory_config * gpgpu_sim::getMemoryConfig()
    return m_memory_config;
 }
 
-simt_core_cluster * gpgpu_sim::getSIMTCluster()
+simt_core_cluster * gpgpu_sim::getSIMTCluster(int index)
 {
-   return *m_cluster;
+   return *(m_cluster + index);
 }
 

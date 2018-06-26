@@ -53,7 +53,7 @@
 #include "stats.h"
 #include "gpu-cache.h"
 #include "traffic_breakdown.h"
-
+#include "../cuda-sim/memory.h"
 
 
 #define NO_OP_FLAG            0xFF
@@ -1088,7 +1088,8 @@ class cache_t;
 
 class ldst_unit: public pipelined_simd_unit {
 public:
-    ldst_unit( mem_fetch_interface *icnt,
+    ldst_unit( class gpgpu_sim *gpu,
+	       mem_fetch_interface *icnt,
                shader_core_mem_fetch_allocator *mf_allocator,
                shader_core_ctx *core, 
                opndcoll_rfu_t *operand_collector,
@@ -1097,12 +1098,16 @@ public:
                const memory_config *mem_config,  
                class shader_core_stats *stats, 
                unsigned sid, unsigned tpc );
-
     // modifiers
     virtual void issue( register_set &inst );
     virtual void cycle();
      
     void fill( mem_fetch *mf );
+
+    // function to fill the gmmu to cu queue 
+    // from the cluster to load/store unit
+    void fill_mem_access( mem_fetch *mf );
+
     void flush();
     void writeback();
 
@@ -1132,8 +1137,15 @@ public:
     void get_L1C_sub_stats(struct cache_sub_stats &css) const;
     void get_L1T_sub_stats(struct cache_sub_stats &css) const;
 
+    // methods to be called by the clusters
+    // to access the downward queues (CU to GMMU)
+    bool empty_cu_gmmu_queue() {return m_cu_gmmu_queue.empty();}
+    mem_fetch* front_cu_gmmu_queue() {return m_cu_gmmu_queue.front();}
+    void pop_cu_gmmu_queue() {m_cu_gmmu_queue.pop_front();}
+
 protected:
-    ldst_unit( mem_fetch_interface *icnt,
+    ldst_unit( class gpgpu_sim* gpu,
+	       mem_fetch_interface *icnt,
                shader_core_mem_fetch_allocator *mf_allocator,
                shader_core_ctx *core, 
                opndcoll_rfu_t *operand_collector,
@@ -1144,7 +1156,8 @@ protected:
                unsigned sid,
                unsigned tpc,
                l1_cache* new_l1d_cache );
-    void init( mem_fetch_interface *icnt,
+    void init( class gpgpu_sim *gpu,
+	       mem_fetch_interface *icnt,
                shader_core_mem_fetch_allocator *mf_allocator,
                shader_core_ctx *core, 
                opndcoll_rfu_t *operand_collector,
@@ -1156,6 +1169,11 @@ protected:
                unsigned tpc );
 
 protected:
+   // deals with global read (load)/write (store) access
+   // checks tlb for hit/miss
+   // stalls the warp on miss and resume until all accesses are finished
+   bool access_cycle( warp_inst_t &inst);
+
    bool shared_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
    bool constant_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
    bool texture_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
@@ -1196,6 +1214,16 @@ protected:
    // for debugging
    unsigned long long m_last_inst_gpu_sim_cycle;
    unsigned long long m_last_inst_gpu_tot_sim_cycle;
+
+   // reference to get the global_mem
+   class gpgpu_sim *m_gpu;
+
+   // two queues that interface with texture processor cluster
+   std::list<mem_fetch*> m_gmmu_cu_queue;
+   std::list<mem_fetch*> m_cu_gmmu_queue;
+
+   // set of virtual addresses present in TLB
+   std::set<mem_addr_t> tlb;
 };
 
 enum pipeline_stage_name_t {
@@ -1594,6 +1622,16 @@ public:
     void cache_flush();
     void accept_fetch_response( mem_fetch *mf );
     void accept_ldst_unit_response( class mem_fetch * mf );
+
+    // method to fill the upward queue (GMMU to CU) in load/store unit 
+    void accept_access_response( mem_fetch *mf );
+
+    // interface between core (CU/SM) and cluster
+    // to access the downward queues (CU to GMMU) 
+    bool empty_cu_gmmu_queue() {return m_ldst_unit->empty_cu_gmmu_queue();}
+    mem_fetch* front_cu_gmmu_queue() {return m_ldst_unit->front_cu_gmmu_queue();}
+    void pop_cu_gmmu_queue() {m_ldst_unit->pop_cu_gmmu_queue();}
+
     void broadcast_barrier_reduction(unsigned cta_id, unsigned bar_id,warp_set_t warps);
     void set_kernel( kernel_info_t *k ) 
     {
@@ -1893,6 +1931,15 @@ public:
         m_response_fifo.push_back(mf);
     }
 
+    // interface to be called by gmmu 
+    // to access the downward queues (CU to GMMU) in the cluster by GMMU
+    bool empty_cu_gmmu_queue() { return m_cu_gmmu_queue.empty(); }
+    mem_fetch* front_cu_gmmu_queue() { return m_cu_gmmu_queue.front(); }
+    void pop_cu_gmmu_queue() { m_cu_gmmu_queue.pop_front(); }
+
+    // method to fill the upward queue (GMMU to CU) by GMMU upon completion of PCI-E transfer
+    void push_gmmu_cu_queue(mem_fetch *mf) { m_gmmu_cu_queue.push_back(mf); }
+
     void get_pdom_stack_top_info( unsigned sid, unsigned tid, unsigned *pc, unsigned *rpc ) const;
     unsigned max_cta( const kernel_info_t &kernel );
     unsigned get_not_completed() const;
@@ -1923,6 +1970,11 @@ private:
     unsigned m_cta_issue_next_core;
     std::list<unsigned> m_core_sim_order;
     std::list<mem_fetch*> m_response_fifo;
+
+    // queues that pass memory accesses between core and GMMU 
+    // as cluster interfaces between CU and GMMU
+    std::list<mem_fetch*> m_gmmu_cu_queue;
+    std::list<mem_fetch*> m_cu_gmmu_queue;
 };
 
 class shader_memory_interface : public mem_fetch_interface {

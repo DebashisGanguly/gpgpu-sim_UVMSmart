@@ -31,6 +31,7 @@
 #include "../option_parser.h"
 #include "../abstract_hardware_model.h"
 #include "../trace.h"
+#include "../cuda-sim/memory.h"
 #include "addrdec.h"
 #include "shader.h"
 #include <iostream>
@@ -313,6 +314,7 @@ public:
 
     unsigned num_shader() const { return m_shader_config.num_shader(); }
     unsigned num_cluster() const { return m_shader_config.n_simt_clusters; }
+    unsigned num_core_per_cluster() const { return m_shader_config.n_simt_cores_per_cluster;}
     unsigned get_max_concurrent_kernel() const { return max_concurrent_kernel; }
 
 private:
@@ -360,7 +362,56 @@ private:
     unsigned long long liveness_message_freq; 
 
     friend class gpgpu_sim;
+    friend class gmmu_t;
 };
+
+// this class simulate the gmmu unit on chip
+
+class gmmu_t {
+public:
+   gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config);
+   void cycle();
+
+private:
+   // data structure to wrap memory fetch and page table walk delay
+   struct page_table_walk_latency_t {
+   	 mem_fetch* mf;
+         unsigned long long ready_cycle;
+   };
+
+   //page table walk delay queue
+   std::list<page_table_walk_latency_t> page_table_walk_queue;  
+
+   // data structure to wrap a memory page and delay to transfer over PCI-E
+   struct pcie_latency_t {
+         mem_addr_t page_num;
+         unsigned long long ready_cycle;
+   }; 
+ 
+    // staging queue to hold the PCI-E requests waiting for scheduling
+    std::list<mem_addr_t>       pcie_read_stage_queue;
+    std::list<mem_addr_t>       pcie_write_stage_queue;
+
+    // read queue for fetch the page from host side 
+    // the request may be global memory's read (load)/ write (store)
+    std::list<pcie_latency_t> pcie_read_latency_queue;
+
+    // write back queue for page eviction requests over PCI-E
+    std::list<pcie_latency_t> pcie_write_latency_queue;
+
+    // loosely represent MSHRs to hold all memory fetches 
+    // corresponding to a PCI-E read requests, i.e., a common page number
+    // to replay the memory fetch back upon completion
+    std::map<mem_addr_t, std::list<mem_fetch*> > req_info;
+
+    // need the gpu to do address traslation, validate page
+    class gpgpu_sim* m_gpu;   
+    
+    // config file
+    const gpgpu_sim_config &m_config;
+    const struct shader_core_config *m_shader_config; 
+};
+
 
 class gpgpu_sim : public gpgpu_t {
 public:
@@ -425,8 +476,7 @@ public:
    /*!
     * Returning the cluster of of the shader core, used by the functional simulation so far
     */
-    simt_core_cluster * getSIMTCluster();
-
+    simt_core_cluster * getSIMTCluster(int index);
 
 private:
    // clocks
@@ -445,6 +495,7 @@ private:
 
 ///// data /////
 
+   class gmmu_t *m_gmmu;
    class simt_core_cluster **m_cluster;
    class memory_partition_unit **m_memory_partition_unit;
    class memory_sub_partition **m_memory_sub_partition;
@@ -465,6 +516,7 @@ private:
    double icnt_time;
    double dram_time;
    double l2_time;
+   double gmmu_time;
 
    // debug
    bool gpu_deadlock;

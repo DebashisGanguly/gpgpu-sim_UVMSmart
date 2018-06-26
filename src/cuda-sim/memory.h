@@ -153,6 +153,7 @@ public:
    virtual void				validate_page	(mem_addr_t pg_index) = 0;
    virtual void				invalidate_page	(mem_addr_t pg_index)  = 0;
    virtual std::list<mem_addr_t>	get_faulty_pages(mem_addr_t addr, size_t length) = 0;
+   virtual mem_addr_t           	get_page_num    (mem_addr_t addr) = 0;
 };
 
 template<unsigned BSIZE> class memory_space_impl : public memory_space {
@@ -173,6 +174,7 @@ public:
    virtual void				validate_page	(mem_addr_t pg_index);
    virtual void				invalidate_page	(mem_addr_t pg_index);
    virtual std::list<mem_addr_t>	get_faulty_pages(mem_addr_t addr, size_t length);
+   virtual mem_addr_t                   get_page_num    (mem_addr_t addr);
 
    // methods to implement gddr size constraint
    virtual bool alloc_page(size_t size);
@@ -197,8 +199,7 @@ private:
    std::map<unsigned,mem_addr_t> m_watchpoints;
    
    // private methods for page table manipulation
-   virtual mem_addr_t		get_page_num	(mem_addr_t addr);
-   virtual bool			is_valid	(mem_addr_t pg_index);
+   bool is_valid	(mem_addr_t pg_index);
 };
 
 #endif

@@ -691,6 +691,8 @@ public:
        m_addr = address;
        m_req_size = size;
        m_write = wr;
+       m_check_far_fetch = false;
+       m_stall_far_fetch = false;
    }
    mem_access_t( mem_access_type type, 
                  new_addr_type address, 
@@ -705,6 +707,8 @@ public:
       m_addr = address;
       m_req_size = size;
       m_write = wr;
+      m_check_far_fetch = false;
+      m_stall_far_fetch = false;
    }
 
    new_addr_type get_addr() const { return m_addr; }
@@ -714,6 +718,13 @@ public:
    bool is_write() const { return m_write; }
    enum mem_access_type get_type() const { return m_type; }
    mem_access_byte_mask_t get_byte_mask() const { return m_byte_mask; }
+
+   bool is_check_far_fetch() const { return m_check_far_fetch; }
+   void set_check_far_fetch() { m_check_far_fetch = true; }
+   bool is_stall_far_fetch() const { return m_stall_far_fetch; }
+   void set_stall_far_fetch() { m_stall_far_fetch = true; }
+   void clear_stall_far_fetch() { m_stall_far_fetch = false; }
+
 
    void print(FILE *fp) const
    {
@@ -738,6 +749,8 @@ private:
       m_uid=++sm_next_access_uid;
       m_addr=0;
       m_req_size=0;
+      m_check_far_fetch = false;
+      m_stall_far_fetch = false;
    }
 
    unsigned      m_uid;
@@ -749,6 +762,12 @@ private:
    mem_access_byte_mask_t m_byte_mask;
 
    static unsigned sm_next_access_uid;
+
+   // whether the access is already processed for TLB lookup
+   bool m_check_far_fetch;
+   
+   // whether the access is being stalled for PCI-E transfer
+   bool m_stall_far_fetch;
 };
 
 class mem_fetch;
@@ -991,6 +1010,7 @@ public:
     unsigned active_count() const { return m_warp_active_mask.count(); }
     unsigned issued_count() const { assert(m_empty == false); return m_warp_issued_mask.count(); }  // for instruction counting 
     bool empty() const { return m_empty; }
+    unsigned get_warp_id() { return m_warp_id; }
     unsigned warp_id() const 
     { 
         assert( !m_empty );
@@ -1018,8 +1038,11 @@ public:
 
     bool accessq_empty() const { return m_accessq.empty(); }
     unsigned accessq_count() const { return m_accessq.size(); }
-    const mem_access_t &accessq_back() { return m_accessq.back(); }
-    void accessq_pop_back() { m_accessq.pop_back(); }
+
+    // for queue, always push back and pop front	
+    mem_access_t &accessq_front() { return m_accessq.front();}
+    void accessq_pop_front() { m_accessq.pop_front(); }
+    void accessq_push_back(mem_access_t mem_access) { m_accessq.push_back(mem_access); }
 
     bool dispatch_delay()
     { 
