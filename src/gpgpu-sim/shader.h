@@ -1143,6 +1143,7 @@ public:
     mem_fetch* front_cu_gmmu_queue() {return m_cu_gmmu_queue.front();}
     void pop_cu_gmmu_queue() {m_cu_gmmu_queue.pop_front();}
 
+    void invalidate_tlb(mem_addr_t addr) { tlb.erase(addr); } 
 protected:
     ldst_unit( class gpgpu_sim* gpu,
 	       mem_fetch_interface *icnt,

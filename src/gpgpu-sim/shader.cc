@@ -1445,6 +1445,9 @@ bool ldst_unit::access_cycle( warp_inst_t &inst)
 
       tlb.insert(m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()));
 
+      // the page is coming out of upward queue and so ready to be accessed, refresh the LRU page list
+      m_gpu->getGmmu()->page_refresh( inst.accessq_front() );
+
       delete mf;
 
       return true;
@@ -1473,6 +1476,13 @@ bool ldst_unit::access_cycle( warp_inst_t &inst)
       // check if the page corresponding to memory access is there in TLB or not
       if ( tlb.find(page_no) != tlb.end() ) {
           inst.accessq_front().set_check_far_fetch();
+
+	  // on tlb hit, check whether the page is in pci-e write stage queue
+          // if so, then evict another page instead
+	  m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()) );
+	  
+          // on tlb hit, refresh the LRU page list
+	  m_gpu->getGmmu()->page_refresh( inst.accessq_front() );
 
           return true;
       } else {

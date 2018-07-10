@@ -387,7 +387,7 @@ void* gpgpu_t::gpu_malloc( size_t size )
       fflush(stdout);
    }
    // make sure there is still memory space for allocation
-   if(!m_global_mem->alloc_page(size)) { 
+   if(!m_global_mem->alloc_page_by_byte(size)) { 
       return NULL;
    }
 
@@ -421,7 +421,7 @@ void* gpgpu_t::gpu_mallocarray( size_t size )
       fflush(stdout);
    }
     // make sure there is still memory space for allocation
-   if(!m_global_mem->alloc_page(size)) {
+   if(!m_global_mem->alloc_page_by_byte(size)) {
       return NULL;
    }
 

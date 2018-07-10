@@ -114,6 +114,13 @@ public:
    void validate_page	()	{ valid = true;  }
    void invalidate_page	()	{ valid = false; }
 
+   void set_dirty       ()      { dirty = true;  }
+   void clear_dirty     ()      { dirty = false; }
+   bool is_dirty        ()      { return dirty;  }
+
+   void set_access      ()      { access = true; }
+   void clear_access    ()      { access = false;}
+   bool is_access       ()      { return access; }
 private:
    unsigned m_nbytes;
    unsigned char *m_data;
@@ -127,6 +134,10 @@ private:
 
    // flags for page table
    bool valid;
+
+   bool dirty;
+
+   bool access; 
 };
 
 class ptx_thread_info;
@@ -147,7 +158,18 @@ public:
    virtual void set_pages_managed( mem_addr_t addr, size_t length) = 0;
 
    // method to allocate page(s) from free pages and change the count of free pages
-   virtual bool alloc_page(size_t size) = 0;
+   virtual bool alloc_page_by_byte(size_t size) = 0;
+   virtual void alloc_pages(size_t num) = 0;
+   virtual void free_pages(size_t num) = 0;                                               
+   virtual size_t get_free_pages() = 0;
+   
+   virtual void set_page_dirty(mem_addr_t pg_index) = 0;
+   virtual bool is_page_dirty(mem_addr_t pg_index) = 0;
+   virtual void clear_page_dirty(mem_addr_t pg_index) = 0;
+   
+   virtual void set_page_access(mem_addr_t pg_index) = 0;
+   virtual bool is_page_access(mem_addr_t pg_index) = 0;
+   virtual void clear_page_access(mem_addr_t pg_index) = 0;
 
    // methods to query page table
    virtual void				validate_page	(mem_addr_t pg_index) = 0;
@@ -177,7 +199,19 @@ public:
    virtual mem_addr_t                   get_page_num    (mem_addr_t addr);
 
    // methods to implement gddr size constraint
-   virtual bool alloc_page(size_t size);
+   virtual bool alloc_page_by_byte(size_t size);
+   virtual void alloc_pages(size_t num);
+   virtual void free_pages(size_t num);
+   virtual size_t get_free_pages();   
+
+   virtual void set_page_dirty(mem_addr_t pg_index);
+   virtual bool is_page_dirty(mem_addr_t pg_index);
+   virtual void clear_page_dirty(mem_addr_t pg_index);
+   
+   virtual void set_page_access(mem_addr_t pg_index);
+   virtual bool is_page_access(mem_addr_t pg_index);
+   virtual void clear_page_access(mem_addr_t pg_index);
+
 private:
    void read_single_block( mem_addr_t blk_idx, mem_addr_t addr, size_t length, void *data) const; 
    std::string m_name;

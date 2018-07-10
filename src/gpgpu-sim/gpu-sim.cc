@@ -1418,9 +1418,117 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config)
     m_shader_config = &m_config.m_shader_config;
 }
 
+void gmmu_t::register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb)
+{
+    callback_tlb_flush.push_back(cb_tlb);
+}
+
+void gmmu_t::tlb_flush(mem_addr_t page_num)
+{
+    for ( list<std::function<void(mem_addr_t)> >::iterator iter = callback_tlb_flush.begin();
+	 iter != callback_tlb_flush.end(); iter++) {
+        (*iter)(page_num);
+    }
+}
+
+void gmmu_t::check_write_stage_queue(mem_addr_t page_num)
+{
+    // the page, about to be accessed, was selected for eviction earlier 
+    // so don't evict that page
+    // choose another page instead to make balance of free list
+    if ( std::find(pcie_write_stage_queue.begin(), pcie_write_stage_queue.end(), page_num ) != pcie_write_stage_queue.end() ) {
+        pcie_write_stage_queue.erase( std::find( pcie_write_stage_queue.begin(), pcie_write_stage_queue.end(),  page_num ) ); 
+	page_eviction_procedure();
+    }    
+}
+
+void gmmu_t::page_eviction_procedure()
+{
+    assert( !accessed_pages.empty() );
+
+    mem_addr_t page_num =  accessed_pages.front() ;
+
+    if( m_gpu->get_global_memory()->is_page_dirty(page_num) ) {
+        pcie_write_stage_queue.push_back( page_num );
+    } else {
+	// if the page is not touched, evict it directly
+	m_gpu->get_global_memory()->invalidate_page( page_num );
+        m_gpu->get_global_memory()->clear_page_access( page_num ); 
+
+        m_gpu->get_global_memory()->free_pages(1);
+
+	tlb_flush( page_num);
+    }
+   
+    accessed_pages.pop_front();
+}
+
+void gmmu_t::page_refresh(mem_access_t ma)
+{
+    mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num( ma.get_addr() );
+
+    m_gpu->get_global_memory()->set_page_access(page_num);
+
+    // on write (store) set the dirty flag
+    if ( ma.get_type() == GLOBAL_ACC_W) {
+	m_gpu->get_global_memory()->set_page_dirty(page_num);
+    } 
+   
+    // push the page and the end of the accessed page list to implement LRU
+    if( find( accessed_pages.begin(), accessed_pages.end(), page_num ) != accessed_pages.end() ){
+	accessed_pages.erase ( find( accessed_pages.begin(), accessed_pages.end(), page_num ) );
+    }
+
+    accessed_pages.push_back(page_num);	
+}
+
 void gmmu_t::cycle()
 {
     int simt_cluster_id = 0;
+    
+    // check the pcie write latency queue
+    if ( !pcie_write_latency_queue.empty() ) {
+                  
+        std::list<pcie_latency_t>::iterator iter = pcie_write_latency_queue.begin();
+                  
+        // only if the first page finishes trasfer
+        if ((gpu_sim_cycle+gpu_tot_sim_cycle) >= iter->ready_cycle) {
+                    
+            // pcie transfer for multiple lanes may finish transer 
+            while ( iter != pcie_write_latency_queue.end() &&
+                    ((gpu_sim_cycle + gpu_tot_sim_cycle) >= iter->ready_cycle) ) {
+
+                pcie_write_latency_queue.pop_front();
+
+                iter = pcie_write_latency_queue.begin();
+            }    
+        }    
+    }    
+
+    unsigned schedule = pcie_write_latency_queue.size();
+
+    // schedule a write back transfer if there is a write back request in staging queue and a free lane
+    while ( !pcie_write_stage_queue.empty() && schedule < PCIE_NUM_LANE) {
+        struct pcie_latency_t p_t; 
+
+        p_t.page_num = pcie_write_stage_queue.front();
+        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + PCIE_LATENCY;
+        pcie_write_latency_queue.push_back(p_t);
+
+	assert( m_gpu->get_global_memory()->is_page_dirty(pcie_write_stage_queue.front()) );
+
+        m_gpu->get_global_memory()->invalidate_page( pcie_write_stage_queue.front() );
+	m_gpu->get_global_memory()->clear_page_dirty( pcie_write_stage_queue.front() );
+	m_gpu->get_global_memory()->clear_page_access( pcie_write_stage_queue.front() );
+
+        m_gpu->get_global_memory()->free_pages(1);
+        
+	tlb_flush( pcie_write_stage_queue.front() );
+
+        pcie_write_stage_queue.pop_front();
+
+        schedule++;
+    }    
 
     // check the pcie queue
     if ( !pcie_read_latency_queue.empty() ) {
@@ -1458,10 +1566,10 @@ void gmmu_t::cycle()
         } 
     }
 
-    unsigned schedule = pcie_read_latency_queue.size();
+    schedule = pcie_read_latency_queue.size();
 
     // schedule a transfer if there is a page request in staging queue and a free lane
-    while ( !pcie_read_stage_queue.empty() && schedule < PCIE_NUM_LANE) {
+    while ( !pcie_read_stage_queue.empty() && schedule < PCIE_NUM_LANE && m_gpu->get_global_memory()->get_free_pages() > 0) {
         struct pcie_latency_t p_t;
 
         p_t.page_num = pcie_read_stage_queue.front();
@@ -1470,6 +1578,8 @@ void gmmu_t::cycle()
 
 	pcie_read_stage_queue.pop_front();
 
+	m_gpu->get_global_memory()->alloc_pages(1);
+	
         schedule++;
     }
 
@@ -1483,15 +1593,26 @@ void gmmu_t::cycle()
 
         // if there is no page fault, directly return to the upward queue of cluster
         if ( page_list.empty() ) {
+	    mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num( mf->get_mem_access().get_addr());
+	    check_write_stage_queue(page_num);
+
             simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
             (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
         } else {
-            // one mf should only have one page fault
+            assert(page_list.size() == 1); 
+      
+            // one memory fetch request should only have one page fault
             // because they are always coalesced
-            assert(page_list.size() == 1);
-          
-	    // if there is already a page in the staging queue, don't need to add it again
-            if ( req_info.find( *(page_list.begin()) ) == req_info.end()) {
+ 	    // if there is already a page in the staging queue, don't need to add it again
+	    if ( req_info.find( *(page_list.begin()) ) == req_info.end()) {
+
+		// for each page fault, the possible eviction procudure will only be called once here
+		// if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
+		// the number of staged read requests, then call the eviction
+		if ( m_gpu->get_global_memory()->get_free_pages() <= pcie_read_stage_queue.size() ) { 
+			page_eviction_procedure();
+		}
+
                 pcie_read_stage_queue.push_back(page_list.front());
             }
 
@@ -1787,3 +1908,7 @@ simt_core_cluster * gpgpu_sim::getSIMTCluster(int index)
    return *(m_cluster + index);
 }
 
+gmmu_t * gpgpu_sim::getGmmu()
+{
+   return m_gmmu;
+}

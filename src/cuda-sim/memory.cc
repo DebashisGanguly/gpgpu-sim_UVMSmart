@@ -221,7 +221,7 @@ template<unsigned BSIZE> std::list<mem_addr_t> memory_space_impl<BSIZE>::get_fau
 }
 
 
-template<unsigned BSIZE> bool memory_space_impl<BSIZE>::alloc_page(size_t size)
+template<unsigned BSIZE> bool memory_space_impl<BSIZE>::alloc_page_by_byte(size_t size)
 {
   size_t page_num = (size-1)/BSIZE + 1;
   if( num_free_pages >= page_num) {
@@ -230,6 +230,54 @@ template<unsigned BSIZE> bool memory_space_impl<BSIZE>::alloc_page(size_t size)
   } else {
 	return false;
   }
+}
+
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::alloc_pages(size_t num)
+{
+  assert(num_free_pages >= num);  
+  num_free_pages -= num;
+}
+
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::free_pages(size_t num)
+{
+  num_free_pages += num;
+}
+
+template<unsigned BSIZE> size_t memory_space_impl<BSIZE>::get_free_pages()
+{
+  return num_free_pages ;
+}
+
+
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::set_page_dirty(mem_addr_t pg_index)
+{
+  m_data[pg_index].set_dirty();
+}
+
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::clear_page_dirty(mem_addr_t pg_index)
+{
+  m_data[pg_index].clear_dirty();                                                                    
+}
+
+
+template<unsigned BSIZE> bool memory_space_impl<BSIZE>::is_page_dirty(mem_addr_t pg_index)
+{
+  return m_data[pg_index].is_dirty();
+}
+
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::set_page_access(mem_addr_t pg_index)
+{
+  return m_data[pg_index].set_access();
+}
+
+template<unsigned BSIZE> bool memory_space_impl<BSIZE>::is_page_access(mem_addr_t pg_index)
+{
+  return m_data[pg_index].is_access();
+}
+
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::clear_page_access(mem_addr_t pg_index)
+{
+  return m_data[pg_index].clear_access();
 }
 
 template class memory_space_impl<32>;

@@ -386,7 +386,7 @@ protected:
 
 #define MEM_SPACE_LIMIT 0x100000000
 // the memory space limit for 32bit memory address is 4GB
-#define GLOBAL_HEAP_START 0xC0000000
+#define GLOBAL_HEAP_START 0x80000000 // this will emulate effective 1 GB addressable memory (2 GB divided between managed and unmanaged)
    // start allocating from this address (lower values used for allocating globals in .ptx file)
 #define SHARED_MEM_SIZE_MAX (64*1024)
 #define LOCAL_MEM_SIZE_MAX (8*1024)

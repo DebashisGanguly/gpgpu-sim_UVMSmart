@@ -39,6 +39,7 @@
 #include <list>
 #include <stdio.h>
 
+#include <functional>
 
 
 // constants for statistics printouts
@@ -371,7 +372,17 @@ class gmmu_t {
 public:
    gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config);
    void cycle();
+   void register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb);
+   void tlb_flush(mem_addr_t page_num);
+   void page_eviction_procedure();
 
+   // add a new accessed page or refresh the position of the page in the LRU page list
+   // being called on detecting tlb hit or when memory fetch comes back from the upward (gmmu to cu) queue
+   void page_refresh(mem_access_t ma);
+
+   // check whether the page to be accessed is already in pci-e write stage queue
+   // being called on tlb hit or on tlb miss but no page fault
+   void check_write_stage_queue(mem_addr_t page_num);
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -410,6 +421,13 @@ private:
     // config file
     const gpgpu_sim_config &m_config;
     const struct shader_core_config *m_shader_config; 
+
+    // callback functions to invalidate the tlb in ldst unit
+    std::list<std::function<void(mem_addr_t)> > callback_tlb_flush;
+
+    // list of accessed pages (valid = 1, accessed = 1, dirty = 1/0) ordered as LRU
+    std::list<mem_addr_t> accessed_pages;
+
 };
 
 
@@ -478,6 +496,7 @@ public:
     */
     simt_core_cluster * getSIMTCluster(int index);
 
+    gmmu_t * getGmmu();
 private:
    // clocks
    void reinit_clock_domains(void);
