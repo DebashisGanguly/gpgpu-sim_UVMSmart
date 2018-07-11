@@ -383,6 +383,10 @@ public:
    // check whether the page to be accessed is already in pci-e write stage queue
    // being called on tlb hit or on tlb miss but no page fault
    void check_write_stage_queue(mem_addr_t page_num);
+
+   // get list of accessed pages 
+   // used by Load/Store Unit for LRU TLB replacement
+   const std::list<mem_addr_t>& get_accessed_pages() { return accessed_pages; }
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {

@@ -1225,6 +1225,8 @@ protected:
 
    // set of virtual addresses present in TLB
    std::set<mem_addr_t> tlb;
+
+   void insert_into_tlb (mem_addr_t page_num);
 };
 
 enum pipeline_stage_name_t {
