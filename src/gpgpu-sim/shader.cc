@@ -1740,6 +1740,8 @@ void ldst_unit::init( gpgpu_sim *gpu,
     m_next_global=NULL;
     m_last_inst_gpu_sim_cycle=0;
     m_last_inst_gpu_tot_sim_cycle=0;
+
+    gpu->getGmmu()->register_tlbflush_callback([this](mem_addr_t addr) { return invalidate_tlb(addr); });
 }
 
 
