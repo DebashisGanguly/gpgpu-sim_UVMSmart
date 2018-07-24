@@ -1441,7 +1441,7 @@ void ldst_unit::insert_into_tlb(mem_addr_t page_num)
 
 bool ldst_unit::access_cycle( warp_inst_t &inst)                                                
 {
-  if (inst.empty() || inst.active_count() == 0) {
+  if (inst.empty() || inst.accessq_empty() || inst.active_count() == 0) {
       return true;
   }
 
