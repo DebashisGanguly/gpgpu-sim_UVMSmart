@@ -111,6 +111,7 @@ void BFSGraph( int argc, char** argv)
 	// initalize the memory
 	for( unsigned int i = 0; i < no_of_nodes; i++) 
 	{
+                fscanf(fp,"%d %d",&start,&edgeno);
 		graph_nodes[i].starting = start;
 		graph_nodes[i].no_of_edges = edgeno;
 		graph_mask[i]=false;
@@ -157,6 +158,10 @@ void BFSGraph( int argc, char** argv)
 	bool *over;
 	cudaMallocManaged( (void**) &over, sizeof(bool));
 
+        //make a bool to check if the execution is over
+        bool *d_over;
+        cudaMalloc( (void**) &d_over, sizeof(bool));
+
 	printf("Copied Everything to GPU memory\n");
 
 	// setup execution parameters
@@ -165,10 +170,13 @@ void BFSGraph( int argc, char** argv)
 
 	int k=0;
 	printf("Start traversing the tree\n");
-	
+        bool stop;	
 	//Call the Kernel untill all the elements of Frontier are not false
 	do
 	{
+                //if no thread changes this value then the loop stops
+                stop=false;
+                cudaMemcpy( d_over, &stop, sizeof(bool), cudaMemcpyHostToDevice) ;
 		Kernel<<< grid, threads, 0 >>>( graph_nodes, graph_edges, graph_mask, updating_graph_mask, graph_visited, cost, no_of_nodes);
 		// check if kernel execution generated and error
 		
@@ -177,12 +185,13 @@ void BFSGraph( int argc, char** argv)
 		// check if kernel execution generated and error
 		
 
-		// Wait for GPU to finish before accessing on host
-		cudaDeviceSynchronize();
+                cudaMemcpy( &stop, d_over, sizeof(bool), cudaMemcpyDeviceToHost) ;
 		k++;
 	}
-	while(*over); //if no thread changes this value then the loop stops
+	while(stop); //if no thread changes this value then the loop stops
 
+
+        cudaDeviceSynchronize();
 
 	printf("Kernel Executed %d times\n",k);
 
