@@ -495,15 +495,20 @@ private:
     unsigned m_texcache_linesize;
 };
 
+struct allocation_info {
+    uint64_t gpu_mem_addr;
+    size_t   allocation_size;
+    bool     copied;
+};
 
 class gpgpu_t {
 public:
     gpgpu_t( const gpgpu_functional_sim_config &config );
    
-    std::map<uint64_t, std::pair<uint64_t, size_t> >	gpu_getManagedAllocations(); 
-    size_t						gpu_getManagedAllocation( uint64_t cpuMemAddr, uint64_t *devMemAddr );
-    void						gpu_mapManagedAllocations( uint64_t cpuMemAddr, uint64_t gpuMemAddr, size_t size );
-    
+    struct allocation_info*                              gpu_get_managed_allocation(uint64_t cpuMemAddr); 
+    const  std::map<uint64_t, struct allocation_info*>&  gpu_get_managed_allocations();
+    void                                                 gpu_insert_managed_allocation( uint64_t cpuMemAddr, uint64_t gpuMemAddr, size_t size );
+ 
     // set the allocated pages as managed   
     void  set_pages_managed(size_t addr, size_t size);
 
@@ -566,7 +571,7 @@ protected:
     unsigned long long m_dev_malloc; // variable to store a known heap pointer for unmanaged allocation (cudaMalloc, cudaMallocArray)
     unsigned long long m_dev_malloc_managed; // variable to store a known heap pointer for any managed allocation
 
-    std::map<uint64_t, std::pair<uint64_t, size_t> > managedAllocations;
+    std::map<uint64_t, struct allocation_info*> managedAllocations;
     
     std::map<std::string, const struct textureReference*> m_NameToTextureRef;
     std::map<const struct textureReference*,const struct cudaArray*> m_TextureRefToCudaArray;

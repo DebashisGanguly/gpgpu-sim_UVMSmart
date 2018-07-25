@@ -359,24 +359,30 @@ addr_t generic_to_global( addr_t addr )
 }
 
 
-std::map<uint64_t, std::pair<uint64_t, size_t> > gpgpu_t::gpu_getManagedAllocations()
+struct allocation_info* gpgpu_t::gpu_get_managed_allocation ( uint64_t cpuMemAddr )
+{
+   if(managedAllocations.find(cpuMemAddr) == managedAllocations.end()) {
+      return NULL;
+   } else { 
+      return managedAllocations[cpuMemAddr];
+   }
+}
+
+
+const std::map<uint64_t, struct allocation_info*>& gpgpu_t::gpu_get_managed_allocations()
 {
    return managedAllocations;
 }
 
-size_t gpgpu_t::gpu_getManagedAllocation( uint64_t cpuMemAddr, uint64_t *devMemAddr )
+void gpgpu_t::gpu_insert_managed_allocation ( uint64_t cpuMemAddr, uint64_t gpuMemAddr, size_t size )
 {
-   if(managedAllocations.find(cpuMemAddr) == managedAllocations.end()) {
-      return 0;
-   } else {
-      *devMemAddr = managedAllocations.find(cpuMemAddr)->second.first;
-      return managedAllocations.find(cpuMemAddr)->second.second;
-   } 
-}
+   struct allocation_info* a_i = (struct allocation_info*)malloc(sizeof(struct allocation_info));
 
-void gpgpu_t::gpu_mapManagedAllocations( uint64_t cpuMemAddr, uint64_t gpuMemAddr, size_t size)
-{
-   managedAllocations.insert(std::pair<uint64_t, std::pair<uint64_t, size_t> >(cpuMemAddr, std::pair<uint64_t, size_t>(gpuMemAddr, size)));
+   a_i->gpu_mem_addr    = gpuMemAddr;
+   a_i->allocation_size = size;
+   a_i->copied          = false;
+
+   managedAllocations.insert(std::pair<uint64_t, struct allocation_info*>(cpuMemAddr, a_i));
 }
 
 void* gpgpu_t::gpu_malloc( size_t size )
