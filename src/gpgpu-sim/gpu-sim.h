@@ -387,6 +387,8 @@ public:
    // get list of accessed pages 
    // used by Load/Store Unit for LRU TLB replacement
    const std::list<mem_addr_t>& get_accessed_pages() { return accessed_pages; }
+
+   void accessed_pages_erase(mem_addr_t pagenum);
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {

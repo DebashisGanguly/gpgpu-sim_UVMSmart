@@ -1418,6 +1418,12 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config)
     m_shader_config = &m_config.m_shader_config;
 }
 
+void gmmu_t::accessed_pages_erase(mem_addr_t page_num)
+{
+    assert( find( accessed_pages.begin(), accessed_pages.end(), page_num ) != accessed_pages.end());
+    accessed_pages.erase( find( accessed_pages.begin(), accessed_pages.end(), page_num ) );
+}
+
 void gmmu_t::register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb)
 {
     callback_tlb_flush.push_back(cb_tlb);

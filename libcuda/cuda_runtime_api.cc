@@ -112,6 +112,7 @@
 #include <regex>
 #include <sstream>
 #include <fstream>
+#include <set>
 #ifdef OPENGL_SUPPORT
 #define GL_GLEXT_PROTOTYPES
 #ifdef __APPLE__
@@ -1960,17 +1961,50 @@ cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
 	CUctx_st* context = GPGPUSim_Context();
 	const std::map<uint64_t, struct allocation_info*>& managedAllocations = context->get_device()->get_gpgpu()->gpu_get_managed_allocations();
 
-	std::map<uint64_t, struct allocation_info*>::const_iterator it;
+        std::set<mem_addr_t> evicted_page_list;
 
 	//at this point kernel execution is over
 	//loop over all managed allocations
 	//copy the data back from gpu to cpu
-	for ( it = managedAllocations.begin(); it != managedAllocations.end(); it++ ) {
-		uint64_t hostPtr = it->first;
-		uint64_t devPtr  = it->second->gpu_mem_addr;
-		size_t   size    = it->second->allocation_size;
+	for(std::map<uint64_t, struct allocation_info*>::const_iterator iter = managedAllocations.begin(); iter != managedAllocations.end(); iter++) {
 
-		context->get_device()->get_gpgpu()->memcpy_from_gpu( (void *)hostPtr, (size_t)devPtr, size );	
+		uint64_t hostPtr = iter->first;
+                uint64_t devPtr  = iter->second->gpu_mem_addr;
+                size_t   size    = iter->second->allocation_size;
+
+		iter->second->copied = false;
+	
+                while(size != 0) { 
+                        mem_addr_t page_num = context->get_device()->get_gpgpu()->get_global_memory()->get_page_num(devPtr);
+
+                        size_t size_in_this_page = context->get_device()->get_gpgpu()->get_global_memory()->get_data_size(devPtr);
+     
+                        if (context->get_device()->get_gpgpu()->get_global_memory()->is_page_dirty(page_num)) {
+                                context->get_device()->get_gpgpu()->memcpy_from_gpu( (void *)hostPtr, (size_t)devPtr, size > size_in_this_page ? size_in_this_page : size);
+			
+				if (evicted_page_list.find(page_num) != evicted_page_list.end()) {
+					evicted_page_list.insert(page_num);
+				}
+                        }    
+
+                        if (size <= size_in_this_page) {
+                                size = 0; 
+                        } else {
+                                size -= size_in_this_page;
+                        }
+
+                        devPtr  += size_in_this_page;
+                        hostPtr += size_in_this_page;
+                }    
+        } 
+
+        for (std::set<mem_addr_t>::const_iterator iter = evicted_page_list.begin(); iter != evicted_page_list.end(); iter++) {
+			context->get_device()->get_gpgpu()->get_global_memory()->invalidate_page( *iter );
+			context->get_device()->get_gpgpu()->get_global_memory()->clear_page_access( *iter );
+			context->get_device()->get_gpgpu()->get_global_memory()->clear_page_dirty( *iter );
+                        context->get_device()->get_gpgpu()->get_global_memory()->free_pages(1);
+			context->get_device()->get_gpgpu()->getGmmu()->tlb_flush( *iter );
+			context->get_device()->get_gpgpu()->getGmmu()->accessed_pages_erase( *iter ); 	
 	}
 
 	return g_last_cudaError = cudaSuccess;

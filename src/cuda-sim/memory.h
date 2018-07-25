@@ -180,6 +180,7 @@ public:
    virtual size_t                       get_data_size(mem_addr_t addr) = 0;
    virtual size_t                       get_page_size() = 0;
    virtual mem_addr_t                   get_mem_addr(mem_addr_t pg_index) = 0;
+   virtual bool                         is_valid (mem_addr_t pg_index) = 0;
 };
 
 template<unsigned BSIZE> class memory_space_impl : public memory_space {
@@ -220,6 +221,7 @@ public:
    virtual size_t get_page_size();
    virtual mem_addr_t get_mem_addr(mem_addr_t pg_index);
 
+   virtual bool is_valid (mem_addr_t pg_index);   
 private:
    void read_single_block( mem_addr_t blk_idx, mem_addr_t addr, size_t length, void *data) const; 
    std::string m_name;
@@ -240,8 +242,6 @@ private:
 
    std::map<unsigned,mem_addr_t> m_watchpoints;
    
-   // private methods for page table manipulation
-   bool is_valid	(mem_addr_t pg_index);
 };
 
 #endif
