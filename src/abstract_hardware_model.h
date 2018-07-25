@@ -512,6 +512,9 @@ public:
     // set the allocated pages as managed   
     void  set_pages_managed(size_t addr, size_t size);
 
+    // write content of dirty page back to CPU on eviction
+    void  gpu_writeback(uint64_t gpuMemAddr);
+
     // method used to managed allocation which ensures the unmanaged & managed allocation
     // does not fall into same page
     void* gpu_mallocmanaged( size_t size );

@@ -385,6 +385,43 @@ void gpgpu_t::gpu_insert_managed_allocation ( uint64_t cpuMemAddr, uint64_t gpuM
    managedAllocations.insert(std::pair<uint64_t, struct allocation_info*>(cpuMemAddr, a_i));
 }
 
+void gpgpu_t::gpu_writeback( uint64_t gpuMemAddr)                                                                                                                                {
+  size_t page_size = get_global_memory()->get_page_size();
+
+  mem_addr_t page_num = get_global_memory()->get_page_num(gpuMemAddr);
+
+  // a page may be shared by multiple managed allocations
+  // on every dynamic memory allocation cpu gives a separate page
+  // however GPU can coallesce multiple allocations in the same page based on the size of the allocations 
+  for(std::map<uint64_t, struct allocation_info*>::const_iterator iter = managedAllocations.begin(); iter != managedAllocations.end(); iter++) {
+
+         uint64_t devPtr = iter->second->gpu_mem_addr;
+
+         // check whether the allocation consists of the page we are trying to evict
+         if( page_num >= get_global_memory()->get_page_num(devPtr) &&
+             page_num <= get_global_memory()->get_page_num(devPtr + iter->second->allocation_size) ) {
+
+               // the allocation on GPU side starts from the evicted page
+               if ( page_num == get_global_memory()->get_page_num( devPtr ) ) {
+                       size_t size_on_page = get_global_memory()->get_page_size() - (devPtr - gpuMemAddr); 
+
+                       // the allocation size can be much smaller than the size in bytes from the allocation starting address to the end of the page
+                       // if yes, then just copy the bytes worth of allocation size or else copy the whole thing starting from the allocation address to the end of page
+                       memcpy_from_gpu( (void *)iter->first, (size_t)devPtr, size_on_page > iter->second->allocation_size ? iter->second->allocation_size : size_on_page);
+               } else { // trailing (or middle) part of the allocation is in the evicted page
+                       size_t size_remaining = iter->second->allocation_size - ( gpuMemAddr - devPtr );
+
+                       // the remaining size can be greater than a page (when the evicted page is in the middle of multi-page allocation)
+                       // then just write back the data worth of evicted page
+                       // if the page is trailing of the allocation and less than the page size, then copy only remaining size 
+                       memcpy_from_gpu( (void *) (iter->first + (gpuMemAddr - devPtr) ),
+                                        (size_t)gpuMemAddr, size_remaining > page_size ? page_size: size_remaining);
+               }
+                            
+         }
+  }
+}
+
 void* gpgpu_t::gpu_malloc( size_t size )
 {
    unsigned long long result = m_dev_malloc;

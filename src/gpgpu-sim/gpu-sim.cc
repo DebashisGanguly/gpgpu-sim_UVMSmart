@@ -1498,6 +1498,8 @@ void gmmu_t::cycle()
             while ( iter != pcie_write_latency_queue.end() &&
                     ((gpu_sim_cycle + gpu_tot_sim_cycle) >= iter->ready_cycle) ) {
 
+                m_gpu->gpu_writeback(m_gpu->get_global_memory()->get_mem_addr(pcie_write_latency_queue.front().page_num));
+
                 pcie_write_latency_queue.pop_front();
 
                 iter = pcie_write_latency_queue.begin();

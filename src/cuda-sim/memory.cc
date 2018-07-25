@@ -280,6 +280,25 @@ template<unsigned BSIZE> void memory_space_impl<BSIZE>::clear_page_access(mem_ad
   return m_data[pg_index].clear_access();
 }
 
+// get size in bytes starting from the addr to the end of the page
+// first get starting address of the page containing the address
+// then get how many bytes are there starting from the page to the given address
+// then subtract it from the total page size 
+template<unsigned BSIZE> size_t memory_space_impl<BSIZE>::get_data_size(mem_addr_t addr)                                                                                        
+{
+ return BSIZE - (addr - (mem_addr_t)( (addr >> m_log2_block_size) << m_log2_block_size));
+}
+
+template<unsigned BSIZE> size_t memory_space_impl<BSIZE>::get_page_size()
+{
+  return BSIZE;
+}
+
+template<unsigned BSIZE> mem_addr_t memory_space_impl<BSIZE>::get_mem_addr(mem_addr_t pg_index)
+{
+  return pg_index << m_log2_block_size;
+}
+
 template class memory_space_impl<32>;
 template class memory_space_impl<64>;
 template class memory_space_impl<8192>;
