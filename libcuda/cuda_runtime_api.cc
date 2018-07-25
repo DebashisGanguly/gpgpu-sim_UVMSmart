@@ -1020,10 +1020,14 @@ __host__ cudaError_t CUDARTAPI cudaSetupArgument(const void *arg, size_t size, s
 	    //pages are valid or invalid are tested later
             uint64_t devPtr = allocation->gpu_mem_addr;
 
-	    context->get_device()->get_gpgpu()->memcpy_to_gpu( (size_t)devPtr, (void *)hostPtr, allocation->allocation_size);
+            if (!allocation->copied) {
+	        context->get_device()->get_gpgpu()->memcpy_to_gpu( (size_t)devPtr, (void *)hostPtr, allocation->allocation_size);
 	    
-	    //mark the pages as managed
-	    context->get_device()->get_gpgpu()->set_pages_managed( (size_t)devPtr, allocation->allocation_size);
+                allocation->copied = true;
+
+	        //mark the pages as managed
+	        context->get_device()->get_gpgpu()->set_pages_managed( (size_t)devPtr, allocation->allocation_size);
+            }
 
 	    //override the pointer argument to refer to gpu side allocation rather than cpu side memory
 	    //gpgpu-sim only understands pointer reference from m_dev_malloc 
