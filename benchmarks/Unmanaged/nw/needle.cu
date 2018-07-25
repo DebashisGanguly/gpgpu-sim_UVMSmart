@@ -168,7 +168,7 @@ void runTest( int argc, char** argv)
 
     cudaMemcpy(output_itemsets, matrix_cuda, sizeof(int) * size, cudaMemcpyDeviceToHost);
 	
-//#define TRACEBACK
+#define TRACEBACK
 #ifdef TRACEBACK
 	
 	FILE *fpo = fopen("result.txt","w");

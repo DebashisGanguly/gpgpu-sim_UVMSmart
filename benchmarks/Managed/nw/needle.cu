@@ -164,7 +164,7 @@ void runTest( int argc, char** argv)
 	// Wait for GPU to finish before accessing on host
 	cudaDeviceSynchronize();
 	
-//#define TRACEBACK
+#define TRACEBACK
 #ifdef TRACEBACK
 	
 	FILE *fpo = fopen("result.txt","w");

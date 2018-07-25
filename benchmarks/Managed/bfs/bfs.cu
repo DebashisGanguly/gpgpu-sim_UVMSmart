@@ -154,10 +154,6 @@ void BFSGraph( int argc, char** argv)
 		cost[i]=-1;
 	cost[source]=0;
 	
-	//make a bool to check if the execution is over
-	bool *over;
-	cudaMallocManaged( (void**) &over, sizeof(bool));
-
         //make a bool to check if the execution is over
         bool *d_over;
         cudaMalloc( (void**) &d_over, sizeof(bool));
@@ -181,7 +177,7 @@ void BFSGraph( int argc, char** argv)
 		// check if kernel execution generated and error
 		
 
-		Kernel2<<< grid, threads, 0 >>>( graph_mask, updating_graph_mask, graph_visited, over, no_of_nodes);
+		Kernel2<<< grid, threads, 0 >>>( graph_mask, updating_graph_mask, graph_visited, d_over, no_of_nodes);
 		// check if kernel execution generated and error
 		
 
@@ -210,5 +206,5 @@ void BFSGraph( int argc, char** argv)
 	cudaFree(updating_graph_mask);
 	cudaFree(graph_visited);
 	cudaFree(cost);
-	cudaFree(over);
+	cudaFree(d_over);
 }

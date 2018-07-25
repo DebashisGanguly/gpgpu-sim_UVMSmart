@@ -239,15 +239,16 @@ runTest( int argc, char** argv)
 
     cudaThreadSynchronize();
 
+#define OUTPUT
 #ifdef OUTPUT
     //Printing output	
-		printf("Printing Output:\n"); 
+    printf("Printing Output:\n"); 
     for( int i = 0 ; i < rows ; i++){
-		for ( int j = 0 ; j < cols ; j++){
-         printf("%.5f ", J[i * cols + j]); 
-		}	
-     printf("\n"); 
-   }
+    	for ( int j = 0 ; j < cols ; j++){
+        	printf("%.5f ", J[i * cols + j]); 
+	}	
+   	printf("\n"); 
+    }
 #endif 
 
 	printf("Computation Done\n");
