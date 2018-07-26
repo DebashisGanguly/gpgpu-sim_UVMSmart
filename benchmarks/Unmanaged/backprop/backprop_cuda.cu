@@ -179,6 +179,25 @@ void bpnn_train_cuda(BPNN *net, float *eo, float *eh)
 
   cudaMemcpy(net->input_units, input_cuda, (in + 1) * sizeof(float), cudaMemcpyDeviceToHost);
   cudaMemcpy(input_weights_one_dim, input_hidden_cuda, (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyDeviceToHost);
+
+#define DEBUG
+
+#ifdef DEBUG
+
+ FILE *fp2 = fopen("result.txt","w");
+ fprintf(fp2,"Input_units:\n");
+ for(int i = 0; i < in + 1; i ++)
+   fprintf(fp2,"%f ", net->input_units[i]);
+ fprintf(fp2,"\n");
+ fprintf(fp2,"Input_weight_one_dim:\n");
+ for(int i = 0; i < in + 1; i ++){
+   for(int j = 0; j < hid + 1; j++)
+     fprintf(fp2,"%f ", input_weights_one_dim[i*(hid+1)+j]);
+   fprintf(fp2,"\n");
+ }
+ fclose(fp2);
+ 
+#endif
     
   cudaFree(input_cuda);
   cudaFree(output_hidden_cuda);
