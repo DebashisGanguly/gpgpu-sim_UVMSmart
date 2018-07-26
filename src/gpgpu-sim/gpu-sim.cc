@@ -1928,7 +1928,7 @@ void gpgpu_sim::cycle()
       // take a smapshot of the system when you detect simulator can jump its clock
       // however it may not be safe to jump as other components like cache, ICNT, DRAM may process something in parallel
       // snapshot contains the simulation cycle and current number of completed instructions
-      if ( first_ready_to_jump_cycle != 0 && is_ready_to_jump() ) {
+      if ( first_ready_to_jump_cycle == 0 && is_ready_to_jump() ) {
 	 first_ready_to_jump_cycle = gpu_tot_sim_cycle + gpu_sim_cycle;
 	 first_ready_to_jump_insn  = gpu_sim_insn;
       }
