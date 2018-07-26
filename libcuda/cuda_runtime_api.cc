@@ -1968,34 +1968,37 @@ cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
 	//copy the data back from gpu to cpu
 	for(std::map<uint64_t, struct allocation_info*>::const_iterator iter = managedAllocations.begin(); iter != managedAllocations.end(); iter++) {
 
-		uint64_t hostPtr = iter->first;
-                uint64_t devPtr  = iter->second->gpu_mem_addr;
-                size_t   size    = iter->second->allocation_size;
+		if (iter->second->copied) {
 
-		iter->second->copied = false;
+			uint64_t hostPtr = iter->first;
+                	uint64_t devPtr  = iter->second->gpu_mem_addr;
+                	size_t   size    = iter->second->allocation_size;
+
+			iter->second->copied = false;
 	
-                while(size != 0) { 
-                        mem_addr_t page_num = context->get_device()->get_gpgpu()->get_global_memory()->get_page_num(devPtr);
+                	while(size != 0) { 
+                        	mem_addr_t page_num = context->get_device()->get_gpgpu()->get_global_memory()->get_page_num(devPtr);
 
-                        size_t size_in_this_page = context->get_device()->get_gpgpu()->get_global_memory()->get_data_size(devPtr);
+                        	size_t size_in_this_page = context->get_device()->get_gpgpu()->get_global_memory()->get_data_size(devPtr);
      
-                        if (context->get_device()->get_gpgpu()->get_global_memory()->is_page_dirty(page_num)) {
-                                context->get_device()->get_gpgpu()->memcpy_from_gpu( (void *)hostPtr, (size_t)devPtr, size > size_in_this_page ? size_in_this_page : size);
+                        	if (context->get_device()->get_gpgpu()->get_global_memory()->is_page_dirty(page_num)) {
+                                	context->get_device()->get_gpgpu()->memcpy_from_gpu( (void *)hostPtr, (size_t)devPtr, size > size_in_this_page ? size_in_this_page : size);
 			
-				if (evicted_page_list.find(page_num) != evicted_page_list.end()) {
-					evicted_page_list.insert(page_num);
-				}
-                        }    
+					if (evicted_page_list.find(page_num) != evicted_page_list.end()) {
+						evicted_page_list.insert(page_num);
+					}
+                        	}    
 
-                        if (size <= size_in_this_page) {
-                                size = 0; 
-                        } else {
-                                size -= size_in_this_page;
-                        }
+                        	if (size <= size_in_this_page) {
+                                	size = 0; 
+                        	} else {
+                                	size -= size_in_this_page;
+                        	}
 
-                        devPtr  += size_in_this_page;
-                        hostPtr += size_in_this_page;
-                }    
+                        	devPtr  += size_in_this_page;
+                        	hostPtr += size_in_this_page;
+                	}    
+		}
         } 
 
         for (std::set<mem_addr_t>::const_iterator iter = evicted_page_list.begin(); iter != evicted_page_list.end(); iter++) {
