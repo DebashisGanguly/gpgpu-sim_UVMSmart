@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
   read_data(h_A0, nx,ny,nz,fp);
   fclose(fp);
   FILE *fp2 = fopen(argv[1], "rb");
-  read_data(h_Anext, nx,ny,nz,fp);
+  read_data(h_Anext, nx,ny,nz,fp2);
   fclose(fp2);
 	
   //only use tx-by-ty threads
