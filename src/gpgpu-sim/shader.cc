@@ -1338,6 +1338,38 @@ bool ldst_unit::shared_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, 
 }
 
 mem_stage_stall_type
+ldst_unit::process_managed_cache_access( cache_t* cache,
+                                new_addr_type address,
+                                std::list<cache_event>& events,
+                                mem_fetch *mf, 
+                                enum cache_request_status status )
+{
+   mem_stage_stall_type result = NO_RC_FAIL;
+   bool write_sent = was_write_sent(events);
+   bool read_sent = was_read_sent(events);
+   if( write_sent ) 
+       m_core->inc_store_req( mf->get_inst().warp_id() );
+   if ( status == HIT ) {
+       assert( !read_sent );
+       m_gmmu_cu_queue.pop_front();
+       if ( mf->get_inst().is_load()) {
+           for ( unsigned r=0; r < 4; r++) 
+               if (mf->get_inst().out[r] > 0) 
+                   m_pending_writes[ mf->get_inst().warp_id() ][mf->get_inst().out[r]]--; 
+       }
+   } else if ( status == RESERVATION_FAIL ) {
+       result = COAL_STALL;
+       assert( !read_sent );
+       assert( !write_sent );
+   } else {
+       assert( status == MISS || status == HIT_RESERVED );
+       //inst.clear_active( access.get_warp_mask() ); // threads in mf writeback when mf returns
+       m_gmmu_cu_queue.pop_front();
+   }    
+   return result;
+}
+
+mem_stage_stall_type
 ldst_unit::process_cache_access( cache_t* cache,
                                  new_addr_type address,
                                  warp_inst_t &inst,
@@ -1373,6 +1405,18 @@ ldst_unit::process_cache_access( cache_t* cache,
     if( !inst.accessq_empty() )
         result = BK_CONF;
     return result;
+}
+
+mem_stage_stall_type ldst_unit::process_managed_memory_access_queue( cache_t *cache )
+{
+   if( !cache->data_port_free() )
+       return DATA_PORT_STALL;
+
+   //const mem_access_t &access = inst.accessq_back();
+   mem_fetch *mf = m_gmmu_cu_queue.front();
+   std::list<cache_event> events;
+   enum cache_request_status status = cache->access(mf->get_addr(),mf,gpu_sim_cycle+gpu_tot_sim_cycle,events);
+   return process_managed_cache_access( cache, mf->get_addr(), events, mf, status );
 }
 
 mem_stage_stall_type ldst_unit::process_memory_access_queue( cache_t *cache, warp_inst_t &inst )
@@ -1439,138 +1483,156 @@ void ldst_unit::insert_into_tlb(mem_addr_t page_num)
     tlb.insert(page_num);
 }
 
-bool ldst_unit::access_cycle( warp_inst_t &inst)                                                
+bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail)                                                
 {
   if (inst.empty() || inst.accessq_empty() || inst.active_count() == 0) {
       return true;
   }
 
-  // check if the warp is waiting for some memory access being stalled for far fetch
-  if ( inst.accessq_front().is_stall_far_fetch() ) {
-      if ( m_gmmu_cu_queue.empty() ) {
-          return false;
-      }
+  // process for far fetch only when it is a managed page
+  if( !m_gpu->get_global_memory()->is_page_managed( 
+                                                   inst.accessq_front().get_addr(), 
+                                                   inst.accessq_front().get_size() 
+                                                  ) 
+    ) {
+      return true;
+  }
 
-      if ( m_gmmu_cu_queue.front()->get_wid() != inst.get_warp_id() ) {
-          return false;
-      }
+  // far fetch is valid only for managed page in global memory
+  if ( inst.accessq_front().get_type() != GLOBAL_ACC_R && 
+       inst.accessq_front().get_type() != GLOBAL_ACC_W) {
+      return true;
+  }
 
-      mem_fetch *mf = m_gmmu_cu_queue.front();
+  mem_addr_t page_no = m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr());
 
-      m_gmmu_cu_queue.pop_front();
-      inst.accessq_front().clear_stall_far_fetch();
-
-      // the page is coming out of upward queue and so ready to be accessed, refresh the LRU page list
+  // check if the page corresponding to memory access is there in TLB or not
+  if ( tlb.find(page_no) != tlb.end() ) {
+      // on tlb hit, check whether the page is in pci-e write stage queue
+      // if so, then evict another page instead
+      m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()) );
+	  
+      // on tlb hit, refresh the LRU page list
       m_gpu->getGmmu()->page_refresh( inst.accessq_front() );
 
-      insert_into_tlb(m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()));
-
-      delete mf;
-
       return true;
-   } else {
-      // process for far fetch only when it is a managed page
-      if( !m_gpu->get_global_memory()->is_page_managed( 
-                                                       inst.accessq_front().get_addr(), 
-                                                       inst.accessq_front().get_size() 
-                                                      ) 
-        ) {
-          return true;
-      }
+  } else {
+      mem_fetch *mf = m_mf_allocator->alloc(inst, inst.accessq_front());
 
-      // far fetch is valid only for managed page in global memory
-      if ( inst.accessq_front().get_type() != GLOBAL_ACC_R && 
-           inst.accessq_front().get_type() != GLOBAL_ACC_W) {
-          return true;
-      }
+      // send it over downward queues (CU to GMMU) to suffer for far fetch latency
+      m_cu_gmmu_queue.push_back(mf);
 
-      // check if the first one is already processed for TLB look up
-      if(inst.accessq_front().is_check_far_fetch())
-        return true;
-      
-      mem_addr_t page_no = m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr());
+      inst.accessq_pop_front();
 
-      // check if the page corresponding to memory access is there in TLB or not
-      if ( tlb.find(page_no) != tlb.end() ) {
-          inst.accessq_front().set_check_far_fetch();
+      stall_reason = BK_CONF;
 
-	  // on tlb hit, check whether the page is in pci-e write stage queue
-          // if so, then evict another page instead
-	  m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()) );
-	  
-          // on tlb hit, refresh the LRU page list
-	  m_gpu->getGmmu()->page_refresh( inst.accessq_front() );
-
-          return true;
-      } else {
-          mem_fetch *mf = m_mf_allocator->alloc(inst, inst.accessq_front());
-
-          // send it over downward queues (CU to GMMU) to suffer for far fetch latency
-          m_cu_gmmu_queue.push_back(mf);
-
-          inst.accessq_front().set_check_far_fetch();
-          inst.accessq_front().set_stall_far_fetch();
-
-          return false;
-      }
-   }
+      // return false if access queue is not empty and we have already processed one memory access in the current load/store unit cycle
+      return inst.accessq_empty();
+  }
 }
 
 bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_reason, mem_stage_access_type &access_type )
 {
-   if( inst.empty() || 
-       ((inst.space.get_type() != global_space) &&
-        (inst.space.get_type() != local_space) &&
-        (inst.space.get_type() != param_space_local)) ) 
-       return true;
-   if( inst.active_count() == 0 ) 
-       return true;
-   assert( !inst.accessq_empty() );
+   if ( m_gmmu_cu_queue.empty() ) {
+       if( inst.empty() || 
+           inst.accessq_empty() ||
+           ((inst.space.get_type() != global_space) &&
+           (inst.space.get_type() != local_space) &&
+           (inst.space.get_type() != param_space_local)) ) 
+           return true;
+       if( inst.active_count() == 0 ) 
+           return true;
+   }
+
    mem_stage_stall_type stall_cond = NO_RC_FAIL;
-   const mem_access_t &access = inst.accessq_front();
 
-   bool bypassL1D = false; 
-   if ( CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL) ) {
-       bypassL1D = true; 
-   } else if (inst.space.is_global()) { // global memory access 
-       // skip L1 cache if the option is enabled
-       if (m_core->get_config()->gmem_skip_L1D) 
+   if ( !inst.accessq_empty() ) {
+       const mem_access_t &access = inst.accessq_front();
+
+       bool bypassL1D = false; 
+       if ( CACHE_GLOBAL == inst.cache_op || (m_L1D == NULL) ) {
            bypassL1D = true; 
-   }
-
-   if( bypassL1D ) {
-       // bypass L1 cache
-       unsigned control_size = inst.is_store() ? WRITE_PACKET_SIZE : READ_PACKET_SIZE;
-       unsigned size = access.get_size() + control_size;
-       if( m_icnt->full(size, inst.is_store() || inst.isatomic()) ) {
-           stall_cond = ICNT_RC_FAIL;
-       } else {
-           mem_fetch *mf = m_mf_allocator->alloc(inst,access);
-           m_icnt->push(mf);
-	   inst.accessq_pop_front();
-           //inst.clear_active( access.get_warp_mask() );
-           if( inst.is_load() ) { 
-              for( unsigned r=0; r < 4; r++) 
-                  if(inst.out[r] > 0) 
-                      assert( m_pending_writes[inst.warp_id()][inst.out[r]] > 0 );
-           } else if( inst.is_store() ) 
-              m_core->inc_store_req( inst.warp_id() );
+       } else if (inst.space.is_global()) { // global memory access 
+           // skip L1 cache if the option is enabled
+           if (m_core->get_config()->gmem_skip_L1D) 
+               bypassL1D = true; 
        }
+
+       if( bypassL1D ) {
+           // bypass L1 cache
+           unsigned control_size = inst.is_store() ? WRITE_PACKET_SIZE : READ_PACKET_SIZE;
+           unsigned size = access.get_size() + control_size;
+           if( m_icnt->full(size, inst.is_store() || inst.isatomic()) ) {
+               stall_cond = ICNT_RC_FAIL;
+           } else {
+               mem_fetch *mf = m_mf_allocator->alloc(inst,access);
+               m_icnt->push(mf);
+	       inst.accessq_pop_front();
+               //inst.clear_active( access.get_warp_mask() );
+               if( inst.is_load() ) { 
+                  for( unsigned r=0; r < 4; r++) 
+                      if(inst.out[r] > 0) 
+                          assert( m_pending_writes[inst.warp_id()][inst.out[r]] > 0 );
+               } else if( inst.is_store() ) 
+                  m_core->inc_store_req( inst.warp_id() );
+           }
+       } else {
+           assert( CACHE_UNDEFINED != inst.cache_op );
+           stall_cond = process_memory_access_queue(m_L1D,inst);
+       }
+       if( !inst.accessq_empty() ) 
+           stall_cond = COAL_STALL;
+       if (stall_cond != NO_RC_FAIL) {
+          stall_reason = stall_cond;
+          bool iswrite = inst.is_store();
+          if (inst.space.is_local()) 
+             access_type = (iswrite)?L_MEM_ST:L_MEM_LD;
+          else 
+             access_type = (iswrite)?G_MEM_ST:G_MEM_LD;
+       }
+       return inst.accessq_empty(); 
    } else {
-       assert( CACHE_UNDEFINED != inst.cache_op );
-       stall_cond = process_memory_access_queue(m_L1D,inst);
-   }
-   if( !inst.accessq_empty() ) 
-       stall_cond = COAL_STALL;
-   if (stall_cond != NO_RC_FAIL) {
-      stall_reason = stall_cond;
-      bool iswrite = inst.is_store();
-      if (inst.space.is_local()) 
-         access_type = (iswrite)?L_MEM_ST:L_MEM_LD;
-      else 
-         access_type = (iswrite)?G_MEM_ST:G_MEM_LD;
-   }
-   return inst.accessq_empty(); 
+       mem_fetch *mf = m_gmmu_cu_queue.front();
+
+       bool bypassL1D = false; 
+       if ( CACHE_GLOBAL == mf->get_inst().cache_op || (m_L1D == NULL) ) {
+           bypassL1D = true; 
+       } else if (mf->get_inst().space.is_global()) { // global memory access 
+           // skip L1 cache if the option is enabled
+           if (m_core->get_config()->gmem_skip_L1D) 
+               bypassL1D = true; 
+       }
+
+       if( bypassL1D ) {
+           // bypass L1 cache
+           unsigned control_size = mf->get_inst().is_store() ? WRITE_PACKET_SIZE : READ_PACKET_SIZE;
+           unsigned size = mf->get_mem_access().get_size() + control_size;
+           if( m_icnt->full(size, mf->get_inst().is_store() || mf->get_inst().isatomic()) ) {
+               stall_cond = ICNT_RC_FAIL;
+           } else {
+               m_icnt->push(mf);
+	       m_gmmu_cu_queue.pop_front();
+               if( mf->get_inst().is_load() ) { 
+                  for( unsigned r=0; r < 4; r++) 
+                      if(mf->get_inst().out[r] > 0) 
+                          assert( m_pending_writes[mf->get_inst().warp_id()][mf->get_inst().out[r]] > 0 );
+               } else if( mf->get_inst().is_store() ) 
+                  m_core->inc_store_req( mf->get_inst().warp_id() );
+           }
+       } else {
+           assert( CACHE_UNDEFINED != mf->get_inst().cache_op );
+           stall_cond = process_managed_memory_access_queue(m_L1D);
+       }
+
+       if (stall_cond == NO_RC_FAIL) {
+           // the page is coming out of upward queue and so ready to be accessed, refresh the LRU page list
+           m_gpu->getGmmu()->page_refresh( mf->get_mem_access() );
+
+           insert_into_tlb(m_gpu->get_global_memory()->get_page_num(mf->get_mem_access().get_addr()));
+       }
+
+       return true;
+    }
 }
 
 
@@ -2016,16 +2078,20 @@ void ldst_unit::cycle()
    // a particular warp of the SM is dispatched 
    m_gpu->set_dispatched_warp( m_tpc , pipe_reg.get_warp_id() ); 
 
-   // process the managed page latency pipeline first
-   if (!access_cycle(pipe_reg)) {
-       return;
+   bool done = true;
+   
+   // process the instruction's memory access queue for TLB, Page Table, and PCI-E
+   done = access_cycle(pipe_reg, rc_fail);
+
+   // if we have already processed one memory access from instruction's access queue in the current cycle 
+   // do not process further
+   if (done) {
+       done &= shared_cycle(pipe_reg, rc_fail, type);
+       done &= constant_cycle(pipe_reg, rc_fail, type);
+       done &= texture_cycle(pipe_reg, rc_fail, type);
+       done &= memory_cycle(pipe_reg, rc_fail, type);
    }
 
-   bool done = true;
-   done &= shared_cycle(pipe_reg, rc_fail, type);
-   done &= constant_cycle(pipe_reg, rc_fail, type);
-   done &= texture_cycle(pipe_reg, rc_fail, type);
-   done &= memory_cycle(pipe_reg, rc_fail, type);
    m_mem_rc = rc_fail;
 
    if (!done) { // log stall types and return

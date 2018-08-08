@@ -699,8 +699,6 @@ public:
        m_addr = address;
        m_req_size = size;
        m_write = wr;
-       m_check_far_fetch = false;
-       m_stall_far_fetch = false;
    }
    mem_access_t( mem_access_type type, 
                  new_addr_type address, 
@@ -715,8 +713,6 @@ public:
       m_addr = address;
       m_req_size = size;
       m_write = wr;
-      m_check_far_fetch = false;
-      m_stall_far_fetch = false;
    }
 
    new_addr_type get_addr() const { return m_addr; }
@@ -726,12 +722,6 @@ public:
    bool is_write() const { return m_write; }
    enum mem_access_type get_type() const { return m_type; }
    mem_access_byte_mask_t get_byte_mask() const { return m_byte_mask; }
-
-   bool is_check_far_fetch() const { return m_check_far_fetch; }
-   void set_check_far_fetch() { m_check_far_fetch = true; }
-   bool is_stall_far_fetch() const { return m_stall_far_fetch; }
-   void set_stall_far_fetch() { m_stall_far_fetch = true; }
-   void clear_stall_far_fetch() { m_stall_far_fetch = false; }
 
 
    void print(FILE *fp) const
@@ -757,8 +747,6 @@ private:
       m_uid=++sm_next_access_uid;
       m_addr=0;
       m_req_size=0;
-      m_check_far_fetch = false;
-      m_stall_far_fetch = false;
    }
 
    unsigned      m_uid;
@@ -770,12 +758,6 @@ private:
    mem_access_byte_mask_t m_byte_mask;
 
    static unsigned sm_next_access_uid;
-
-   // whether the access is already processed for TLB lookup
-   bool m_check_far_fetch;
-   
-   // whether the access is being stalled for PCI-E transfer
-   bool m_stall_far_fetch;
 };
 
 class mem_fetch;

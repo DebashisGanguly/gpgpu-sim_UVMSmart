@@ -1172,8 +1172,7 @@ protected:
 protected:
    // deals with global read (load)/write (store) access
    // checks tlb for hit/miss
-   // stalls the warp on miss and resume until all accesses are finished
-   bool access_cycle( warp_inst_t &inst);
+   bool access_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail);
 
    bool shared_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
    bool constant_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
@@ -1187,6 +1186,13 @@ protected:
                                                       mem_fetch *mf,
                                                       enum cache_request_status status );
    mem_stage_stall_type process_memory_access_queue( cache_t *cache, warp_inst_t &inst );
+
+   virtual mem_stage_stall_type process_managed_cache_access( cache_t* cache,
+                                                      new_addr_type address,
+                                                      std::list<cache_event>& events,
+                                                      mem_fetch *mf,
+                                                      enum cache_request_status status );
+   mem_stage_stall_type process_managed_memory_access_queue( cache_t *cache );
 
    const memory_config *m_memory_config;
    class mem_fetch_interface *m_icnt;
