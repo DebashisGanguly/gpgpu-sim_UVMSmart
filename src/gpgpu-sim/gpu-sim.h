@@ -387,9 +387,6 @@ public:
    // get list of accessed pages 
    // used by Load/Store Unit for LRU TLB replacement
    const std::list<mem_addr_t>& get_accessed_pages() { return accessed_pages; }
-   
-   // get the gpu sim cycle where the clock will jump to
-   unsigned long long get_next_cycle_to_jump();
 
    void accessed_pages_erase(mem_addr_t pagenum);
 private:
@@ -506,12 +503,6 @@ public:
     simt_core_cluster * getSIMTCluster(int index);
 
     gmmu_t * getGmmu();
-    
-    void set_stalled_warp(unsigned tpc_id, unsigned warp_id);
-    void clear_stalled_warp(unsigned tpc_id, unsigned warp_id); 
-    void set_dispatched_warp(unsigned tpc_id, unsigned warp_id);
-    void clear_dispatched_warp();
-    bool is_ready_to_jump();
 private:
    // clocks
    void reinit_clock_domains(void);
@@ -577,12 +568,6 @@ private:
    std::vector<unsigned> m_executed_kernel_uids; //< uids of kernel launches for stat printout
    std::string executed_kernel_info_string(); //< format the kernel information into a string for stat printout
    void clear_executed_kernel_info(); //< clear the kernel information after stat printout
-
-   bool ** m_warp_sm_stall_map;    // bitmap to indicate which warp of which SM is stalled for far fetch
-   bool ** m_warp_sm_dispatch_map; // bitmap to indicate which warp of which SM is dispatched
-
-   unsigned long long first_ready_to_jump_cycle; // simulator cycle count when jump is first detected
-   unsigned long long first_ready_to_jump_insn;  // count of completed instructions when jump is first detected
 public:
    unsigned long long  gpu_sim_insn;
    unsigned long long  gpu_tot_sim_insn;

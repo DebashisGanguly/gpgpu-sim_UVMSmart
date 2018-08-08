@@ -1483,7 +1483,7 @@ void ldst_unit::insert_into_tlb(mem_addr_t page_num)
     tlb.insert(page_num);
 }
 
-bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail)                                                
+bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_reason)                                                
 {
   if (inst.empty() || inst.accessq_empty() || inst.active_count() == 0) {
       return true;
@@ -2074,10 +2074,6 @@ void ldst_unit::cycle()
    enum mem_stage_stall_type rc_fail = NO_RC_FAIL;
    mem_stage_access_type type;
    
-   // mark the warp id and SM id in the bitmap
-   // a particular warp of the SM is dispatched 
-   m_gpu->set_dispatched_warp( m_tpc , pipe_reg.get_warp_id() ); 
-
    bool done = true;
    
    // process the instruction's memory access queue for TLB, Page Table, and PCI-E

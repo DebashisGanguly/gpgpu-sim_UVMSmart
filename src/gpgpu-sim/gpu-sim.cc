@@ -664,30 +664,6 @@ gpgpu_sim::gpgpu_sim( const gpgpu_sim_config &config )
    //Jin: functional simulation for CDP
    m_functional_sim = false;
    m_functional_sim_kernel = NULL;
-
-   // initialize data structures required for jumping simulator clock to reduce simulation time
-   m_warp_sm_stall_map = new bool*[m_shader_config->n_simt_clusters];
-
-   for(unsigned i=0; i<m_shader_config->n_simt_clusters; i++) {
-      m_warp_sm_stall_map[i] = new bool [m_shader_config->max_warps_per_shader];
-
-      for(unsigned j=0; j<m_shader_config->max_warps_per_shader; j++) {
-	 m_warp_sm_stall_map[i][j] = false;
-      }
-   }
-
-   m_warp_sm_dispatch_map = new bool*[m_shader_config->n_simt_clusters];                                                                                                                                            
-   for(unsigned i=0; i<m_shader_config->n_simt_clusters; i++) {
-
-      m_warp_sm_dispatch_map[i] = new bool [m_shader_config->max_warps_per_shader];
-
-      for(unsigned j=0; j<m_shader_config->max_warps_per_shader; j++) {
-	 m_warp_sm_dispatch_map[i][j] = false;
-      }
-   }
-
-   first_ready_to_jump_cycle = 0;
-   first_ready_to_jump_insn = 0;
 }
 
 int gpgpu_sim::shared_mem_size() const
@@ -1512,31 +1488,6 @@ void gmmu_t::page_refresh(mem_access_t ma)
     accessed_pages.push_back(page_num);	
 }
 
-// loop over both PCI-E read and write latency queue to find the smallest ready cycle
-// this is the time where you can jump safely
-unsigned long long gmmu_t::get_next_cycle_to_jump() 
-{
-    unsigned long long smallest_ready_cycle;
-
-    assert(!pcie_read_latency_queue.empty());
-
-    smallest_ready_cycle = pcie_read_latency_queue.front().ready_cycle;
-
-    for(std::list<pcie_latency_t>::iterator iter = pcie_read_latency_queue.begin(); iter != pcie_read_latency_queue.end(); iter++) {
-        	if(iter->ready_cycle < smallest_ready_cycle) {
-			smallest_ready_cycle = iter->ready_cycle;
-                }
-    }
-
-    for(std::list<pcie_latency_t>::iterator iter = pcie_write_latency_queue.begin(); iter != pcie_write_latency_queue.end(); iter++) {
-                if(iter->ready_cycle < smallest_ready_cycle) {
-                        smallest_ready_cycle = iter->ready_cycle;
-                }
-    }
-
-    return smallest_ready_cycle;
-}
-
 void gmmu_t::cycle()
 {
     int simt_cluster_id = 0;
@@ -1613,11 +1564,6 @@ void gmmu_t::cycle()
                     (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
                 }    
                
-                // when the far fetch is completed, clear the warp from the bitmap which was stalled for that far fetch
-		for(std::list<mem_fetch*>::iterator iter2 = req_info[iter->page_num].begin(); iter2 != req_info[iter->page_num].end(); iter2++) {
-               	   	m_gpu->clear_stalled_warp((*iter2)->get_tpc(), (*iter2)->get_wid());                  
-            	} 
-
                 // erase the page from the MSHR map
                 req_info.erase(req_info.find(iter->page_num));
   
@@ -1643,11 +1589,6 @@ void gmmu_t::cycle()
 	m_gpu->get_global_memory()->alloc_pages(1);
 	
         schedule++;
-
-        // mark the warp in the bitmap which is being stalled for far fetch as the page is scheduled for latency queue
-	for(std::list<mem_fetch*>::iterator iter2 = req_info[p_t.page_num].begin(); iter2 != req_info[p_t.page_num].end(); iter2++) {
-        	m_gpu->set_stalled_warp((*iter2)->get_tpc(), (*iter2)->get_wid());
-	} 
     }
 
     // check the page_table_walk_delay_queue
@@ -1681,13 +1622,6 @@ void gmmu_t::cycle()
 		}
 
                 pcie_read_stage_queue.push_back(page_list.front());
-            } else {
-                // mark the warp in the bitmap as being stalled for far fetch if it is depending on a page that is already in latency queue
-		for(std::list<pcie_latency_t>::iterator iter = pcie_read_latency_queue.begin(); iter != pcie_read_latency_queue.end(); iter++)
-               		if(iter->page_num == page_list.front()){
-                  		m_gpu->set_stalled_warp(mf->get_tpc(), mf->get_wid());
-                  		break;
-               		}
 	    }
 
             req_info[*(page_list.begin())].push_back(mf);
@@ -1791,9 +1725,6 @@ void gpgpu_sim::cycle()
    }
 
    if (clock_mask & CORE) {
-      // periodically clear the warp being dispatched as it will be set back immediate after
-      clear_dispatched_warp();
-
       // L1 cache + shader core pipeline stages
       m_power_stats->pwr_mem_stat->core_cache_stats[CURRENT_STAT_IDX].clear();
       for (unsigned i=0;i<m_shader_config->n_simt_clusters;i++) {
@@ -1918,53 +1849,6 @@ void gpgpu_sim::cycle()
       launch_one_device_kernel();
 #endif
    }
-  
- 
-   // ***** Following is the code to jump the simulator clock in future upon all SMs being stalled for PCI-E transfer *****
-   // This is purely to optimize the performance of the simulator, or in other words, reduce the runtime of simulator in presence of far faults.
-   // This shouldn't interfere with timing simulation with the understanding that no progress can be made as everything is waiting on far fetch.
-   if (clock_mask & CORE) {
-
-      // take a smapshot of the system when you detect simulator can jump its clock
-      // however it may not be safe to jump as other components like cache, ICNT, DRAM may process something in parallel
-      // snapshot contains the simulation cycle and current number of completed instructions
-      if ( first_ready_to_jump_cycle == 0 && is_ready_to_jump() ) {
-	 first_ready_to_jump_cycle = gpu_tot_sim_cycle + gpu_sim_cycle;
-	 first_ready_to_jump_insn  = gpu_sim_insn;
-      }
-
-      // wait for another 1000 cycles after the first jump detection to be sure that no progress is made
-      // 1000 is a safe upper bound from testing of current benchmarks. however, we may lose some opportunity of saving 
-      if ( first_ready_to_jump_cycle != 0 && (gpu_tot_sim_cycle + gpu_sim_cycle - first_ready_to_jump_cycle) == 1000 ) { 
-
-         // check whether the simulator has made progress in the last 1000 cycles
-         // by comparing current number of completed instructions with the snapshot
-	 if ( first_ready_to_jump_insn == gpu_sim_insn && is_ready_to_jump() ) {
-
-	    assert(m_gmmu->get_next_cycle_to_jump() >= gpu_sim_cycle + gpu_tot_sim_cycle);
-
-            // bypass the deadlock check by updating deadlock completed instructions counter snapshot
-	    if(gpu_sim_cycle / 20000 != (m_gmmu->get_next_cycle_to_jump() - gpu_tot_sim_cycle) / 20000) {
-		last_gpu_sim_insn = gpu_sim_insn;
-            }
-
-            // now synchronize the clocks of different functional components like cache, DRAM , ICNT etc. 
-            // and also jump the clock for CORE
-	    while (gpu_sim_cycle < m_gmmu->get_next_cycle_to_jump() - gpu_tot_sim_cycle) {
-
-	       clock_mask = next_clock_domain();
-       
-	       if(clock_mask & CORE) {
-		  gpu_sim_cycle++;
-               }
-	    }
-	 }
-
-         // reset the snapshot variables
-	 first_ready_to_jump_cycle = 0;
-	 first_ready_to_jump_insn = 0;
-      }
-   }
 }
 
 
@@ -2035,59 +1919,5 @@ simt_core_cluster * gpgpu_sim::getSIMTCluster(int index)
 gmmu_t * gpgpu_sim::getGmmu()
 {
    return m_gmmu;
-}
-
-// set whether the warp of a particular SM is stalled for far fetch
-void gpgpu_sim::set_stalled_warp(unsigned tpc_id, unsigned warp_id) {
-   m_warp_sm_stall_map[tpc_id][warp_id] = true; 
-}            
-             
-// clear the warp of a particular SM stalling for far fetch
-void gpgpu_sim::clear_stalled_warp(unsigned tpc_id, unsigned warp_id) {
-   m_warp_sm_stall_map[tpc_id][warp_id] = false; 
-}            
-
-// set the bitmap which warp is dispatched per SM
-void gpgpu_sim::set_dispatched_warp(unsigned tpc_id, unsigned warp_id) {
-   m_warp_sm_dispatch_map[tpc_id][warp_id] = true;
-}            
-
-// clear the bitmap which warp is dispatched per SM   
-void gpgpu_sim::clear_dispatched_warp() {
-   for(unsigned i=0; i<m_shader_config->n_simt_clusters; i++) { 
-       for(unsigned j=0; j<m_shader_config->max_warps_per_shader; j++) { 
-             m_warp_sm_dispatch_map[i][j] = false;
-       }
-   }
-}                    
-
-// if all dispatched warp per SM is stalled for far fetch
-// the whole simulator clock is ready to jump to the smallest PCI-E ready cycle
-bool gpgpu_sim::is_ready_to_jump() {
-   bool has_scheduled = false;
-
-   // if some SM has not dispatched any warp then clearly the simulator cannot jump it's clock
-   for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
-       for (unsigned j = 0; j < m_shader_config->max_warps_per_shader; j++) {
-           if (m_warp_sm_dispatch_map[i][j]) {
-               has_scheduled = true;
-           }
-       }
-   }
-
-   if(!has_scheduled) {
-       return false; 
-   }
-             
-   // now check all dispatched warps for all SMs are stalled for far fetch
-   for (unsigned i=0; i<m_shader_config->n_simt_clusters; i++) {
-       for (unsigned j=0; j<m_shader_config->max_warps_per_shader; j++) { 
-           if (m_warp_sm_dispatch_map[i][j] && !m_warp_sm_stall_map[i][j]) {
-              return false;
-           }
-       }
-   }
-                                                        
-   return true;
 }
 
