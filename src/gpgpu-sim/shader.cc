@@ -1351,6 +1351,7 @@ ldst_unit::process_managed_cache_access( cache_t* cache,
        m_core->inc_store_req( mf->get_inst().warp_id() );
    if ( status == HIT ) {
        assert( !read_sent );
+       m_core->dec_managed_access_req( mf->get_wid() );
        m_gmmu_cu_queue.pop_front();
        if ( mf->get_inst().is_load()) {
            for ( unsigned r=0; r < 4; r++) 
@@ -1364,6 +1365,7 @@ ldst_unit::process_managed_cache_access( cache_t* cache,
    } else {
        assert( status == MISS || status == HIT_RESERVED );
        //inst.clear_active( access.get_warp_mask() ); // threads in mf writeback when mf returns
+       m_core->dec_managed_access_req( mf->get_wid() );
        m_gmmu_cu_queue.pop_front();
    }    
    return result;
@@ -1526,6 +1528,7 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
 
       stall_reason = BK_CONF;
 
+      m_core->inc_managed_access_req( mf->get_wid() );
       // return false if access queue is not empty and we have already processed one memory access in the current load/store unit cycle
       return inst.accessq_empty();
   }
@@ -1611,6 +1614,7 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
                stall_cond = ICNT_RC_FAIL;
            } else {
                m_icnt->push(mf);
+	       m_core->dec_managed_access_req( mf->get_wid() );
 	       m_gmmu_cu_queue.pop_front();
                if( mf->get_inst().is_load() ) { 
                   for( unsigned r=0; r < 4; r++) 
@@ -3094,7 +3098,7 @@ bool shd_warp_t::functional_done() const
 
 bool shd_warp_t::hardware_done() const
 {
-    return functional_done() && stores_done() && !inst_in_pipeline(); 
+    return functional_done() && stores_done() && managed_access_done() && !inst_in_pipeline(); 
 }
 
 bool shd_warp_t::waiting() 

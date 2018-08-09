@@ -91,12 +91,14 @@ public:
         : m_shader(shader), m_warp_size(warp_size)
     {
         m_stores_outstanding=0;
+	m_managed_access_outstanding=0;
         m_inst_in_pipeline=0;
         reset(); 
     }
     void reset()
     {
         assert( m_stores_outstanding==0);
+	assert( m_managed_access_outstanding==0);
         assert( m_inst_in_pipeline==0);
         m_imiss_pending=false;
         m_warp_id=(unsigned)-1;
@@ -210,6 +212,14 @@ public:
         assert( m_stores_outstanding > 0 );
         m_stores_outstanding--;
     }
+   
+    bool managed_access_done() const { return m_managed_access_outstanding == 0;}
+    void inc_managed_access_req() { m_managed_access_outstanding++; }
+    void dec_managed_access_req()
+    {
+	assert( m_managed_access_outstanding > 0 );
+	m_managed_access_outstanding--;
+    }
 
     unsigned num_inst_in_buffer() const
     {
@@ -267,6 +277,8 @@ private:
     unsigned long long m_last_fetch;
 
     unsigned m_stores_outstanding; // number of store requests sent but not yet acknowledged
+
+    unsigned m_managed_access_outstanding;
     unsigned m_inst_in_pipeline;
 
     //Jin: cdp support
@@ -1673,6 +1685,9 @@ public:
     void mem_instruction_stats(const warp_inst_t &inst);
     void decrement_atomic_count( unsigned wid, unsigned n );
     void inc_store_req( unsigned warp_id) { m_warp[warp_id].inc_store_req(); }
+
+    void inc_managed_access_req( unsigned warp_id) { m_warp[warp_id].inc_managed_access_req(); }
+    void dec_managed_access_req( unsigned warp_id) { m_warp[warp_id].dec_managed_access_req(); }
     void dec_inst_in_pipeline( unsigned warp_id ) { m_warp[warp_id].dec_inst_in_pipeline(); } // also used in writeback()
     void store_ack( class mem_fetch *mf );
     bool warp_waiting_at_mem_barrier( unsigned warp_id );
