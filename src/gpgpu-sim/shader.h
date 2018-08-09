@@ -1184,7 +1184,7 @@ protected:
 protected:
    // deals with global read (load)/write (store) access
    // checks tlb for hit/miss
-   bool access_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail);
+   bool access_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
 
    bool shared_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);
    bool constant_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail, mem_stage_access_type &fail_type);

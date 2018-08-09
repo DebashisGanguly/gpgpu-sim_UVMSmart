@@ -1485,7 +1485,7 @@ void ldst_unit::insert_into_tlb(mem_addr_t page_num)
     tlb.insert(page_num);
 }
 
-bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_reason)                                                
+bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_reason, mem_stage_access_type &access_type)                                                
 {
   if (inst.empty() || inst.accessq_empty() || inst.active_count() == 0) {
       return true;
@@ -1526,9 +1526,13 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
 
       inst.accessq_pop_front();
 
-      stall_reason = BK_CONF;
-
       m_core->inc_managed_access_req( mf->get_wid() );
+      
+      if( !inst.accessq_empty() ) {
+           stall_reason = COAL_STALL;
+           access_type = inst.accessq_front().get_type() == GLOBAL_ACC_W ? G_MEM_ST : G_MEM_LD;
+      }
+      
       // return false if access queue is not empty and we have already processed one memory access in the current load/store unit cycle
       return inst.accessq_empty();
   }
@@ -1633,6 +1637,10 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
            m_gpu->getGmmu()->page_refresh( mf->get_mem_access() );
 
            insert_into_tlb(m_gpu->get_global_memory()->get_page_num(mf->get_mem_access().get_addr()));
+       } else {
+           mem_stage_access_type type = inst.accessq_front().get_type() == GLOBAL_ACC_W ? G_MEM_ST : G_MEM_LD;
+           m_stats->gpgpu_n_stall_shd_mem++;
+           m_stats->gpu_stall_shd_mem_breakdown[type][stall_cond]++;
        }
 
        return true;
@@ -2081,7 +2089,7 @@ void ldst_unit::cycle()
    bool done = true;
    
    // process the instruction's memory access queue for TLB, Page Table, and PCI-E
-   done = access_cycle(pipe_reg, rc_fail);
+   done = access_cycle(pipe_reg, rc_fail, type);
 
    // if we have already processed one memory access from instruction's access queue in the current cycle 
    // do not process further
