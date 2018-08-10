@@ -29,7 +29,8 @@
 #include <stdlib.h>
 #include "../debug.h"
 
-template<unsigned BSIZE> memory_space_impl<BSIZE>::memory_space_impl( std::string name, unsigned hash_size )
+template<unsigned BSIZE> memory_space_impl<BSIZE>::memory_space_impl( std::string name, unsigned hash_size, unsigned long long gddr_size )
+	:num_gddr_pages(gddr_size/BSIZE)
 {
    m_name = name;
    MEM_MAP_RESIZE(hash_size);
@@ -44,7 +45,7 @@ template<unsigned BSIZE> memory_space_impl<BSIZE>::memory_space_impl( std::strin
    assert( m_log2_block_size != (unsigned)-1 );
 
    // initialize the number of free pages based on size of GDDR5 and page size
-   num_free_pages = GDDR_SIZE/BSIZE;
+   num_free_pages = num_gddr_pages;
 }
 
 template<unsigned BSIZE> void memory_space_impl<BSIZE>::write( mem_addr_t addr, size_t length, const void *data, class ptx_thread_info *thd, const ptx_instruction *pI)
@@ -248,6 +249,12 @@ template<unsigned BSIZE> size_t memory_space_impl<BSIZE>::get_free_pages()
   return num_free_pages ;
 }
 
+// if the already allocated pages and about to allocate pages(in read stage queue)
+// reaches the buffer size in gddr, then it should start eviction procedure
+template<unsigned BSIZE> bool memory_space_impl<BSIZE>::should_evict_page(size_t read_stage_queue_size, float eviction_buffer_percentage)
+{
+  return (float) (num_gddr_pages - num_free_pages + read_stage_queue_size + 1) > ( (float) num_gddr_pages ) * (1.0-eviction_buffer_percentage);
+}
 
 template<unsigned BSIZE> void memory_space_impl<BSIZE>::set_page_dirty(mem_addr_t pg_index)
 {
@@ -301,7 +308,8 @@ template<unsigned BSIZE> mem_addr_t memory_space_impl<BSIZE>::get_mem_addr(mem_a
 
 template class memory_space_impl<32>;
 template class memory_space_impl<64>;
-template class memory_space_impl<8192>;
+template class memory_space_impl<4096>;
+template class memory_space_impl<1024*1024*2>;
 template class memory_space_impl<16*1024>;
 
 void g_print_memory_space(memory_space *mem, const char *format = "%08x", FILE *fout = stdout) 

@@ -1468,13 +1468,12 @@ bool ldst_unit::texture_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail,
    return inst.accessq_empty(); //done if empty.
 }
 
-#define TLB_SIZE 128
 
 void ldst_unit::insert_into_tlb(mem_addr_t page_num) 
 {
     const std::list<mem_addr_t> &accessed_pages = m_gpu->getGmmu()->get_accessed_pages();
 
-    if ( tlb.find(page_num) == tlb.end() && tlb.size() == TLB_SIZE ) {
+    if ( tlb.find(page_num) == tlb.end() && tlb.size() == m_core_config->tlb_size ) {
         for (std::list<mem_addr_t>::const_iterator iter = accessed_pages.begin(); iter != accessed_pages.end(); iter++ ) {
              if ( tlb.erase(*iter) == 1 ) {
                  break;
@@ -1788,6 +1787,7 @@ void ldst_unit::init( gpgpu_sim *gpu,
                       unsigned sid,
                       unsigned tpc )
 {
+    m_core_config = config;
     m_memory_config = mem_config;
     m_icnt = icnt;
     m_mf_allocator=mf_allocator;

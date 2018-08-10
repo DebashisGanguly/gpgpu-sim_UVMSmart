@@ -156,7 +156,8 @@ static kernel_info_t *gpgpu_cuda_ptx_sim_init_grid( const char *kernel_key,
 		gpgpu_ptx_sim_arg_list_t args,
 		struct dim3 gridDim,
 		struct dim3 blockDim,
-		struct CUctx_st* context );
+		struct CUctx_st* context,
+		const gpgpu_sim_config& gpu_config);
 
 /*DEVICE_BUILTIN*/
 struct cudaArray
@@ -1052,7 +1053,7 @@ __host__ cudaError_t CUDARTAPI cudaLaunch( const char *hostFun )
 	struct CUstream_st *stream = config.get_stream();
 	printf("\nGPGPU-Sim PTX: cudaLaunch for 0x%p (mode=%s) on stream %u\n", hostFun,
 			g_ptx_sim_mode?"functional simulation":"performance simulation", stream?stream->get_uid():0 );
-	kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(hostFun,config.get_args(),config.grid_dim(),config.block_dim(),context);
+	kernel_info_t *grid = gpgpu_cuda_ptx_sim_init_grid(hostFun,config.get_args(),config.grid_dim(),config.block_dim(),context, g_the_gpu_config);
 	std::string kname = grid->name();
 	dim3 gridDim = config.grid_dim();
 	dim3 blockDim = config.block_dim();
@@ -2436,10 +2437,11 @@ kernel_info_t *gpgpu_cuda_ptx_sim_init_grid( const char *hostFun,
 		gpgpu_ptx_sim_arg_list_t args,
 		struct dim3 gridDim,
 		struct dim3 blockDim,
-		CUctx_st* context )
+		CUctx_st* context,
+		const gpgpu_sim_config& gpu_config)
 {
 	function_info *entry = context->get_kernel(hostFun);
-	kernel_info_t *result = new kernel_info_t(gridDim,blockDim,entry);
+	kernel_info_t *result = new kernel_info_t(gridDim,blockDim,entry,gpu_config);
 	if( entry == NULL ) {
 		printf("GPGPU-Sim PTX: ERROR launching kernel -- no PTX implementation found for %p\n", hostFun);
 		abort();

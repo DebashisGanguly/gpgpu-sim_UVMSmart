@@ -1206,6 +1206,7 @@ protected:
                                                       enum cache_request_status status );
    mem_stage_stall_type process_managed_memory_access_queue( cache_t *cache );
 
+   const shader_core_config *m_core_config;
    const memory_config *m_memory_config;
    class mem_fetch_interface *m_icnt;
    shader_core_mem_fetch_allocator *m_mf_allocator;
@@ -1392,6 +1393,9 @@ struct shader_core_config : public core_config
 
     //Jin: concurrent kernel on sm
     bool gpgpu_concurrent_kernel_sm;
+
+    int tlb_size;
+    friend class ldst_unit;
 };
 
 struct shader_core_stats_pod {

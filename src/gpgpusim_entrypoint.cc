@@ -226,6 +226,7 @@ gpgpu_sim *gpgpu_ptx_sim_init_perf()
    ptx_reg_options(opp);
    ptx_opcocde_latency_options(opp);
    option_parser_cmdline(opp, sg_argc, sg_argv); // parse configuration options
+   g_the_gpu_config.convert_byte_string();
    fprintf(stdout, "GPGPU-Sim: Configuration options:\n\n");
    option_parser_print(opp, stdout);
    // Set the Numeric locale to a standard locale where a decimal point is a "dot" not a "comma"

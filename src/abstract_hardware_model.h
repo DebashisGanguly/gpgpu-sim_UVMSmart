@@ -29,8 +29,11 @@
 #define ABSTRACT_HARDWARE_MODEL_INCLUDED
 
 // Forward declarations
+class gpgpu_sim_config;
 class gpgpu_sim;
 class kernel_info_t;
+
+extern gpgpu_sim_config g_the_gpu_config;
 
 //Set a hard limit of 32 CTAs per shader [cuda only has 8]
 #define MAX_CTA_PER_SHADER 32
@@ -194,7 +197,7 @@ public:
 //      m_num_cores_running=0;
 //      m_param_mem=NULL;
 //   }
-   kernel_info_t( dim3 gridDim, dim3 blockDim, class function_info *entry );
+   kernel_info_t( dim3 gridDim, dim3 blockDim, class function_info *entry, const gpgpu_sim_config& gpu_config);
    ~kernel_info_t();
 
    void inc_running() { m_num_cores_running++; }
@@ -481,6 +484,7 @@ public:
     int         get_ptx_inst_debug_thread_uid() const { return g_ptx_inst_debug_thread_uid; }
     unsigned    get_texcache_linesize() const { return m_texcache_linesize; }
 
+    void convert_byte_string();
 private:
     // PTX options
     int m_ptx_convert_to_ptxplus;
@@ -493,6 +497,17 @@ private:
     int   g_ptx_inst_debug_thread_uid;
 
     unsigned m_texcache_linesize;
+
+protected:
+    unsigned long long gddr_size;
+    int page_size;
+
+    char* gddr_size_string;
+    char* page_size_string;
+
+    friend class gpgpu_t;
+    friend class kernel_info_t;
+    template<unsigned BSIZE> friend class memory_space_impl;
 };
 
 struct allocation_info {

@@ -49,8 +49,6 @@
 typedef address_type mem_addr_t;
 
 #define MEM_BLOCK_SIZE (4*1024)
-// using macro temporarily
-#define GDDR_SIZE 1024*1024*1024/2
 
 template<unsigned BSIZE> class mem_storage {
 public:
@@ -181,11 +179,12 @@ public:
    virtual size_t                       get_page_size() = 0;
    virtual mem_addr_t                   get_mem_addr(mem_addr_t pg_index) = 0;
    virtual bool                         is_valid (mem_addr_t pg_index) = 0;
+   virtual bool				should_evict_page(size_t read_stage_queue_size, float eviction_buffer_percentage) = 0;
 };
 
 template<unsigned BSIZE> class memory_space_impl : public memory_space {
 public:
-   memory_space_impl( std::string name, unsigned hash_size );
+   memory_space_impl( std::string name, unsigned hash_size, unsigned long long gddr_size = 0 );
 
    virtual void write( mem_addr_t addr, size_t length, const void *data, ptx_thread_info *thd, const ptx_instruction *pI );
    virtual void read( mem_addr_t addr, size_t length, void *data ) const;
@@ -221,7 +220,8 @@ public:
    virtual size_t get_page_size();
    virtual mem_addr_t get_mem_addr(mem_addr_t pg_index);
 
-   virtual bool is_valid (mem_addr_t pg_index);   
+   virtual bool is_valid (mem_addr_t pg_index);
+   virtual bool should_evict_page(size_t read_stage_queue_size, float eviction_buffer_percentage);   
 private:
    void read_single_block( mem_addr_t blk_idx, mem_addr_t addr, size_t length, void *data) const; 
    std::string m_name;
@@ -239,6 +239,9 @@ private:
    // it should be decremented on every allocation either managed or unmanaged 
    // i.e., gpu_malloc, gpu_mallocmanaged, gpu_mallocarray
    size_t num_free_pages;
+
+   // the size of gddr in number of pages
+   const size_t num_gddr_pages;
 
    std::map<unsigned,mem_addr_t> m_watchpoints;
    

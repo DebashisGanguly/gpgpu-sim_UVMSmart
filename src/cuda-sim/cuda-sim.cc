@@ -1703,9 +1703,10 @@ kernel_info_t *gpgpu_opencl_ptx_sim_init_grid(class function_info *entry,
                                              gpgpu_ptx_sim_arg_list_t args, 
                                              struct dim3 gridDim,
                                              struct dim3 blockDim,
-                                             gpgpu_t *gpu )
+                                             gpgpu_t *gpu,
+					     const gpgpu_sim_config& config)
 {
-   kernel_info_t *result = new kernel_info_t(gridDim,blockDim,entry);
+   kernel_info_t *result = new kernel_info_t(gridDim,blockDim,entry, config);
    unsigned argcount=args.size();
    unsigned argn=1;
    for( gpgpu_ptx_sim_arg_list_t::iterator a = args.begin(); a != args.end(); a++ ) {

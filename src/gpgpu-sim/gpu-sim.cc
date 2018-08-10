@@ -381,6 +381,10 @@ void shader_core_config::reg_options(class OptionParser * opp)
     option_parser_register(opp, "-gpgpu_concurrent_kernel_sm", OPT_BOOL, &gpgpu_concurrent_kernel_sm, 
                 "Support concurrent kernels on a SM (default = disabled)", 
                 "0");
+
+    option_parser_register(opp, "-tlb_size", OPT_INT32, &tlb_size,           
+                            "Number of tlb entries per SM.",
+                            "4096");
 }
 
 void gpgpu_sim_config::reg_options(option_parser_t opp)
@@ -452,6 +456,35 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
     option_parser_register(opp, "-trace_sampling_memory_partition", OPT_INT32, 
                           &Trace::sampling_memory_partition, "The memory partition which is printed using MEMPART_DPRINTF. Default -1 (i.e. all)",
                           "-1");
+
+    option_parser_register(opp, "-gddr_size", OPT_CSTR, &gddr_size_string,
+               "Size of GDDR in MB/GB.(GLOBAL_HEAP_START, GLOBAL_HEAP_START + gddr_size) would be used for unmanged memory, (GLOBAL_HEAP_START + gddr_size, GLOBAL_HEAP_START + gddr_size*2) would be used for managed memory. ",
+               "1GB");
+
+    option_parser_register(opp, "-page_table_walk_latency", OPT_INT64, &page_table_walk_latency,                                                                                          
+               "Average page table walk latency (in core cycle).",
+               "100");
+
+    option_parser_register(opp, "-num_of_lanes", OPT_INT32, &pcie_num_lanes,
+               "Number of PCI-e lanes",
+               "16");
+
+    option_parser_register(opp, "-eviction_policy", OPT_CSTR, &eviction_policy,                 
+               "Memory eviction policy: lru or random.",
+               "lru");
+
+    option_parser_register(opp, "-percentage_of_free_page_buffer", OPT_FLOAT, &free_page_buffer_percentage,     
+               "Percentage of free page buffer to trigger the page eviction.",
+               "0.0");
+
+    option_parser_register(opp, "-page_size", OPT_CSTR, &page_size_string,                                                                                                                              
+               "GDDR page size, only 4KB/2MB avaliable.",
+               "4KB");
+ 
+    option_parser_register(opp, "-pcie_transfer_rate", OPT_CSTR, &pcie_transfer_rate_string,          
+               "PCI-e transfer rate per lane, per direction, in GT/s.",
+               "8.0GT/s");
+
    ptx_file_line_stats_options(opp);
 
     //Jin: kernel launch latency
@@ -465,6 +498,17 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                           "0");
 }
 
+void gpgpu_sim_config::convert_byte_string()
+{
+   gpgpu_functional_sim_config::convert_byte_string();
+   if(strstr(pcie_transfer_rate_string, "GT/s")) {
+       pcie_transfer_rate = strtof(pcie_transfer_rate_string, NULL);
+   } else { 
+       printf("-pcie_transfer_rate should be in GT/s\n");
+       exit(1);
+   }     
+ 
+}
 /////////////////////////////////////////////////////////////////////////////
 
 void increment_x_then_y_then_z( dim3 &i, const dim3 &bound)
@@ -1401,21 +1445,18 @@ void gpgpu_sim::issue_block2core()
 unsigned long long g_single_step=0; // set this in gdb to single step the pipeline
 
 
-// for now just use macro
-
-// pcie latency is the number of cu cycles to finish transfer a pge 
-#define PCIE_LATENCY 12000
- 
-// page table walk latency
-#define PAGE_TABLE_WALK_DELAY 200
-
-// number of lanes for pcie
-#define PCIE_NUM_LANE 16
-
 gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config)
-	:m_gpu(gpu),m_config(config)
+	:m_gpu(gpu),m_config(config), pcie_latency( (unsigned long long) (8.0 * (float)m_config.page_size * m_config.core_freq / m_config.pcie_transfer_rate / 1000000000.0) )
 {
     m_shader_config = &m_config.m_shader_config;
+    if( std::string(m_config.eviction_policy) == "lru" ) {
+       policy = eviction_policy::LRU; 
+    } else if (	std::string(m_config.eviction_policy) == "random" ) {
+       policy = eviction_policy::RANDOM;
+    } else {
+        printf("Unknown eviction policy"); 
+        exit(1);
+    }
 }
 
 void gmmu_t::accessed_pages_erase(mem_addr_t page_num)
@@ -1452,7 +1493,18 @@ void gmmu_t::page_eviction_procedure()
 {
     assert( !accessed_pages.empty() );
 
-    mem_addr_t page_num =  accessed_pages.front() ;
+    mem_addr_t page_num;
+
+    // in lru, only evict the least recently used pages at the front of accessed pages queue
+    if( policy == eviction_policy::LRU ) {
+        page_num =  accessed_pages.front() ;
+    } else {
+    // in random eviction, select a random page
+	list<mem_addr_t>::iterator iter = accessed_pages.begin();
+        std::advance(iter, rand() % accessed_pages.size() );
+        page_num = *iter;
+    }
+
 
     if( m_gpu->get_global_memory()->is_page_dirty(page_num) ) {
         pcie_write_stage_queue.push_back( page_num );
@@ -1466,7 +1518,11 @@ void gmmu_t::page_eviction_procedure()
 	tlb_flush( page_num);
     }
    
-    accessed_pages.pop_front();
+    if( policy == eviction_policy::LRU ) {
+        accessed_pages.pop_front();
+    } else {
+	accessed_pages.erase ( find( accessed_pages.begin(), accessed_pages.end(), page_num ) );
+    }
 }
 
 void gmmu_t::page_refresh(mem_access_t ma)
@@ -1516,11 +1572,11 @@ void gmmu_t::cycle()
     unsigned schedule = pcie_write_latency_queue.size();
 
     // schedule a write back transfer if there is a write back request in staging queue and a free lane
-    while ( !pcie_write_stage_queue.empty() && schedule < PCIE_NUM_LANE) {
+    while ( !pcie_write_stage_queue.empty() && schedule < m_config.pcie_num_lanes) {
         struct pcie_latency_t p_t; 
 
         p_t.page_num = pcie_write_stage_queue.front();
-        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + PCIE_LATENCY;
+        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
         pcie_write_latency_queue.push_back(p_t);
 
 	assert( m_gpu->get_global_memory()->is_page_dirty(pcie_write_stage_queue.front()) );
@@ -1577,11 +1633,11 @@ void gmmu_t::cycle()
     schedule = pcie_read_latency_queue.size();
 
     // schedule a transfer if there is a page request in staging queue and a free lane
-    while ( !pcie_read_stage_queue.empty() && schedule < PCIE_NUM_LANE && m_gpu->get_global_memory()->get_free_pages() > 0) {
+    while ( !pcie_read_stage_queue.empty() && schedule < m_config.pcie_num_lanes && m_gpu->get_global_memory()->get_free_pages() > 0) {
         struct pcie_latency_t p_t;
 
         p_t.page_num = pcie_read_stage_queue.front();
-        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + PCIE_LATENCY;
+        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
         pcie_read_latency_queue.push_back(p_t);
 
 	pcie_read_stage_queue.pop_front();
@@ -1617,7 +1673,7 @@ void gmmu_t::cycle()
 		// for each page fault, the possible eviction procudure will only be called once here
 		// if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
 		// the number of staged read requests, then call the eviction
-		if ( m_gpu->get_global_memory()->get_free_pages() <= pcie_read_stage_queue.size() ) { 
+		if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
 			page_eviction_procedure();
 		}
 
@@ -1639,7 +1695,7 @@ void gmmu_t::cycle()
 
             struct page_table_walk_latency_t pt_t;
             pt_t.mf = mf;
-            pt_t.ready_cycle = gpu_sim_cycle+gpu_tot_sim_cycle + PAGE_TABLE_WALK_DELAY;
+            pt_t.ready_cycle = gpu_sim_cycle+gpu_tot_sim_cycle + m_config.page_table_walk_latency;
 
             page_table_walk_queue.push_back(pt_t);    
 

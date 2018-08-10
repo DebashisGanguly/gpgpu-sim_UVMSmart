@@ -1,5 +1,6 @@
 //Jin: cuda_device_runtime.h
 //Defines CUDA device runtime APIs for CDP support
+extern gpgpu_sim_config g_the_gpu_config;
 #if (CUDART_VERSION >= 5000)
 #pragma once
 

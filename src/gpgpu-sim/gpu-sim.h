@@ -318,6 +318,7 @@ public:
     unsigned num_core_per_cluster() const { return m_shader_config.n_simt_cores_per_cluster;}
     unsigned get_max_concurrent_kernel() const { return max_concurrent_kernel; }
 
+    void convert_byte_string();
 private:
     void init_clock_domains(void ); 
 
@@ -361,6 +362,14 @@ private:
 
 
     unsigned long long liveness_message_freq; 
+    unsigned long long page_table_walk_latency;
+    int pcie_num_lanes;
+    char* eviction_policy;
+
+    float free_page_buffer_percentage;
+
+    char* pcie_transfer_rate_string;
+    float pcie_transfer_rate; 
 
     friend class gpgpu_sim;
     friend class gmmu_t;
@@ -434,6 +443,13 @@ private:
     // list of accessed pages (valid = 1, accessed = 1, dirty = 1/0) ordered as LRU
     std::list<mem_addr_t> accessed_pages;
 
+    // page eviction policy lru or random
+    enum class eviction_policy { LRU, RANDOM }; 
+
+    eviction_policy policy;    
+
+    // PCI-e latency in number of core cycles
+    const unsigned long long pcie_latency;
 };
 
 

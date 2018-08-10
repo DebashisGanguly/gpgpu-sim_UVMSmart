@@ -89,16 +89,45 @@ void gpgpu_functional_sim_config::ptx_set_tex_cache_linesize(unsigned linesize)
    m_texcache_linesize = linesize;
 }
 
+void gpgpu_functional_sim_config::convert_byte_string()
+{
+   if(strstr(gddr_size_string, "MB")) {
+      gddr_size = strtol(gddr_size_string, NULL, 10) * 1024 * 1024;
+   } else if(strstr(gddr_size_string, "GB")){
+       gddr_size = strtol(gddr_size_string, NULL, 10) * 1024 * 1024 * 1024;
+   } else {
+       printf("-gddr_size must be in MB/GB\n");
+       exit(1);
+   }
+
+   // the only available page size is 4k/2mb
+   if(std::string(page_size_string) == "4KB"){      
+       page_size = 4096;
+   } else if(std::string(page_size_string) == "2MB"){
+       page_size = 2097152;
+   } else {
+       printf("-page_size only support 4KB and 2MB\n");
+       exit(1);
+   }
+
+}
 gpgpu_t::gpgpu_t( const gpgpu_functional_sim_config &config )
     : m_function_model_config(config)
 {
-   m_global_mem = new memory_space_impl<8192>("global",64*1024);
-   m_tex_mem = new memory_space_impl<8192>("tex",64*1024);
-   m_surf_mem = new memory_space_impl<8192>("surf",64*1024);
+
+   if(config.page_size == 4096) {
+       m_global_mem = new memory_space_impl<4096>("global",64*1024, config.gddr_size);
+       m_tex_mem = new memory_space_impl<4096>("tex",64*1024);
+       m_surf_mem = new memory_space_impl<4096>("surf",64*1024);
+   } else {
+       m_global_mem = new memory_space_impl<2*1024*1024>("global",64*1024, config.gddr_size);
+       m_tex_mem = new memory_space_impl<2*1024*1024>("tex",64*1024);
+       m_surf_mem = new memory_space_impl<2*1024*1024>("surf",64*1024); 
+   }
 
    // make sure the memory address that would be used for m_dev_malloc_managed 
    // doesn't go accross the 32 bit addressing limit
-   assert( ((unsigned long long) GLOBAL_HEAP_START + GDDR_SIZE * 2 ) <= MEM_SPACE_LIMIT );  
+   assert( ((unsigned long long) GLOBAL_HEAP_START + config.gddr_size * 2 ) <= MEM_SPACE_LIMIT );  
  
     m_dev_malloc=GLOBAL_HEAP_START;
   
@@ -106,7 +135,7 @@ gpgpu_t::gpgpu_t( const gpgpu_functional_sim_config &config )
    // managed allocations can be evicted on memory overflow whereas unmanaged are pinned
    // also only managed pages may suffer latency for page table walkthrough/access and PCI-E
    // because of this managed and unmanaged allocation can not be from same page
-   m_dev_malloc_managed=GLOBAL_HEAP_START + GDDR_SIZE; //size of GDDR5; remove hardcoding and read from config 
+   m_dev_malloc_managed=GLOBAL_HEAP_START + config.gddr_size; 
 
    if(m_function_model_config.get_ptx_inst_debug_to_file() != 0) 
       ptx_inst_debug_file = fopen(m_function_model_config.get_ptx_inst_debug_file(), "w");
@@ -566,7 +595,7 @@ unsigned g_kernel_launch_latency;
 
 unsigned kernel_info_t::m_next_uid = 1;
 
-kernel_info_t::kernel_info_t( dim3 gridDim, dim3 blockDim, class function_info *entry )
+kernel_info_t::kernel_info_t( dim3 gridDim, dim3 blockDim, class function_info *entry, const gpgpu_sim_config& gpu_config)
 {
     m_kernel_entry=entry;
     m_grid_dim=gridDim;
@@ -577,7 +606,11 @@ kernel_info_t::kernel_info_t( dim3 gridDim, dim3 blockDim, class function_info *
     m_next_tid=m_next_cta;
     m_num_cores_running=0;
     m_uid = m_next_uid++;
-    m_param_mem = new memory_space_impl<8192>("param",64*1024);
+    if(gpu_config.page_size == 4096) {
+	m_param_mem = new memory_space_impl<4096>("param",64*1024);
+    } else {
+	m_param_mem = new memory_space_impl<2*1024*1024>("param",64*1024);
+    }
 
     //Jin: parent and child kernel management for CDP
     m_parent_kernel = NULL;

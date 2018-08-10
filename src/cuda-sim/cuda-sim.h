@@ -52,7 +52,7 @@ extern class kernel_info_t *gpgpu_opencl_ptx_sim_init_grid(class function_info *
                                             gpgpu_ptx_sim_arg_list_t args, 
                                             struct dim3 gridDim, 
                                             struct dim3 blockDim, 
-                                                          class gpgpu_t *gpu );
+                                                          class gpgpu_t *gpu, const gpgpu_sim_config& config );
 extern void gpgpu_cuda_ptx_sim_main_func( kernel_info_t &kernel, bool openCL = false );
 extern void   print_splash();
 extern void   gpgpu_ptx_sim_register_const_variable(void*, const char *deviceName, size_t size );
