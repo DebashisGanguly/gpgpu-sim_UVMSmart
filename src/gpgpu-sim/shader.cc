@@ -1356,7 +1356,29 @@ ldst_unit::process_managed_cache_access( cache_t* cache,
        if ( mf->get_inst().is_load()) {
            for ( unsigned r=0; r < 4; r++) 
                if (mf->get_inst().out[r] > 0) 
-                   m_pending_writes[ mf->get_inst().warp_id() ][mf->get_inst().out[r]]--; 
+                   m_pending_writes[ mf->get_inst().warp_id() ][mf->get_inst().out[r]]--;
+
+           bool pending_requests=false;
+           warp_inst_t &pipe_reg = mf->get_inst();
+           unsigned warp_id = mf->get_wid();
+           for( unsigned r=0; r<4; r++ ) {
+               unsigned reg_id = pipe_reg.out[r];
+               if( reg_id > 0 ) {
+                   if( m_pending_writes[warp_id].find(reg_id) != m_pending_writes[warp_id].end() ) {
+                       if ( m_pending_writes[warp_id][reg_id] > 0 ) {
+                           pending_requests=true;
+                           break;
+                       } else {
+                           // this instruction is done already
+                           m_pending_writes[warp_id].erase(reg_id);
+                       }
+                   }
+               }
+           }
+           if( !pending_requests ) {
+               m_core->warp_inst_complete(pipe_reg);
+               m_scoreboard->releaseRegisters(&pipe_reg);
+           } 
        }
    } else if ( status == RESERVATION_FAIL ) {
        result = COAL_STALL;

@@ -107,7 +107,7 @@ public:
    mem_access_byte_mask_t get_access_byte_mask() const { return m_access.get_byte_mask(); }
 
    address_type get_pc() const { return m_inst.empty()?-1:m_inst.pc; }
-   const warp_inst_t &get_inst() { return m_inst; }
+   warp_inst_t &get_inst() { return m_inst; }
    enum mem_fetch_status get_status() const { return m_status; }
 
    const memory_config *get_mem_config(){return m_mem_config;}
