@@ -398,6 +398,9 @@ public:
    const std::list<mem_addr_t>& get_accessed_pages() { return accessed_pages; }
 
    void accessed_pages_erase(mem_addr_t pagenum);
+
+   void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
+   void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -450,6 +453,40 @@ private:
 
     // PCI-e latency in number of core cycles
     const unsigned long long pcie_latency;
+
+    struct prefetch_req {
+        // starting address (rolled up and down for page alignment) for the prefetch
+	mem_addr_t start_addr;
+
+        // current address from the start up to which PCI-e has already processed
+	mem_addr_t cur_addr;
+
+        // starting address of the current variable allocation
+	mem_addr_t allocation_addr;
+
+        // total size (rolled up and down for page alignment) for the prefetch
+	size_t size;
+
+        // stream associated to the prefetch
+	CUstream_st *m_stream;
+
+        // memory fetches, which are created upon page fault and are depending on current prefetch,
+        // aggreagted before the prefetch is actually scheduled
+	std::map<mem_addr_t, std::list<mem_fetch*> > incoming_replayable_nacks;
+
+        // memory fetches that are finished PCI-e transfer are aggregated to be replayed together
+        // upon completion of the prefetch
+	std::map<mem_addr_t, std::list<mem_fetch*> > outgoing_replayable_nacks; 
+
+        // list of pages (max upto 2MB) from the current prefetch request which are being served by PCI-e
+	std::list<mem_addr_t> pending_prefetch;
+
+        // stream manager upon reaching to this entry of the queue sets it to active 
+	bool active;
+    };
+
+    std::list<prefetch_req> prefetch_req_buffer;
+
 };
 
 

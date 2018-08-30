@@ -494,6 +494,7 @@ __host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, uns
 	//so we need to copy the actual data on kernel launch 
 	context->get_device()->get_gpgpu()->memcpy_to_gpu((size_t)gpuMemPtr, (void *)cpuMemPtr, size);
 
+        context->get_device()->get_gpgpu()->set_pages_managed( (size_t)gpuMemPtr, size);
 	//return cpu memory pointer to the user code 
 	//such that cpu side code can access the memory
 	*devPtr = cpuMemPtr;
@@ -748,10 +749,42 @@ __host__ cudaError_t CUDARTAPI cudaMemPrefetchAsync(const void *devPtr, size_t c
 	struct CUstream_st *s = (struct CUstream_st *)stream;
 	
 	if (dstDevice == cudaCpuDeviceId) {
-		//declare new stream_operation for cudaMallocManaged type address
-		//g_stream_manager->push( stream_operation((size_t)src,dst,count,s) );
-	} else if (dstDevice == g_active_device) {
-		//g_stream_manager->push( stream_operation(src,(size_t)dst,count,s) );
+	        // not a priority thing as cudaDeviceSynchronize does the same job
+        } else if (dstDevice == g_active_device) {
+		CUctx_st* context = GPGPUSim_Context();
+
+		const std::map<uint64_t, struct allocation_info*>& managedAllocations = 
+		    context->get_device()->get_gpgpu()->gpu_get_managed_allocations();
+		
+		uint64_t gpuPtr = 0;
+		uint64_t allocationPtr = 0;
+
+		for(std::map<uint64_t, struct allocation_info*>::const_iterator iter = managedAllocations.begin();
+       		    iter != managedAllocations.end(); iter++) {
+                    // find the allocation for the host pointer recieved as argument
+                    // remember: we have emulated behavior of UVM by having both CPU and GPU copies of same data
+       		    if( (uint64_t)devPtr >= iter->first && (uint64_t)devPtr + count <= iter->first + iter->second->allocation_size) {
+			allocationPtr = iter->second->gpu_mem_addr;
+                        // gpuPtr is offset to align with host ptr or cpu ptr from the allocation start
+	   		gpuPtr = iter->second->gpu_mem_addr + ((uint64_t)devPtr - iter->first);
+			break;
+       		    }
+   		}
+
+		assert(gpuPtr != NULL);
+
+		size_t page_size = context->get_device()->get_gpgpu()->get_global_memory()->get_page_size();
+
+		uint64_t start_addr = (gpuPtr / page_size) * page_size; // rolling up to make it page aligned
+   		uint64_t end_addr = (gpuPtr + count - 1) / page_size * page_size + page_size; // rolling down to to make it page aligned after adding the total size 
+
+		assert( start_addr != end_addr );
+   		assert( (end_addr - start_addr) % page_size  == 0 );
+
+		g_stream_manager->register_prefetch((size_t)start_addr, (size_t)allocationPtr, (size_t) (end_addr - start_addr), s == NULL ? g_stream_manager->get_stream_zero() : s );
+
+		g_stream_manager->push( stream_operation((size_t)start_addr, (size_t) (end_addr-start_addr), s) );
+
 	} else {
 		abort();
 	}
@@ -1027,9 +1060,7 @@ __host__ cudaError_t CUDARTAPI cudaSetupArgument(const void *arg, size_t size, s
 	    
                 allocation->copied = true;
 
-	        //mark the pages as managed
-	        context->get_device()->get_gpgpu()->set_pages_managed( (size_t)devPtr, allocation->allocation_size);
-            }
+	    }
 
 	    //override the pointer argument to refer to gpu side allocation rather than cpu side memory
 	    //gpgpu-sim only understands pointer reference from m_dev_malloc 

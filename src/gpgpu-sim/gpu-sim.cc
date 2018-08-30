@@ -1403,6 +1403,15 @@ void dram_t::dram_log( int task )
 //Find next clock domain and increment its time
 int gpgpu_sim::next_clock_domain(void) 
 {
+   // to get the cycles spent for any cuda stream operation before and after the kernel is launched
+   // monotonically increase the total simulation cycle
+   if( !active() ) {
+        int mask = 0x00;
+        mask |= GMMU;
+        gpu_tot_sim_cycle++;
+        return mask;
+   }
+
    double smallest = min4(core_time,icnt_time,dram_time,gmmu_time);
    int mask = 0x00;
    if ( l2_time <= smallest ) {
@@ -1544,6 +1553,33 @@ void gmmu_t::page_refresh(mem_access_t ma)
     accessed_pages.push_back(page_num);	
 }
 
+void gmmu_t::activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream)
+{
+     for(std::list<prefetch_req>::iterator iter = prefetch_req_buffer.begin(); iter!=prefetch_req_buffer.end(); iter++){
+	 if(iter->start_addr == m_device_addr && iter->size == m_cnt && iter->m_stream->get_uid() == m_stream->get_uid()) {
+		assert(iter->cur_addr == m_device_addr);
+		iter->active = true;
+		return;
+	 }
+     }
+}
+
+void gmmu_t::register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream)
+{
+    struct prefetch_req pre_q;
+
+    pre_q.start_addr = m_device_addr;
+    pre_q.cur_addr = m_device_addr;
+    pre_q.allocation_addr = m_device_allocation_ptr;
+    pre_q.size = m_cnt;
+    pre_q.active = false;
+    pre_q.m_stream = m_stream;
+
+    prefetch_req_buffer.push_back(pre_q);
+}
+
+#define MAX_PREFETCH_SIZE 2*1024*1024
+
 void gmmu_t::cycle()
 {
     int simt_cluster_id = 0;
@@ -1608,25 +1644,56 @@ void gmmu_t::cycle()
 
                 // validate the page in page table
                 m_gpu->get_global_memory()->validate_page(iter->page_num);
-		
-                // for all memory fetches that were waiting for this page, should be replayed back for cache access 
-                for ( std::list<mem_fetch*>::iterator iter2 = req_info[iter->page_num].begin();
-                    iter2 != req_info[iter->page_num].end(); iter2++){
-                    mem_fetch* mf = *iter2;
-                        
-                    simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
 
-                    // push the memory fetch into the gmmu to cu queue
-                    (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
-                }    
+		assert(req_info.find(iter->page_num) != req_info.end());
+
+                // check if the transferred page is part of a prefetch request
+		if ( !prefetch_req_buffer.empty() ) {
+
+        	    prefetch_req& pre_q = prefetch_req_buffer.front();
+
+		    std::list<mem_addr_t>::iterator iter2 = find(pre_q.pending_prefetch.begin(), pre_q.pending_prefetch.end(), iter->page_num);
+
+		    if( iter2 != pre_q.pending_prefetch.end() ) {
+			
+                        // pending prefetch holds the list of 4KB pages of a big chunk of tranfer (max upto 2MB)
+                        // remove it from the list as the PCI-e has transferred the page
+			pre_q.pending_prefetch.erase(iter2);
+		
+		        // if this page is part of current prefecth request 
+                        // add all the dependant memory requests to the outgoing_replayable_nacks
+                        // these should be replayed only when current block of memory transfer is finished
+			pre_q.outgoing_replayable_nacks[iter->page_num].merge(req_info[iter->page_num]);
+
+                        // erase the page from the MSHR map
+			req_info.erase(req_info.find(iter->page_num));			
+		    }
+
+		}
+
+		// this page request is created by core on page fault and not part of a prefetch
+		if( req_info.find(iter->page_num) != req_info.end()) {
+
+                    // for all memory fetches that were waiting for this page, should be replayed back for cache access 
+		    for ( std::list<mem_fetch*>::iterator iter2 = req_info[iter->page_num].begin();
+                          iter2 != req_info[iter->page_num].end(); iter2++){
+                          mem_fetch* mf = *iter2;
+                        
+                          simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
+
+                          // push the memory fetch into the gmmu to cu queue
+                          (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
+                    }    
                
-                // erase the page from the MSHR map
-                req_info.erase(req_info.find(iter->page_num));
-  
+                    // erase the page from the MSHR map
+                    req_info.erase(req_info.find(iter->page_num));
+
+		}
+
                 pcie_read_latency_queue.pop_front();
 
                 iter = pcie_read_latency_queue.begin();
-            }    
+            } 
         } 
     }
 
@@ -1664,23 +1731,49 @@ void gmmu_t::cycle()
             (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
         } else {
             assert(page_list.size() == 1); 
-      
-            // one memory fetch request should only have one page fault
-            // because they are always coalesced
- 	    // if there is already a page in the staging queue, don't need to add it again
-	    if ( req_info.find( *(page_list.begin()) ) == req_info.end()) {
+     
+	    
+	    // the page request is already there in MSHR either as a page fault or as part of scheduled prefetch request
+	    if ( req_info.find( *(page_list.begin()) ) != req_info.end()) {
 
-		// for each page fault, the possible eviction procudure will only be called once here
-		// if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
-		// the number of staged read requests, then call the eviction
-		if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
-			page_eviction_procedure();
-		}
+		 req_info[*(page_list.begin())].push_back(mf);
+	    } else {
 
-                pcie_read_stage_queue.push_back(page_list.front());
+	    	 // if the memory fetch is part of any requests in the prefetch command buffer
+                 // then add it to the incoming replayable_nacks
+		 std::list<prefetch_req>::iterator iter;
+
+	    	 for( iter = prefetch_req_buffer.begin(); iter != prefetch_req_buffer.end(); iter++) {
+
+		      if( iter->start_addr <= mf->get_addr() &&
+		          mf->get_addr() < iter->start_addr + iter->size) {
+ 
+ 			  iter->incoming_replayable_nacks[page_list.front()].push_back(mf);
+			  break;
+		      }
+	    	 }
+
+	         // if the memory fetch is not part of any request in the prefetch command buffer
+	         if ( iter == prefetch_req_buffer.end()) {
+
+                     // one memory fetch request should only have one page fault
+                     // because they are always coalesced
+ 	             // if there is already a page in the staging queue, don't need to add it again
+		     if ( req_info.find( *(page_list.begin()) ) == req_info.end()) {
+
+                          // for each page fault, the possible eviction procudure will only be called once here
+                          // if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
+                          // the number of staged read requests, then call the eviction
+                          if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
+                               page_eviction_procedure();
+                          }    
+
+                          pcie_read_stage_queue.push_back(page_list.front());
+                     }    
+
+		     req_info[*(page_list.begin())].push_back(mf);
+	         }
 	    }
-
-            req_info[*(page_list.begin())].push_back(mf);
         }
 
         page_table_walk_queue.pop_front();
@@ -1701,6 +1794,100 @@ void gmmu_t::cycle()
 
             (m_gpu->getSIMTCluster(i))->pop_cu_gmmu_queue();
         }
+    }
+
+    // check if there is an active outstanding prefetch request
+    if( !prefetch_req_buffer.empty() && prefetch_req_buffer.front().active) {
+
+	prefetch_req& pre_q = prefetch_req_buffer.front();
+
+        // schedule for page transfers from the active prefetch request when there is no pending transfer for the same
+        // can be the very first time or a scheduled big chunk of pages (2MB) is finsihed just now
+	if ( pre_q.pending_prefetch.empty() ) {
+
+	     // case when the last schedule finished, it is not the first time
+	     if( pre_q.cur_addr > pre_q.start_addr ) {
+
+		 // all the memory fetches created by core on page fault were aggreagted earlier
+                 // now they are replayed back together to the core
+	         for( map<mem_addr_t, std::list<mem_fetch*> >::iterator iter = pre_q.outgoing_replayable_nacks.begin();
+		      iter != pre_q.outgoing_replayable_nacks.end(); iter++) {
+
+		      for(std::list<mem_fetch*>::iterator iter2 = iter->second.begin();
+			  iter2 != iter->second.end(); iter2++) {
+
+		      	  mem_fetch* mf = *iter2;
+                        
+		          simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
+		          // push them to the upward queue to replay them back to the corresponding core in bulk
+                          (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
+		      }
+	    	 }
+		 pre_q.outgoing_replayable_nacks.clear();
+	     }
+	    
+             // all the memory fetches have been replayed and
+	     // the prefetch request is completed entirely
+             // now signal the stream that the operation is finished so that it can schedule something else 
+	     if( pre_q.cur_addr == pre_q.start_addr + pre_q.size ) {
+
+	    	 pre_q.m_stream->record_next_done();
+	    	 prefetch_req_buffer.pop_front();
+		 return ;
+	     }
+	   
+	     // break the loop if 
+             //  Case 1: reach the end of this prefetch
+             //  Case 2: it reaches the 2MB line from starting of the allocation
+             //  Case 3: it encounters a valid page in between
+	     do {
+                    // get the page number for the current updated address
+		    mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num(pre_q.cur_addr);
+
+                    // update the current address by page size as we break a big chunk (2MB) 
+                    // in the granularity of the smallest unit of page
+	            pre_q.cur_addr += m_config.page_size;
+
+		    // check for Case 3, i.e., we encounter a valid page
+		    if(  m_gpu->get_global_memory()->is_valid( page_num ) ) {
+
+			 // check if this page is currently written back
+			 check_write_stage_queue(page_num);
+
+			 // break out of loop only when we have already scheduled some pages for transfer
+                         // if not we will continue skipping valid pages if any until we find some invalid pages to transfer
+                         if( !pre_q.pending_prefetch.empty() ) { 
+                             break;
+                     	 }    
+		    } else {
+
+                         // remember this page as pending under the prefetch request
+		         pre_q.pending_prefetch.push_back(page_num);
+			 
+			 // just create a placeholder in MSHR for the memory fetches created by core on page fault
+                         // later in the time so that they go to outgoing replayable nacks, rather than incoming 
+			 req_info[page_num];
+
+			 // incoming nacks hold the list of page faults for the transfer which has not been scheduled yet
+                         // so instead of pushing them to MSHR and then again getting back to the outgoing list
+                         // directly switch between the incoming and outgoing list of replayable nacks
+			 if ( pre_q.incoming_replayable_nacks.find(page_num) != pre_q.incoming_replayable_nacks.end() ) {
+			      pre_q.outgoing_replayable_nacks[page_num].merge(pre_q.incoming_replayable_nacks[page_num]);
+			      pre_q.incoming_replayable_nacks.erase( page_num );
+			 }
+
+			 // current prefetch can cause eviction 
+		         if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
+                              page_eviction_procedure();
+                    	 }    
+ 
+			 // schedule this page as it is not valid to the read stage queue
+                     	 pcie_read_stage_queue.push_back(page_num);
+                    }
+		    
+	     } while( pre_q.cur_addr != (pre_q.start_addr + pre_q.size) && // check for Case 1, i.e., we reached the end of prefetch request
+                      ((unsigned long long)(pre_q.cur_addr - pre_q.allocation_addr)) % ((unsigned long long)MAX_PREFETCH_SIZE) ); // Case 2: allowing maximum transfer size as huge page size of 2MB
+	} 
     }
 }
 

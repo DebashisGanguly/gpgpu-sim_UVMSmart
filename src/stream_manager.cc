@@ -119,6 +119,10 @@ void CUstream_st::print(FILE *fp)
     pthread_mutex_unlock(&m_lock);
 }
 
+void stream_manager::register_prefetch(size_t m_device_addr, size_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream)
+{
+    m_gpu->getGmmu()->register_prefetch(m_device_addr,m_device_allocation_ptr,m_cnt,m_stream);   
+}
 
 bool stream_operation::do_operation( gpgpu_sim *gpu )
 {
@@ -129,6 +133,9 @@ bool stream_operation::do_operation( gpgpu_sim *gpu )
     if(g_debug_execution >= 3)
        printf("GPGPU-Sim API: stream %u performing ", m_stream->get_uid() );
     switch( m_type ) {
+    case stream_prefetch_host_to_device:
+	gpu->getGmmu()->activate_prefetch(m_device_address_dst, m_cnt, m_stream);
+	break;
     case stream_memcpy_host_to_device:
         if(g_debug_execution >= 3)
             printf("memcpy host-to-device\n");

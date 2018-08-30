@@ -50,6 +50,7 @@ enum stream_operation_type {
     stream_memcpy_device_to_device,
     stream_memcpy_to_symbol,
     stream_memcpy_from_symbol,
+    stream_prefetch_host_to_device,
     stream_kernel_launch,
     stream_event
 };
@@ -141,6 +142,19 @@ public:
         m_done=false;
     }
 
+    stream_operation( size_t device_address_dst, size_t cnt, struct CUstream_st *stream  )
+    {   
+        m_kernel=NULL;
+        m_type=stream_prefetch_host_to_device;
+        m_device_address_src=0;
+        m_device_address_dst=device_address_dst;
+        m_host_address_src=NULL;
+        m_host_address_dst=NULL;
+        m_cnt=cnt;
+        m_stream=stream;
+        m_sim_mode=false;
+        m_done=false;
+    } 
     bool is_kernel() const { return m_type == stream_kernel_launch; }
     bool is_mem() const {
         return m_type == stream_memcpy_host_to_device ||
@@ -248,6 +262,9 @@ public:
     void push( stream_operation op );
     bool operation(bool * sim);
     void stop_all_running_kernels();
+
+    void register_prefetch(size_t m_device_addr, size_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
+    CUstream_st* get_stream_zero() { return &m_stream_zero; }
 private:
     void print_impl( FILE *fp);
 
