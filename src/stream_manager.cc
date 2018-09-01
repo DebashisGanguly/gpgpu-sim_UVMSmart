@@ -460,7 +460,7 @@ void stream_manager::push( stream_operation op )
     if(g_debug_execution >= 3)
        print_impl(stdout);
     pthread_mutex_unlock(&m_lock);
-    if( m_cuda_launch_blocking || stream == NULL ) {
+    if( m_cuda_launch_blocking || stream == NULL || op.is_kernel() ) {
         unsigned int wait_amount = 100; 
         unsigned int wait_cap = 100000; // 100ms 
         while( !empty() ) {
