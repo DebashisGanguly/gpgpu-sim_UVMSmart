@@ -375,11 +375,168 @@ private:
     friend class gmmu_t;
 };
 
+enum stats_type {
+   prefetch=0,
+   prefetch_breakdown,
+   memcpy_h2d,
+   memcpy_d2h,
+   memcpy_d2d,
+   kernel_launch,
+   page_fault,
+   device_sync,
+};
+
+
+class event_stats {
+public:
+   event_stats(enum stats_type t, unsigned long long s_time,unsigned long long e_time)
+	: type(t), start_time(s_time), end_time(e_time) {}
+   event_stats(enum stats_type t, unsigned long long s_time)
+        : type(t), start_time(s_time),end_time(0) {} 
+   enum stats_type type;
+   unsigned long long start_time;
+   unsigned long long end_time;
+
+   virtual void print(FILE * fout) = 0;
+};
+
+class memory_stats : public event_stats{
+public:
+    memory_stats(enum stats_type t, unsigned long long s_time, mem_addr_t s_addr, size_t sz, unsigned s_id)
+	:event_stats(t,s_time),start_addr(s_addr),size(sz),stream_id(s_id) {}
+    memory_stats(enum stats_type t, unsigned long long s_time, unsigned long long e_time, mem_addr_t s_addr, size_t sz, unsigned s_id)
+	:event_stats(t,s_time,e_time),start_addr(s_addr),size(sz),stream_id(s_id) {} 
+    mem_addr_t start_addr;
+    size_t size;
+    unsigned stream_id;
+
+    virtual void print(FILE * fout) {
+	fprintf(fout, "F: %8llu----T: %8llu \t St: %llx Sz: %lu \t Sm: %u \t ", start_time, end_time, start_addr, size, stream_id);
+	if(type == memcpy_h2d)
+		fprintf(fout, "T: memcpy_h2d\n");
+	else if(type == memcpy_d2h)
+		fprintf(fout, "T: memcpy_d2h\n");
+	else if(type == memcpy_d2d)
+		fprintf(fout, "T: memcpy_d2d\n");
+	else if(type == prefetch) 
+		fprintf(fout, "T: prefetch\n");
+	else if(type == prefetch_breakdown)
+		fprintf(fout, "T: prefetch_breakdown\n");
+	else 
+		fprintf(fout, "T: device_sync\n");
+    }
+};
+
+class kernel_stats : public event_stats{
+public:
+   kernel_stats(unsigned long long s_time, unsigned s_id, unsigned k_id)
+	:event_stats(kernel_launch,s_time),stream_id(s_id),kernel_id(k_id){}
+   unsigned stream_id;
+   unsigned kernel_id;
+  
+   virtual void print(FILE * fout) {
+	fprintf(fout, "F: %8llu----T: %8llu \t \t \t Kl: %u \t Sm: %u \t T: kernel_launch\n", start_time, end_time, kernel_id, stream_id);
+   }
+};
+
+class page_fault_stats : public event_stats{
+public:
+   page_fault_stats(unsigned long long s_time, const std::list<mem_addr_t>& pgs, unsigned sz)
+	:event_stats(page_fault,s_time),pages(pgs),transfering_pages(pgs),size(sz) {}
+   std::list<mem_addr_t> pages;
+   std::list<mem_addr_t> transfering_pages;
+   size_t size;
+
+   virtual void print(FILE * fout) {
+	fprintf(fout, "F: %8llu----T: %8llu \t Sz: %u \t T: page_fault\n", start_time, end_time, size);
+   }
+};
+
+extern std::map<unsigned long long, std::list<event_stats*> > sim_prof;
+
+extern bool sim_prof_enable;
+
+void print_sim_prof(FILE *fout);
+
+void update_sim_prof_kernel(unsigned kernel_id, unsigned long long end_time);
+
+void update_sim_prof_prefetch(mem_addr_t start_addr, size_t size, unsigned long long end_time);
+
+void update_sim_prof_prefetch_break_down(unsigned long long end_time);
+
+class gpgpu_new_stats {
+public:
+    gpgpu_new_stats(const gpgpu_sim_config &config);
+    ~gpgpu_new_stats();
+    void print(FILE *fout) const;
+    void print_pcie(FILE *fout) const;
+    void print_access_pattern_detail(FILE *fout) const;
+    void print_access_pattern(FILE *fout) const;
+   
+    // for each shader of all global memory access
+
+    // tlb hit 
+    unsigned long long* tlb_hit;
+    // tlb miss
+    unsigned long long* tlb_miss;
+
+    // tlb validate
+    unsigned long long* tlb_val;
+    // tlb eviction
+    unsigned long long* tlb_evict;
+    // tlb invalidated by page eviction
+    unsigned long long* tlb_page_evict;
+
+    // in tlb miss, page hit 
+    unsigned long long* mf_page_hit;
+    // in tlb miss, page miss
+    unsigned long long* mf_page_miss;
+
+    // in tlb miss, page miss, the first create fault
+    unsigned long long* mf_page_fault_outstanding;
+    // in tlb miss, page miss, the following that appends to mshr
+    unsigned long long* mf_page_fault_pending;
+
+    unsigned long long page_evict_dirty;
+
+    unsigned long long page_evict_not_dirty;
+
+    // prefetch page hit
+    unsigned long long pf_page_hit;
+    // prefetch page miss
+    unsigned long long pf_page_miss;
+    // prefetch fault page size, large page and latency
+    std::vector< std::pair<unsigned long, unsigned long long> > pf_fault_latency; 
+
+    // for each page, how many time is it being accessed by each shader
+    std::map<mem_addr_t, unsigned >* page_access_times;
+
+    // ready lanes utilization     
+    std::list<std::pair<unsigned long long, float> > pcie_read_utilization;
+    // write lanes utilization
+    std::list<std::pair<unsigned long long, float> > pcie_write_utilization;
+
+    // page and its partern
+    std::map<mem_addr_t, std::vector<bool> > page_threshing;
+    // tlb and its partern
+    std::map<mem_addr_t, std::vector<bool> >* tlb_threshing;
+
+    // for mf when it is fault(not pending to prefetch), the latency
+    std::map<mem_addr_t, std::list<unsigned long long> > mf_page_fault_latency;
+
+    // for prefetch each small page latency
+    std::map<mem_addr_t, std::list<unsigned long long> > pf_page_fault_latency;
+
+    const gpgpu_sim_config &m_config;
+    
+};
+
 // this class simulate the gmmu unit on chip
 
 class gmmu_t {
 public:
-   gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config);
+   gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu_new_stats *new_stats);
+   unsigned long long calculate_transfer_time(size_t data_size);
    void cycle();
    void register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb);
    void tlb_flush(mem_addr_t page_num);
@@ -487,6 +644,9 @@ private:
 
     std::list<prefetch_req> prefetch_req_buffer;
 
+    std::list<event_stats*> fault_stats;
+    
+    class gpgpu_new_stats *m_new_stats;
 };
 
 
@@ -621,6 +781,10 @@ private:
    std::vector<unsigned> m_executed_kernel_uids; //< uids of kernel launches for stat printout
    std::string executed_kernel_info_string(); //< format the kernel information into a string for stat printout
    void clear_executed_kernel_info(); //< clear the kernel information after stat printout
+
+public:
+   class gpgpu_new_stats *m_new_stats;
+
 public:
    unsigned long long  gpu_sim_insn;
    unsigned long long  gpu_tot_sim_insn;

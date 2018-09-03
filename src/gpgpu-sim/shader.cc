@@ -72,7 +72,8 @@ shader_core_ctx::shader_core_ctx( class gpgpu_sim *gpu,
                                   unsigned tpc_id,
                                   const struct shader_core_config *config,
                                   const struct memory_config *mem_config,
-                                  shader_core_stats *stats )
+                                  shader_core_stats *stats,
+				  class gpgpu_new_stats *new_stats )
    : core_t( gpu, NULL, config->warp_size, config->n_thread_per_shader ),
      m_barriers( this, config->max_warps_per_shader, config->max_cta_per_core, config->max_barriers_per_cta, config->warp_size ),
      m_dynamic_warp_id(0)
@@ -81,6 +82,9 @@ shader_core_ctx::shader_core_ctx( class gpgpu_sim *gpu,
     m_config = config;
     m_memory_config = mem_config;
     m_stats = stats;
+    
+    m_new_stats = new_stats;
+    
     unsigned warp_size=config->warp_size;
     
     m_sid = shader_id;
@@ -282,7 +286,7 @@ shader_core_ctx::shader_core_ctx( class gpgpu_sim *gpu,
         m_issue_port.push_back(OC_EX_SFU);
     }
     
-    m_ldst_unit = new ldst_unit( gpu, m_icnt, m_mem_fetch_allocator, this, &m_operand_collector, m_scoreboard, config, mem_config, stats, shader_id, tpc_id);
+    m_ldst_unit = new ldst_unit( gpu, m_icnt, m_mem_fetch_allocator, this, &m_operand_collector, m_scoreboard, config, mem_config, stats, new_stats, shader_id, tpc_id);
     m_fu.push_back(m_ldst_unit);
     m_dispatch_port.push_back(ID_OC_MEM);
     m_issue_port.push_back(OC_EX_MEM);
@@ -1495,9 +1499,17 @@ void ldst_unit::insert_into_tlb(mem_addr_t page_num)
 {
     const std::list<mem_addr_t> &accessed_pages = m_gpu->getGmmu()->get_accessed_pages();
 
+   
+    if( tlb.find(page_num) == tlb.end() ) {
+	m_new_stats->tlb_val[m_sid]++;
+	m_new_stats->tlb_threshing[m_sid][page_num].push_back(true);
+    } 
+    
     if ( tlb.find(page_num) == tlb.end() && tlb.size() == m_core_config->tlb_size ) {
         for (std::list<mem_addr_t>::const_iterator iter = accessed_pages.begin(); iter != accessed_pages.end(); iter++ ) {
              if ( tlb.erase(*iter) == 1 ) {
+		 m_new_stats->tlb_evict[m_sid]++;
+		 m_new_stats->tlb_threshing[m_sid][*iter].push_back(false); 
                  break;
              } 
         }
@@ -1529,6 +1541,8 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
 
   mem_addr_t page_no = m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr());
 
+  m_new_stats->page_access_times[m_sid][page_no]++;
+
   // check if the page corresponding to memory access is there in TLB or not
   if ( tlb.find(page_no) != tlb.end() ) {
       // on tlb hit, check whether the page is in pci-e write stage queue
@@ -1538,6 +1552,7 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
       // on tlb hit, refresh the LRU page list
       m_gpu->getGmmu()->page_refresh( inst.accessq_front() );
 
+      m_new_stats->tlb_hit[m_sid]++;
       return true;
   } else {
       mem_fetch *mf = m_mf_allocator->alloc(inst, inst.accessq_front());
@@ -1553,7 +1568,8 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
            stall_reason = COAL_STALL;
            access_type = inst.accessq_front().get_type() == GLOBAL_ACC_W ? G_MEM_ST : G_MEM_LD;
       }
-      
+     
+      m_new_stats->tlb_miss[m_sid]++; 
       // return false if access queue is not empty and we have already processed one memory access in the current load/store unit cycle
       return inst.accessq_empty();
   }
@@ -1806,6 +1822,7 @@ void ldst_unit::init( gpgpu_sim *gpu,
                       const shader_core_config *config,
                       const memory_config *mem_config,  
                       shader_core_stats *stats,
+		      class gpgpu_new_stats *new_stats,
                       unsigned sid,
                       unsigned tpc )
 {
@@ -1817,6 +1834,9 @@ void ldst_unit::init( gpgpu_sim *gpu,
     m_operand_collector = operand_collector;
     m_scoreboard = scoreboard;
     m_stats = stats;
+
+    m_new_stats = new_stats;
+
     m_sid = sid;
     m_tpc = tpc;
     
@@ -1850,6 +1870,7 @@ ldst_unit::ldst_unit( gpgpu_sim *gpu,
                       const shader_core_config *config,
                       const memory_config *mem_config,  
                       shader_core_stats *stats,
+		      class gpgpu_new_stats *new_stats,
                       unsigned sid,
                       unsigned tpc ) : pipelined_simd_unit(NULL,config,3,core), m_next_wb(config)
 {
@@ -1861,7 +1882,8 @@ ldst_unit::ldst_unit( gpgpu_sim *gpu,
           scoreboard,
           config, 
           mem_config,  
-          stats, 
+          stats,
+	  new_stats, 
           sid,
           tpc );
     if( !m_config->m_L1D_config.disabled() ) {
@@ -1886,6 +1908,7 @@ ldst_unit::ldst_unit( gpgpu_sim *gpu,
                       const shader_core_config *config,
                       const memory_config *mem_config,  
                       shader_core_stats *stats,
+		      class gpgpu_new_stats *new_stats,
                       unsigned sid,
                       unsigned tpc,
                       l1_cache* new_l1d_cache )
@@ -1900,9 +1923,18 @@ ldst_unit::ldst_unit( gpgpu_sim *gpu,
           config, 
           mem_config,  
           stats, 
+	  new_stats,
           sid,
           tpc );
 }
+
+void ldst_unit::invalidate_tlb(mem_addr_t addr) 
+{
+    if ( tlb.erase(addr) == 1 ) {                                  
+         m_new_stats->tlb_page_evict[m_sid]++;
+	 m_new_stats->tlb_threshing[m_sid][addr].push_back(false);
+    }                                                                                                                                         
+} 
 
 void ldst_unit:: issue( register_set &reg_set )
 {
@@ -3442,7 +3474,8 @@ simt_core_cluster::simt_core_cluster( class gpgpu_sim *gpu,
                                       const struct shader_core_config *config, 
                                       const struct memory_config *mem_config,
                                       shader_core_stats *stats, 
-                                      class memory_stats_t *mstats )
+                                      class memory_stats_t *mstats,
+				      class gpgpu_new_stats *new_stats )
 {
     m_config = config;
     m_cta_issue_next_core=m_config->n_simt_cores_per_cluster-1; // this causes first launch to use hw cta 0
@@ -3450,10 +3483,13 @@ simt_core_cluster::simt_core_cluster( class gpgpu_sim *gpu,
     m_gpu = gpu;
     m_stats = stats;
     m_memory_stats = mstats;
+    
+    m_new_stats = new_stats;
+
     m_core = new shader_core_ctx*[ config->n_simt_cores_per_cluster ];
     for( unsigned i=0; i < config->n_simt_cores_per_cluster; i++ ) {
         unsigned sid = m_config->cid_to_sid(i,m_cluster_id);
-        m_core[i] = new shader_core_ctx(gpu,this,sid,m_cluster_id,config,mem_config,stats);
+        m_core[i] = new shader_core_ctx(gpu,this,sid,m_cluster_id,config,mem_config,stats, new_stats);
         m_core_sim_order.push_back(i); 
     }
 }

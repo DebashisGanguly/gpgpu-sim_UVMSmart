@@ -2040,6 +2040,15 @@ cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
 			context->get_device()->get_gpgpu()->getGmmu()->accessed_pages_erase( *iter ); 	
 	}
 
+	if(sim_prof_enable) {
+		unsigned transfer_size = context->get_device()->get_gpgpu()->get_global_memory()->get_page_size() * evicted_page_list.size();	
+		unsigned long long transfer_time =  context->get_device()->get_gpgpu()->getGmmu()->calculate_transfer_time(transfer_size);
+		unsigned long long cur_cycle = gpu_sim_cycle + gpu_tot_sim_cycle;
+
+		gpu_tot_sim_cycle += transfer_time;
+        	event_stats* d_sync  = new memory_stats(device_sync, cur_cycle, cur_cycle+transfer_time, 0, transfer_size, 0);
+        	sim_prof[cur_cycle].push_back(d_sync);
+	}
 	return g_last_cudaError = cudaSuccess;
 }
 

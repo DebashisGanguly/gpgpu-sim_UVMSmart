@@ -95,6 +95,31 @@ bool break_limit = false;
 
 static void termination_callback()
 {
+    g_the_gpu->m_new_stats->print(stdout);
+
+
+    FILE* f1 = fopen("Pcie_trace.txt", "w");
+
+    g_the_gpu->m_new_stats->print_pcie(f1);
+
+    fclose(f1);
+
+    FILE* f2 = fopen("Access_pattern_detail.txt", "w");
+    
+    g_the_gpu->m_new_stats->print_access_pattern_detail(f2);                   
+
+    fclose(f2);
+
+    FILE* f3 = fopen("Access_pattern.txt", "w");
+
+    g_the_gpu->m_new_stats->print_access_pattern(f3);
+
+    fclose(f3);
+
+    if(sim_prof_enable) {
+       print_sim_prof(stdout);
+    }
+ 
     printf("GPGPU-Sim: *** exit detected ***\n");
     fflush(stdout);
 }

@@ -1108,7 +1108,8 @@ public:
                Scoreboard *scoreboard,
                const shader_core_config *config, 
                const memory_config *mem_config,  
-               class shader_core_stats *stats, 
+               class shader_core_stats *stats,
+	       class gpgpu_new_stats *new_stats, 
                unsigned sid, unsigned tpc );
     // modifiers
     virtual void issue( register_set &inst );
@@ -1155,7 +1156,7 @@ public:
     mem_fetch* front_cu_gmmu_queue() {return m_cu_gmmu_queue.front();}
     void pop_cu_gmmu_queue() {m_cu_gmmu_queue.pop_front();}
 
-    void invalidate_tlb(mem_addr_t addr) { tlb.erase(addr); } 
+    void invalidate_tlb(mem_addr_t addr); 
 protected:
     ldst_unit( class gpgpu_sim* gpu,
 	       mem_fetch_interface *icnt,
@@ -1166,6 +1167,7 @@ protected:
                const shader_core_config *config,
                const memory_config *mem_config,  
                shader_core_stats *stats,
+	       class gpgpu_new_stats *new_stats,
                unsigned sid,
                unsigned tpc,
                l1_cache* new_l1d_cache );
@@ -1178,6 +1180,7 @@ protected:
                const shader_core_config *config,
                const memory_config *mem_config,  
                shader_core_stats *stats,
+	       class gpgpu_new_stats *new_stats,
                unsigned sid,
                unsigned tpc );
 
@@ -1230,6 +1233,7 @@ protected:
    enum mem_stage_stall_type m_mem_rc;
 
    shader_core_stats *m_stats; 
+   class gpgpu_new_stats *m_new_stats;
 
    // for debugging
    unsigned long long m_last_inst_gpu_sim_cycle;
@@ -1636,7 +1640,8 @@ public:
                      unsigned tpc_id,
                      const struct shader_core_config *config,
                      const struct memory_config *mem_config,
-                     shader_core_stats *stats );
+                     shader_core_stats *stats,
+		     class gpgpu_new_stats *new_stats );
 
 // used by simt_core_cluster:
     // modifiers
@@ -1867,6 +1872,7 @@ public:
 
     // statistics 
     shader_core_stats *m_stats;
+    class gpgpu_new_stats *m_new_stats;
 
     // CTA scheduling / hardware thread allocation
     unsigned m_n_active_cta; // number of Cooperative Thread Arrays (blocks) currently running on this shader.
@@ -1939,7 +1945,8 @@ public:
                        const struct shader_core_config *config, 
                        const struct memory_config *mem_config,
                        shader_core_stats *stats,
-                       memory_stats_t *mstats );
+                       memory_stats_t *mstats,
+		       class gpgpu_new_stats *new_stats );
 
     void core_cycle();
     void icnt_cycle();
@@ -1994,6 +2001,8 @@ private:
     shader_core_stats *m_stats;
     memory_stats_t *m_memory_stats;
     shader_core_ctx **m_core;
+
+    class gpgpu_new_stats *m_new_stats;
 
     unsigned m_cta_issue_next_core;
     std::list<unsigned> m_core_sim_order;
