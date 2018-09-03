@@ -1759,18 +1759,16 @@ void gmmu_t::cycle()
                      // one memory fetch request should only have one page fault
                      // because they are always coalesced
  	             // if there is already a page in the staging queue, don't need to add it again
-		     if ( req_info.find( *(page_list.begin()) ) == req_info.end()) {
+		     assert( req_info.find( *(page_list.begin()) ) == req_info.end() );
 
-                          // for each page fault, the possible eviction procudure will only be called once here
-                          // if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
-                          // the number of staged read requests, then call the eviction
-                          if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
-                               page_eviction_procedure();
-                          }    
-
-                          pcie_read_stage_queue.push_back(page_list.front());
+                     // for each page fault, the possible eviction procudure will only be called once here
+                     // if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
+                     // the number of staged read requests, then call the eviction
+                     if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
+                          page_eviction_procedure();
                      }    
 
+                     pcie_read_stage_queue.push_back(page_list.front());
 		     req_info[*(page_list.begin())].push_back(mf);
 	         }
 	    }

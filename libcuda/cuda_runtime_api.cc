@@ -2015,10 +2015,8 @@ cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
      
                         	if (context->get_device()->get_gpgpu()->get_global_memory()->is_page_dirty(page_num)) {
                                 	context->get_device()->get_gpgpu()->memcpy_from_gpu( (void *)hostPtr, (size_t)devPtr, size > size_in_this_page ? size_in_this_page : size);
-			
-					if (evicted_page_list.find(page_num) != evicted_page_list.end()) {
-						evicted_page_list.insert(page_num);
-					}
+
+					evicted_page_list.insert(page_num);
                         	}    
 
                         	if (size <= size_in_this_page) {
