@@ -97,7 +97,7 @@ static void termination_callback()
 {
     g_the_gpu->m_new_stats->print(stdout);
 
-
+/*
     FILE* f1 = fopen("Pcie_trace.txt", "w");
 
     g_the_gpu->m_new_stats->print_pcie(f1);
@@ -115,9 +115,19 @@ static void termination_callback()
     g_the_gpu->m_new_stats->print_access_pattern(f3);
 
     fclose(f3);
+ 
+
+    FILE* f4 = fopen("access.txt", "w");
+
+    g_the_gpu->m_new_stats->print_time_and_access(f4);
+
+    fclose(f4);
+
+*/
 
     if(sim_prof_enable) {
        print_sim_prof(stdout);
+       calculate_sim_prof(stdout, g_the_gpu->shader_clock());
     }
  
     printf("GPGPU-Sim: *** exit detected ***\n");

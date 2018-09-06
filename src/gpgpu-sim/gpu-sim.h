@@ -375,6 +375,12 @@ private:
     friend class gmmu_t;
 };
 
+
+extern unsigned long long kernel_time;
+extern unsigned long long memory_copy_time_h2d;
+extern unsigned long long memory_copy_time_d2h;
+extern unsigned long long prefetch_time;
+
 enum stats_type {
    prefetch=0,
    prefetch_breakdown,
@@ -398,6 +404,7 @@ public:
    unsigned long long end_time;
 
    virtual void print(FILE * fout) = 0;
+   virtual void calculate() = 0;
 };
 
 class memory_stats : public event_stats{
@@ -425,6 +432,15 @@ public:
 	else 
 		fprintf(fout, "T: device_sync\n");
     }
+    virtual void calculate() {
+	if(type == memcpy_h2d) {
+		memory_copy_time_h2d += end_time - start_time;
+	} else if(type == memcpy_d2h) {
+		memory_copy_time_d2h += end_time - start_time;
+	} else if(type == prefetch_breakdown) {
+		prefetch_time += end_time - start_time;
+	}
+    }
 };
 
 class kernel_stats : public event_stats{
@@ -436,6 +452,10 @@ public:
   
    virtual void print(FILE * fout) {
 	fprintf(fout, "F: %8llu----T: %8llu \t \t \t Kl: %u \t Sm: %u \t T: kernel_launch\n", start_time, end_time, kernel_id, stream_id);
+   }
+
+   virtual void calculate() {
+	kernel_time += end_time - start_time;
    }
 };
 
@@ -450,6 +470,9 @@ public:
    virtual void print(FILE * fout) {
 	fprintf(fout, "F: %8llu----T: %8llu \t Sz: %u \t T: page_fault\n", start_time, end_time, size);
    }
+
+   virtual void calculate() {
+   }
 };
 
 extern std::map<unsigned long long, std::list<event_stats*> > sim_prof;
@@ -457,6 +480,8 @@ extern std::map<unsigned long long, std::list<event_stats*> > sim_prof;
 extern bool sim_prof_enable;
 
 void print_sim_prof(FILE *fout);
+
+void calculate_sim_prof(FILE *fout, float freq);
 
 void update_sim_prof_kernel(unsigned kernel_id, unsigned long long end_time);
 
@@ -472,7 +497,8 @@ public:
     void print_pcie(FILE *fout) const;
     void print_access_pattern_detail(FILE *fout) const;
     void print_access_pattern(FILE *fout) const;
-   
+    void print_time_and_access(FILE *fout) const;
+  
     // for each shader of all global memory access
 
     // tlb hit 
@@ -511,6 +537,9 @@ public:
     // for each page, how many time is it being accessed by each shader
     std::map<mem_addr_t, unsigned >* page_access_times;
 
+    // for each timestamp, which page is being accessed
+    std::map<unsigned long long, std::list<mem_addr_t> > time_and_page_access;
+
     // ready lanes utilization     
     std::list<std::pair<unsigned long long, float> > pcie_read_utilization;
     // write lanes utilization
@@ -520,6 +549,9 @@ public:
     std::map<mem_addr_t, std::vector<bool> > page_threshing;
     // tlb and its partern
     std::map<mem_addr_t, std::vector<bool> >* tlb_threshing;
+
+    // for each shader, the memory access latency
+    std::map<unsigned, std::pair<bool, unsigned long long> >* ma_latency;
 
     // for mf when it is fault(not pending to prefetch), the latency
     std::map<mem_addr_t, std::list<unsigned long long> > mf_page_fault_latency;

@@ -730,6 +730,17 @@ public:
       m_write = wr;
    }
 
+   mem_access_t(const mem_access_t& ma) {
+      m_uid = ma.m_uid;
+      m_addr = ma.m_addr;
+      m_write = ma.m_write;
+      m_req_size = ma.m_req_size;
+      m_type = ma.m_type;
+      m_warp_mask = ma.m_warp_mask;
+      m_byte_mask = ma.m_byte_mask;	
+   }
+
+   unsigned get_uid() const { return m_uid; }
    new_addr_type get_addr() const { return m_addr; }
    void set_addr(new_addr_type addr) {m_addr=addr;}
    unsigned get_size() const { return m_req_size; }

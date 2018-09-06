@@ -171,7 +171,7 @@ bool stream_operation::do_operation( gpgpu_sim *gpu )
             printf("memcpy device-to-device\n");
         gpu->memcpy_gpu_to_gpu(m_device_address_dst,m_device_address_src,m_cnt); 
 	if(sim_prof_enable){
-		event_stats* cp_d2d = new memory_stats(memcpy_d2h, cur_cycle, m_device_address_dst, m_cnt, m_stream->get_uid());
+		event_stats* cp_d2d = new memory_stats(memcpy_d2d, cur_cycle, m_device_address_dst, m_cnt, m_stream->get_uid());
         	sim_prof[cur_cycle].push_back(cp_d2d);
  	}
         m_stream->record_next_done();

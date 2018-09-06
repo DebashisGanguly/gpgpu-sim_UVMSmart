@@ -95,6 +95,28 @@ void print_sim_prof(FILE *fout)
     }
 }
 
+unsigned long long kernel_time = 0;
+unsigned long long memory_copy_time_h2d = 0;
+unsigned long long memory_copy_time_d2h = 0;
+unsigned long long prefetch_time = 0;
+
+void calculate_sim_prof(FILE *fout, float freq)
+{
+    freq /= 1000;
+    for(std::map<unsigned long long, std::list<event_stats*> >::iterator iter = sim_prof.begin();iter != sim_prof.end(); iter++){
+        for(std::list<event_stats*>::iterator iter2 = iter->second.begin(); iter2 != iter->second.end(); iter2++){
+                (*iter2)->calculate();
+        }    
+    }
+    fprintf(fout, "Tot_prefetch_time: %llu(cycle), %f(us)\n", prefetch_time, ((float)prefetch_time)/freq);
+    fprintf(fout, "Tot_kernel_exec_time: %llu(cycle), %f(us)\n", kernel_time, ((float)kernel_time)/freq);
+    fprintf(fout, "Tot_memcpy_h2d_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d, ((float)memory_copy_time_h2d)/freq);
+    fprintf(fout, "Tot_memcpy_d2h_time: %llu(cycle), %f(us)\n", memory_copy_time_d2h, ((float)memory_copy_time_d2h)/freq);
+    fprintf(fout, "Tot_memcpy_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d+ memory_copy_time_d2h, ((float)(memory_copy_time_h2d+ memory_copy_time_d2h))/freq);
+}
+
+
+
 void update_sim_prof_kernel(unsigned kernel_id, unsigned long long end_time)
 {
     for(std::map<unsigned long long, std::list<event_stats*> >::iterator iter =  sim_prof.begin(); iter != sim_prof.end(); iter++) {
@@ -1541,6 +1563,9 @@ gpgpu_new_stats::gpgpu_new_stats(const gpgpu_sim_config &config)
     page_evict_dirty = 0;
 
     tlb_threshing = new std::map<mem_addr_t, std::vector<bool> >[m_config.num_cluster()];
+
+    ma_latency = new std::map<unsigned, std::pair<bool, unsigned long long> >[m_config.num_cluster()];
+
     page_access_times = new std::map<mem_addr_t, unsigned>[m_config.num_cluster()];
 }
 
@@ -1580,10 +1605,26 @@ void gpgpu_new_stats::print_access_pattern(FILE *fout) const
    }
 }
 
+void gpgpu_new_stats::print_time_and_access(FILE *fout) const
+{
+   for(std::map<unsigned long long, std::list<mem_addr_t> >::const_iterator iter =  time_and_page_access.begin(); iter != time_and_page_access.end(); iter++) {
+       for(std::list<mem_addr_t>::const_iterator iter2 = iter->second.begin(); iter2 != iter->second.end(); iter2++) {
+           fprintf(fout, "%llu %llu\n", iter->first, *iter2);
+       }
+   }
+
+   for(std::map<unsigned long long, std::list<event_stats*> >::iterator iter = sim_prof.begin();iter != sim_prof.end(); iter++){
+        for(std::list<event_stats*>::iterator iter2 = iter->second.begin(); iter2 != iter->second.end(); iter2++){
+                if((*iter2)->type == kernel_launch){
+                        fprintf(fout, "K: %llu %llu\n", (*iter2)->start_time, (*iter2)->end_time );
+                }
+        }
+    }
+}
 
 void gpgpu_new_stats::print(FILE *fout) const
 {
-   fprintf(fout, "========================================new statistics==============================\n");  
+   fprintf(fout, "========================================UVM statistics==============================\n");  
 
    fprintf(fout, "========================================TLB statistics(access)==============================\n");
    unsigned long long tot_tlb_hit = 0;
@@ -1605,7 +1646,7 @@ void gpgpu_new_stats::print(FILE *fout) const
    for(unsigned i = 0; i < m_config.num_cluster(); i++) {
         fprintf(fout, "Shader%u: Tlb_validate: %llu Tlb_invalidate: %llu Tlb_evict: %llu Tlb_page_evict: %llu\n",
                 i, tlb_val[i], tlb_evict[i]+tlb_page_evict[i], tlb_evict[i], tlb_page_evict[i]); 
-        tot_tlb_val += tlb_hit[i];
+        tot_tlb_val += tlb_val[i];
         tot_tlb_inval_te += tlb_evict[i];
 	tot_tlb_inval_pe += tlb_page_evict[i];
    }
@@ -1695,6 +1736,34 @@ void gpgpu_new_stats::print(FILE *fout) const
    }
    fprintf(fout, "Page_tot_thresh: %u\n", tot_page_thresh);
 
+   fprintf(fout, "========================================Memory access statistics==============================\n");
+   
+   unsigned long long* ma_num = new unsigned long long[m_config.num_cluster()];
+   float* avg_ma_latency = new float[m_config.num_cluster()];
+
+   unsigned long long tot_ma_num = 0;
+   float tot_avg_ma_latency = 0;
+
+   for(unsigned i = 0; i < m_config.num_cluster(); i++) {
+       ma_num[i] = 0;
+       avg_ma_latency[i] = 0;
+       for(std::map<unsigned, std::pair<bool, unsigned long long> >::const_iterator iter = ma_latency[i].begin();
+	   iter != ma_latency[i].end(); iter++) {
+	   assert(iter->second.first);
+	   avg_ma_latency[i] = ((float)ma_num[i]) / ((float)(ma_num[i]+1)) * avg_ma_latency[i] + ((float)(iter->second.second)) / ((float)(ma_num[i]+1));
+	   ma_num[i]++;
+       }
+       fprintf(fout, "Shader%u: Memory_access: %u, Avg_memory_access_latency: %llu\n", i, ma_latency[i].size(), ((unsigned long long) (avg_ma_latency[i])));
+   }
+
+   for(unsigned i = 0; i < m_config.num_cluster(); i++) {
+       tot_avg_ma_latency = ((float)tot_ma_num) / ((float)(tot_ma_num+ma_num[i])) * tot_avg_ma_latency + avg_ma_latency[i] / ((float)(tot_ma_num+ma_num[i])) * ((float)ma_num[i]);
+       tot_ma_num += ma_num[i];
+   }
+   fprintf(fout,"Tot_memory_access: %u, Tot_avg_memory_access_latency: %llu\n", tot_ma_num, ((unsigned long long)tot_avg_ma_latency));
+  
+   delete[] ma_num;
+   delete[] avg_ma_latency; 
    fprintf(fout, "========================================Prefetch statistics==============================\n");
   
     
@@ -1773,13 +1842,18 @@ void gpgpu_new_stats::print(FILE *fout) const
 
 gpgpu_new_stats::~gpgpu_new_stats()
 {
-   delete tlb_hit;
-   delete tlb_miss;
-   delete mf_page_hit;
-   delete mf_page_miss;
-   delete mf_page_fault_outstanding;
-   delete mf_page_fault_pending;
-   delete tlb_threshing;
+   delete[] tlb_hit;
+   delete[] tlb_miss;
+   delete[] tlb_val;
+   delete[] tlb_evict;
+   delete[] tlb_page_evict; 
+   delete[] mf_page_hit;
+   delete[] mf_page_miss;
+   delete[] mf_page_fault_outstanding;
+   delete[] mf_page_fault_pending;
+   delete[] page_access_times;
+   delete[] tlb_threshing;
+   delete[] ma_latency;
 }
 
 
