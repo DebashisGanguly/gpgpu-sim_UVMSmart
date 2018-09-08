@@ -82,6 +82,20 @@ int main(int argc, char** argv) {
   FILE *fp2 = fopen(argv[1], "rb");
   read_data(h_Anext, nx,ny,nz,fp2);
   fclose(fp2);
+
+#ifdef PREF
+  int device = -1;
+  cudaGetDevice(&device);
+  
+  cudaStream_t stream1;
+  cudaStreamCreate(&stream1);
+
+  cudaStream_t stream2;
+  cudaStreamCreate(&stream2);
+
+  cudaMemPrefetchAsync(h_A0, sizeof(float)*size, device, stream1);
+  cudaMemPrefetchAsync(h_Anext, sizeof(float)*size, device, stream1);
+#endif
 	
   //only use tx-by-ty threads
   int tx=32;
@@ -95,7 +109,11 @@ int main(int argc, char** argv) {
   //main execution
   for(int t=0;t<iteration;t++)
     {
+#ifdef PREF
+      block2D_hybrid_coarsen_x<<<grid, block,sh_size, stream2>>>(c0,c1, h_A0, h_Anext, nx, ny,  nz);
+#else
       block2D_hybrid_coarsen_x<<<grid, block,sh_size>>>(c0,c1, h_A0, h_Anext, nx, ny,  nz);
+#endif
       float *d_temp = h_A0;
       h_A0 = h_Anext;
       h_Anext = d_temp;

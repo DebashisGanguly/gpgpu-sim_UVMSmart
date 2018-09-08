@@ -39,16 +39,32 @@ typedef struct {
 
 /*** User-level functions ***/
 
-void bpnn_initialize();
+/*** User-level functions ***/
+void bpnn_train_cuda(BPNN *net, float *eo, float *eh);
 
-BPNN *bpnn_create();
-void bpnn_free();
+void bpnn_initialize(int seed);
 
-void bpnn_train();
-void bpnn_feedforward();
+BPNN *bpnn_create(int n_in,int n_hidden,int n_out);
+void bpnn_free(BPNN *net);
 
-void bpnn_save();
-BPNN *bpnn_read();
+void bpnn_train(BPNN *net,float* eo,float* eh);
+void bpnn_feedforward(BPNN *net);
+
+void bpnn_save(BPNN *net,char *filename);
+BPNN *bpnn_read(char* filename);
+
+
+
+/*** The squashing function.  Currently, it's a sigmoid. ***/
+
+float squash(float x)
+{
+  //float m;
+  //x = -x;
+  //m = 1 + x + x*x/2 + x*x*x/6 + x*x*x*x/24 + x*x*x*x*x/120;
+  //return(1.0 / (1.0 + m));
+  return (1.0 / (1.0 + exp(-x)));
+}
 
 
 #endif

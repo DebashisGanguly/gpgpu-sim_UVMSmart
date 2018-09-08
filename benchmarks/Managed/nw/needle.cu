@@ -137,6 +137,19 @@ void runTest( int argc, char** argv)
 	for( int j = 1; j< max_cols ; j++)
        		itemsets[j] = -j * penalty;
 
+#ifdef PREF
+	int device = -1;
+	cudaGetDevice(&device);
+	
+	cudaStream_t stream1;
+	cudaStreamCreate(&stream1);
+
+	cudaStream_t stream2;
+	cudaStreamCreate(&stream2);
+
+	cudaMemPrefetchAsync( referrence, sizeof(int)*size, device, stream1);
+	cudaMemPrefetchAsync( itemsets, sizeof(int)*size, device, stream1);
+#endif
 
         dim3 dimGrid;
 	dim3 dimBlock(BLOCK_SIZE, 1);
@@ -148,7 +161,11 @@ void runTest( int argc, char** argv)
 	for( int i = 1 ; i <= block_width ; i++){
 		dimGrid.x = i;
 		dimGrid.y = 1;
+#ifdef PREF
+		needle_cuda_shared_1<<<dimGrid, dimBlock, 0, stream2>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
+#else
 		needle_cuda_shared_1<<<dimGrid, dimBlock>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
+#endif
 	}
 	
 	printf("Processing bottom-right matrix\n");
@@ -157,7 +174,11 @@ void runTest( int argc, char** argv)
 	for( int i = block_width - 1  ; i >= 1 ; i--){
 		dimGrid.x = i;
 		dimGrid.y = 1;
-		needle_cuda_shared_2<<<dimGrid, dimBlock>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
+#ifdef PREF
+		needle_cuda_shared_2<<<dimGrid, dimBlock, 0, stream2>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
+#else
+		needle_cuda_shared_2<<<dimGrid, dimBlock>>>(referrence, itemsets, max_cols, penalty, i, block_width);
+#endif
 	}
 
 

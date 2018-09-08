@@ -172,15 +172,27 @@ int calc_path(int *gpuWall, int *gpuResult[2], int rows, int cols, \
         dim3 dimBlock(BLOCK_SIZE);
         dim3 dimGrid(blockCols);  
 	
+#ifdef PREF
+	cudaStream_t stream2;
+	cudaStreamCreate(&stream2);
+#endif
+
         int src = 1, dst = 0;
 	for (int t = 0; t < rows-1; t+=pyramid_height) {
             int temp = src;
             src = dst;
             dst = temp;
-            dynproc_kernel<<<dimGrid, dimBlock>>>(
+#ifdef PREF
+            dynproc_kernel<<<dimGrid, dimBlock, 0, stream2>>>(
                 MIN(pyramid_height, rows-t-1), 
                 gpuWall, gpuResult[src], gpuResult[dst],
                 cols,rows, t, borderCols);
+#else
+	    dynproc_kernel<<<dimGrid, dimBlock>>>(
+                MIN(pyramid_height, rows-t-1), 
+                gpuWall, gpuResult[src], gpuResult[dst],
+                cols,rows, t, borderCols);
+#endif
 	}
         return dst;
 }
@@ -210,8 +222,13 @@ void run(int argc, char** argv)
 	
     int size = rows*cols;
 
-    cudaMemPrefetchAsync( gpuResult[0], sizeof(int)*cols, DEVICE, NULL);
-    cudaMemPrefetchAsync( gpuWall, sizeof(int)*(size-cols), DEVICE, NULL);
+#ifdef PREF
+    cudaStream_t stream1;
+    cudaStreamCreate(&stream1);
+
+    cudaMemPrefetchAsync( gpuResult[0], sizeof(int)*cols, DEVICE, stream1);
+    cudaMemPrefetchAsync( gpuWall, sizeof(int)*(size-cols), DEVICE, stream1);
+#endif
 
     int final_ret = calc_path(gpuWall, gpuResult, rows, cols, \
 	 pyramid_height, blockCols, borderCols);

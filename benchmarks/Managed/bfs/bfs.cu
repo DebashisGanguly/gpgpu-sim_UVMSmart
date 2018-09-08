@@ -160,6 +160,24 @@ void BFSGraph( int argc, char** argv)
 
 	printf("Copied Everything to GPU memory\n");
 
+#ifdef PREF
+	int device = -1;
+	cudaGetDevice(&device);
+
+	cudaStream_t stream1;
+	cudaStreamCreate(&stream1);
+
+	cudaStream_t stream2;
+	cudaStreamCreate(&stream2);
+
+	cudaMemPrefetchAsync( graph_nodes, sizeof(Node)*no_of_nodes, device, stream1);
+	cudaMemPrefetchAsync( graph_edges, sizeof(int)*edge_list_size, device, stream1);
+	cudaMemPrefetchAsync( graph_mask, sizeof(bool)*no_of_nodes, device, stream1);
+	cudaMemPrefetchAsync( updating_graph_mask, sizeof(bool)*no_of_nodes, device, stream1);
+	cudaMemPrefetchAsync( graph_visited, sizeof(bool)*no_of_nodes, device, stream1);
+	cudaMemPrefetchAsync( cost, sizeof(int)*no_of_nodes, device, stream1);
+#endif
+
 	// setup execution parameters
 	dim3  grid( num_of_blocks, 1, 1);
 	dim3  threads( num_of_threads_per_block, 1, 1);
@@ -173,6 +191,15 @@ void BFSGraph( int argc, char** argv)
                 //if no thread changes this value then the loop stops
                 stop=false;
                 cudaMemcpy( d_over, &stop, sizeof(bool), cudaMemcpyHostToDevice) ;
+
+#ifdef PREF
+		Kernel<<< grid, threads, 0, stream2>>>( graph_nodes, graph_edges, graph_mask, updating_graph_mask, graph_visited, cost, no_of_nodes);
+		// check if kernel execution generated and error
+		
+
+		Kernel2<<< grid, threads, 0, stream2>>>( graph_mask, updating_graph_mask, graph_visited, d_over, no_of_nodes);
+		// check if kernel execution generated and error
+#else
 		Kernel<<< grid, threads, 0 >>>( graph_nodes, graph_edges, graph_mask, updating_graph_mask, graph_visited, cost, no_of_nodes);
 		// check if kernel execution generated and error
 		
@@ -180,6 +207,7 @@ void BFSGraph( int argc, char** argv)
 		Kernel2<<< grid, threads, 0 >>>( graph_mask, updating_graph_mask, graph_visited, d_over, no_of_nodes);
 		// check if kernel execution generated and error
 		
+#endif		
 
                 cudaMemcpy( &stop, d_over, sizeof(bool), cudaMemcpyDeviceToHost) ;
 		k++;

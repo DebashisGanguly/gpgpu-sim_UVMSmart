@@ -3,10 +3,10 @@
 #ifndef _BACKPROP_CUDA_KERNEL_H_
 #define _BACKPROP_CUDA_KERNEL_H_
 
-#include <stdio.h>
 #include "backprop.h"
-#include "math.h"
-#include "cuda.h"
+#include <stdio.h>
+#include <math.h>
+#include <cuda.h>
 
 
 __global__ void
