@@ -602,20 +602,22 @@ private:
 
    // data structure to wrap a memory page and delay to transfer over PCI-E
    struct pcie_latency_t {
-         mem_addr_t page_num;
+         mem_addr_t start_addr;
+         unsigned long long size;
+         std::list<mem_addr_t> page_list;
          unsigned long long ready_cycle;
    }; 
  
     // staging queue to hold the PCI-E requests waiting for scheduling
-    std::list<mem_addr_t>       pcie_read_stage_queue;
-    std::list<mem_addr_t>       pcie_write_stage_queue;
+    std::list<pcie_latency_t*>       pcie_read_stage_queue;
+    std::list<pcie_latency_t*>       pcie_write_stage_queue;
 
-    // read queue for fetch the page from host side 
+    // read queue for fetching the page from host side 
     // the request may be global memory's read (load)/ write (store)
-    std::list<pcie_latency_t> pcie_read_latency_queue;
+    pcie_latency_t *pcie_read_latency_queue;
 
     // write back queue for page eviction requests over PCI-E
-    std::list<pcie_latency_t> pcie_write_latency_queue;
+    pcie_latency_t *pcie_write_latency_queue;
 
     // loosely represent MSHRs to hold all memory fetches 
     // corresponding to a PCI-E read requests, i.e., a common page number
@@ -668,7 +670,7 @@ private:
 	std::map<mem_addr_t, std::list<mem_fetch*> > outgoing_replayable_nacks; 
 
         // list of pages (max upto 2MB) from the current prefetch request which are being served by PCI-e
-	std::list<mem_addr_t> pending_prefetch;
+        std::list<mem_addr_t> pending_prefetch;
 
         // stream manager upon reaching to this entry of the queue sets it to active 
 	bool active;

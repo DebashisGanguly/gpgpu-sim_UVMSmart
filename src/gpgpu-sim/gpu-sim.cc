@@ -1901,9 +1901,12 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num)
     // the page, about to be accessed, was selected for eviction earlier 
     // so don't evict that page
     // choose another page instead to make balance of free list
-    if ( std::find(pcie_write_stage_queue.begin(), pcie_write_stage_queue.end(), page_num ) != pcie_write_stage_queue.end() ) {
-        pcie_write_stage_queue.erase( std::find( pcie_write_stage_queue.begin(), pcie_write_stage_queue.end(),  page_num ) ); 
-	page_eviction_procedure();
+    for ( std::list<pcie_latency_t*>::iterator iter = pcie_write_stage_queue.begin();
+          iter != pcie_write_stage_queue.end(); iter++ ) {
+        if ( std::find((*iter)->page_list.begin(), (*iter)->page_list.end(), page_num ) != (*iter)->page_list.end() ) {
+            pcie_write_stage_queue.erase( iter );
+	    page_eviction_procedure();
+        } 
     }    
 }
 
@@ -1925,7 +1928,13 @@ void gmmu_t::page_eviction_procedure()
 
 
     if( m_gpu->get_global_memory()->is_page_dirty(page_num) ) {
-        pcie_write_stage_queue.push_back( page_num );
+        pcie_latency_t *p_t = new pcie_latency_t();
+
+        p_t->page_list.push_back( page_num );
+        p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
+        p_t->size = m_gpu->get_global_memory()->get_page_size();
+
+        pcie_write_stage_queue.push_back( p_t );
     } else {
 	// if the page is not touched, evict it directly
 	m_gpu->get_global_memory()->invalidate_page( page_num );
@@ -1997,130 +2006,104 @@ void gmmu_t::cycle()
 {
     int simt_cluster_id = 0;
     
-    // check the pcie write latency queue
-    if ( !pcie_write_latency_queue.empty() ) {
-                  
-        std::list<pcie_latency_t>::iterator iter = pcie_write_latency_queue.begin();
-                  
-        // only if the first page finishes trasfer
-        if ((gpu_sim_cycle+gpu_tot_sim_cycle) >= iter->ready_cycle) {
+    // check whether current transfer in the pcie write latency queue is finished
+    if ( pcie_write_latency_queue != NULL && (gpu_sim_cycle+gpu_tot_sim_cycle) >= pcie_write_latency_queue->ready_cycle) {
                     
-            // pcie transfer for multiple lanes may finish transer 
-            while ( iter != pcie_write_latency_queue.end() &&
-                    ((gpu_sim_cycle + gpu_tot_sim_cycle) >= iter->ready_cycle) ) {
+         for (std::list<mem_addr_t>::iterator iter = pcie_write_latency_queue->page_list.begin(); 
+              iter != pcie_write_latency_queue->page_list.end(); iter++) {
+             m_gpu->gpu_writeback(m_gpu->get_global_memory()->get_mem_addr(*iter));
+         }
 
-                m_gpu->gpu_writeback(m_gpu->get_global_memory()->get_mem_addr(pcie_write_latency_queue.front().page_num));
-
-                pcie_write_latency_queue.pop_front();
-
-                iter = pcie_write_latency_queue.begin();
-            }    
-        }    
+         pcie_write_latency_queue = NULL;
     }    
 
-    unsigned schedule = pcie_write_latency_queue.size();
-
     // schedule a write back transfer if there is a write back request in staging queue and a free lane
-    while ( !pcie_write_stage_queue.empty() && schedule < m_config.pcie_num_lanes) {
-        struct pcie_latency_t p_t; 
+    if ( !pcie_write_stage_queue.empty() && pcie_write_latency_queue == NULL) {
+        pcie_write_latency_queue = pcie_write_stage_queue.front();
+        pcie_write_latency_queue->ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
 
-        p_t.page_num = pcie_write_stage_queue.front();
-        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
-        pcie_write_latency_queue.push_back(p_t);
+        for (std::list<mem_addr_t>::iterator iter = pcie_write_latency_queue->page_list.begin();
+              iter != pcie_write_latency_queue->page_list.end(); iter++) {
+	    assert( m_gpu->get_global_memory()->is_page_dirty(*iter) );
 
-	assert( m_gpu->get_global_memory()->is_page_dirty(pcie_write_stage_queue.front()) );
+            m_new_stats->page_threshing[*iter].push_back(false);
 
-        m_new_stats->page_threshing[p_t.page_num].push_back(false);
+	    m_new_stats->page_evict_dirty++;
 
-	m_new_stats->page_evict_dirty++;
+            m_gpu->get_global_memory()->invalidate_page( *iter );
+	    m_gpu->get_global_memory()->clear_page_dirty( *iter );
+	    m_gpu->get_global_memory()->clear_page_access( *iter );
 
-        m_gpu->get_global_memory()->invalidate_page( pcie_write_stage_queue.front() );
-	m_gpu->get_global_memory()->clear_page_dirty( pcie_write_stage_queue.front() );
-	m_gpu->get_global_memory()->clear_page_access( pcie_write_stage_queue.front() );
-
-        m_gpu->get_global_memory()->free_pages(1);
+            m_gpu->get_global_memory()->free_pages(1);
         
-	tlb_flush( pcie_write_stage_queue.front() );
+	    tlb_flush( *iter );
+        }
 
         pcie_write_stage_queue.pop_front();
-
-        schedule++;
     }    
 
     list<mem_addr_t> page_finsihed_for_mf;
 
-    // check the pcie queue
-    if ( !pcie_read_latency_queue.empty() ) {
-             
-        std::list<pcie_latency_t>::iterator iter = pcie_read_latency_queue.begin();
-             
-        // only if the first page finishes trasfer
-        if ((gpu_sim_cycle+gpu_tot_sim_cycle) >= iter->ready_cycle) {
+    // check whether the current transfer in the pcie latency queue is finished
+    if ( pcie_read_latency_queue != NULL && (gpu_sim_cycle+gpu_tot_sim_cycle) >= pcie_read_latency_queue->ready_cycle) {
                
-            // pcie transfer for multiple lanes may finish transer 
-            while ( iter != pcie_read_latency_queue.end() &&
-                    ((gpu_sim_cycle+gpu_tot_sim_cycle) >= iter->ready_cycle) ) {
+        for (std::list<mem_addr_t>::iterator iter = pcie_read_latency_queue->page_list.begin();
+              iter != pcie_read_latency_queue->page_list.end(); iter++) {
+            // validate the page in page table
+            m_gpu->get_global_memory()->validate_page(*iter);
 
-                // validate the page in page table
-                m_gpu->get_global_memory()->validate_page(iter->page_num);
+            m_new_stats->page_threshing[*iter].push_back(true);
 
-		m_new_stats->page_threshing[iter->page_num].push_back(true);
+	    assert(req_info.find(*iter) != req_info.end());
 
-		assert(req_info.find(iter->page_num) != req_info.end());
+            // check if the transferred page is part of a prefetch request
+            if ( !prefetch_req_buffer.empty() ) {
 
-                // check if the transferred page is part of a prefetch request
-		if ( !prefetch_req_buffer.empty() ) {
+                prefetch_req& pre_q = prefetch_req_buffer.front();
 
-        	    prefetch_req& pre_q = prefetch_req_buffer.front();
+	        std::list<mem_addr_t>::iterator iter2 = find(pre_q.pending_prefetch.begin(), pre_q.pending_prefetch.end(), *iter);
 
-		    std::list<mem_addr_t>::iterator iter2 = find(pre_q.pending_prefetch.begin(), pre_q.pending_prefetch.end(), iter->page_num);
-
-		    if( iter2 != pre_q.pending_prefetch.end() ) {
+	        if ( iter2 != pre_q.pending_prefetch.end() ) {
 			
-                        // pending prefetch holds the list of 4KB pages of a big chunk of tranfer (max upto 2MB)
-                        // remove it from the list as the PCI-e has transferred the page
-			pre_q.pending_prefetch.erase(iter2);
+                    // pending prefetch holds the list of 4KB pages of a big chunk of tranfer (max upto 2MB)
+                    // remove it from the list as the PCI-e has transferred the page
+	            pre_q.pending_prefetch.erase(iter2);
 		
-		        // if this page is part of current prefecth request 
-                        // add all the dependant memory requests to the outgoing_replayable_nacks
-                        // these should be replayed only when current block of memory transfer is finished
-			pre_q.outgoing_replayable_nacks[iter->page_num].merge(req_info[iter->page_num]);
+		    // if this page is part of current prefecth request 
+                    // add all the dependant memory requests to the outgoing_replayable_nacks
+                    // these should be replayed only when current block of memory transfer is finished
+	            pre_q.outgoing_replayable_nacks[*iter].merge(req_info[*iter]);
 
-                        // erase the page from the MSHR map
-			req_info.erase(req_info.find(iter->page_num));		
-
-			m_new_stats->pf_page_fault_latency[iter->page_num].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[iter->page_num].back();		
-		    }
-
-		}
-
-		// this page request is created by core on page fault and not part of a prefetch
-		if( req_info.find(iter->page_num) != req_info.end()) {
-
-		    page_finsihed_for_mf.push_back(iter->page_num);
-
-                    // for all memory fetches that were waiting for this page, should be replayed back for cache access 
-		    for ( std::list<mem_fetch*>::iterator iter2 = req_info[iter->page_num].begin();
-                          iter2 != req_info[iter->page_num].end(); iter2++){
-                          mem_fetch* mf = *iter2;
-                        
-                          simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
-
-                          // push the memory fetch into the gmmu to cu queue
-                          (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
-                    }    
-               
                     // erase the page from the MSHR map
-                    req_info.erase(req_info.find(iter->page_num));
+	            req_info.erase(req_info.find(*iter));		
 
-		    m_new_stats->mf_page_fault_latency[iter->page_num].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[iter->page_num].back(); 
-		}
+		    m_new_stats->pf_page_fault_latency[*iter].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[*iter].back();
+                }
+	    }
 
-                pcie_read_latency_queue.pop_front();
+	    // this page request is created by core on page fault and not part of a prefetch
+	    if ( req_info.find(*iter) != req_info.end()) {
 
-                iter = pcie_read_latency_queue.begin();
-            } 
-        } 
+	        page_finsihed_for_mf.push_back(*iter);
+
+                // for all memory fetches that were waiting for this page, should be replayed back for cache access 
+                for ( std::list<mem_fetch*>::iterator iter2 = req_info[*iter].begin();
+                      iter2 != req_info[*iter].end(); iter2++) {
+                    mem_fetch* mf = *iter2;
+                        
+                    simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
+
+                    // push the memory fetch into the gmmu to cu queue
+                    (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
+                }    
+               
+                // erase the page from the MSHR map
+                req_info.erase(req_info.find(*iter));
+
+                m_new_stats->mf_page_fault_latency[*iter].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[*iter].back(); 
+	    }
+        }
+        pcie_read_latency_queue = NULL;
     }
 
     if(sim_prof_enable && !page_finsihed_for_mf.empty()){
@@ -2142,25 +2125,15 @@ void gmmu_t::cycle()
 	
     }
 
-    schedule = pcie_read_latency_queue.size();
-
     // schedule a transfer if there is a page request in staging queue and a free lane
-    while ( !pcie_read_stage_queue.empty() && schedule < m_config.pcie_num_lanes && m_gpu->get_global_memory()->get_free_pages() > 0) {
-        struct pcie_latency_t p_t;
-
-        p_t.page_num = pcie_read_stage_queue.front();
-        p_t.ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
-        pcie_read_latency_queue.push_back(p_t);
+    if ( !pcie_read_stage_queue.empty() && pcie_read_latency_queue == NULL  && m_gpu->get_global_memory()->get_free_pages() > 0) {
+        pcie_read_latency_queue = pcie_read_stage_queue.front();
+        pcie_read_latency_queue->ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
 
 	pcie_read_stage_queue.pop_front();
 
-	m_gpu->get_global_memory()->alloc_pages(1);
-	
-        schedule++;
+	m_gpu->get_global_memory()->alloc_pages(pcie_read_latency_queue->page_list.size());
     }
-
-    m_new_stats->pcie_write_utilization.push_back( std::make_pair(gpu_sim_cycle+gpu_tot_sim_cycle, ((float)pcie_write_latency_queue.size()) / ((float) m_config.pcie_num_lanes)));
-    m_new_stats->pcie_read_utilization.push_back( std::make_pair(gpu_sim_cycle+gpu_tot_sim_cycle, ((float)pcie_read_latency_queue.size()) / ((float) m_config.pcie_num_lanes)));
 
     list<mem_addr_t> page_fault_by_mf;
    
@@ -2209,6 +2182,11 @@ void gmmu_t::cycle()
 		      }
 	    	 }
 
+                 pcie_latency_t *p_t = new pcie_latency_t();
+
+                 p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_list.front());
+                 p_t->size = m_gpu->get_global_memory()->get_page_size();
+
 	         // if the memory fetch is not part of any request in the prefetch command buffer
 	         if ( iter == prefetch_req_buffer.end()) {
 
@@ -2221,11 +2199,18 @@ void gmmu_t::cycle()
                      // for each page fault, the possible eviction procudure will only be called once here
                      // if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
                      // the number of staged read requests, then call the eviction
-                     if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
+                     unsigned long long num_pages_read_stage_queue = 0;
+
+                     for ( std::list<pcie_latency_t*>::iterator iter = pcie_read_stage_queue.begin();
+                           iter != pcie_read_stage_queue.end(); iter++) {
+                         num_pages_read_stage_queue += (*iter)->page_list.size();
+                     }
+
+                     if ( m_gpu->get_global_memory()->should_evict_page(num_pages_read_stage_queue, m_config.free_page_buffer_percentage) ) {
                           page_eviction_procedure();
                      }    
 
-                     pcie_read_stage_queue.push_back(page_list.front());
+                     p_t->page_list.push_back(page_list.front());
 
 		     m_new_stats->mf_page_fault_latency[page_list.front()].push_back(gpu_sim_cycle+gpu_tot_sim_cycle);   
 
@@ -2233,6 +2218,8 @@ void gmmu_t::cycle()
 
 		     page_fault_by_mf.push_back(page_list.front());
 	         }
+                 
+                 pcie_read_stage_queue.push_back(p_t);
 	    }
         }
 
@@ -2312,7 +2299,10 @@ void gmmu_t::cycle()
 		 return ;
 	     }
 	  
-	     mem_addr_t start_addr = 0; 
+	     mem_addr_t start_addr = 0;
+
+             pcie_latency_t *p_t = new pcie_latency_t();
+ 
 	     // break the loop if 
              //  Case 1: reach the end of this prefetch
              //  Case 2: it reaches the 2MB line from starting of the allocation
@@ -2346,7 +2336,8 @@ void gmmu_t::cycle()
 		         pre_q.pending_prefetch.push_back(page_num);
 			
 			 if(start_addr == 0) {
-				start_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);	
+				start_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
+				p_t->start_addr = pre_q.cur_addr;	
 			 }
   
 			 // just create a placeholder in MSHR for the memory fetches created by core on page fault
@@ -2362,18 +2353,29 @@ void gmmu_t::cycle()
 			 }
 
 			 // current prefetch can cause eviction 
-		         if ( m_gpu->get_global_memory()->should_evict_page(pcie_read_stage_queue.size(), m_config.free_page_buffer_percentage) ) {
+                         unsigned long long num_pages_read_stage_queue = p_t->page_list.size();
+
+                         for ( std::list<pcie_latency_t*>::iterator iter = pcie_read_stage_queue.begin();
+                               iter != pcie_read_stage_queue.end(); iter++) {
+                             num_pages_read_stage_queue += (*iter)->page_list.size();
+                         }
+
+		         if ( m_gpu->get_global_memory()->should_evict_page(num_pages_read_stage_queue, m_config.free_page_buffer_percentage) ) {
                               page_eviction_procedure();
                     	 }    
  
 			 // schedule this page as it is not valid to the read stage queue
-                     	 pcie_read_stage_queue.push_back(page_num);
-
+                         p_t->page_list.push_back(page_num);
 			 m_new_stats->pf_page_fault_latency[page_num].push_back(gpu_sim_cycle+gpu_tot_sim_cycle);
                     }
 		    
 	     } while( pre_q.cur_addr != (pre_q.start_addr + pre_q.size) && // check for Case 1, i.e., we reached the end of prefetch request
                       ((unsigned long long)(pre_q.cur_addr - pre_q.allocation_addr)) % ((unsigned long long)MAX_PREFETCH_SIZE) ); // Case 2: allowing maximum transfer size as huge page size of 2MB
+ 
+             if ( !p_t->page_list.empty() ) {
+		 p_t->size = p_t->page_list.size() * m_config.page_size; 
+                 pcie_read_stage_queue.push_back(p_t);
+             }
 
 	     m_new_stats->pf_fault_latency.push_back( std::make_pair(pre_q.pending_prefetch.size() * m_config.page_size, gpu_sim_cycle+gpu_tot_sim_cycle) );
 
