@@ -536,10 +536,6 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "Average page table walk latency (in core cycle).",
                "100");
 
-    option_parser_register(opp, "-num_of_lanes", OPT_INT32, &pcie_num_lanes,
-               "Number of PCI-e lanes",
-               "16");
-
     option_parser_register(opp, "-eviction_policy", OPT_CSTR, &eviction_policy,                 
                "Memory eviction policy: lru or random.",
                "lru");
@@ -552,9 +548,9 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "GDDR page size, only 4KB/2MB avaliable.",
                "4KB");
  
-    option_parser_register(opp, "-pcie_transfer_rate", OPT_CSTR, &pcie_transfer_rate_string,          
-               "PCI-e transfer rate per lane, per direction, in GT/s.",
-               "8.0GT/s");
+    option_parser_register(opp, "-pcie_bandwith", OPT_CSTR, &pcie_bandwith_string,          
+               "PCI-e bandwith per direction, in GB/s.",
+               "16.0GB/s");
 
     option_parser_register(opp, "-sim_prof_enable", OPT_BOOL, &sim_prof_enable,
                 "Enable gpgpu-sim profiler",
@@ -576,10 +572,21 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
 void gpgpu_sim_config::convert_byte_string()
 {
    gpgpu_functional_sim_config::convert_byte_string();
-   if(strstr(pcie_transfer_rate_string, "GT/s")) {
-       pcie_transfer_rate = strtof(pcie_transfer_rate_string, NULL);
+   if(strstr(pcie_bandwith_string, "GB/s")) {
+       pcie_bandwith = strtof(pcie_bandwith_string, NULL);
+       if(pcie_bandwith == 16.0) {
+	  curve_a = 12.0;
+       } else if (pcie_bandwith == 32.0) {
+	  curve_a = 24.0;
+       } else if (pcie_bandwith == 64.0) {
+	  curve_a = 48.0;
+       } else {
+	  printf("-pcie_bandwith should be 16.0GB/s, 32.0GB/s or 64.0GB/s\n");
+       }
+       curve_b = 0.07292;
+       
    } else { 
-       printf("-pcie_transfer_rate should be in GT/s\n");
+       printf("-pcie_bandwith should be in GB/s\n");
        exit(1);
    }     
  
@@ -1737,7 +1744,8 @@ void gpgpu_new_stats::print(FILE *fout) const
    fprintf(fout, "Page_tot_thresh: %u\n", tot_page_thresh);
 
    fprintf(fout, "========================================Memory access statistics==============================\n");
-   
+  
+/* 
    unsigned long long* ma_num = new unsigned long long[m_config.num_cluster()];
    float* avg_ma_latency = new float[m_config.num_cluster()];
 
@@ -1764,6 +1772,7 @@ void gpgpu_new_stats::print(FILE *fout) const
   
    delete[] ma_num;
    delete[] avg_ma_latency; 
+*/
    fprintf(fout, "========================================Prefetch statistics==============================\n");
   
     
@@ -1858,8 +1867,7 @@ gpgpu_new_stats::~gpgpu_new_stats()
 
 
 gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu_new_stats *new_stats)
-	:m_gpu(gpu),m_config(config), m_new_stats(new_stats),
-	 pcie_latency( (unsigned long long) (8.0 * (float)m_config.page_size * m_config.core_freq / m_config.pcie_transfer_rate / 1000000000.0) )
+	:m_gpu(gpu),m_config(config), m_new_stats(new_stats)
 {
     m_shader_config = &m_config.m_shader_config;
     if( std::string(m_config.eviction_policy) == "lru" ) {
@@ -1870,11 +1878,14 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
         printf("Unknown eviction policy"); 
         exit(1);
     }
+
+    pcie_read_latency_queue = NULL;
+    pcie_write_latency_queue = NULL;
 }
 
 unsigned long long gmmu_t::calculate_transfer_time(size_t data_size)
 {
-   return (unsigned long long) ((8.0 * (float)data_size * m_config.core_freq / m_config.pcie_transfer_rate / 1000000000.0)/ ((float)m_config.pcie_num_lanes));
+   return (unsigned long long) ((8.0 * (float)data_size * m_config.core_freq / m_config.pcie_bandwith / 1000000000.0));
 }
 
 void gmmu_t::accessed_pages_erase(mem_addr_t page_num)
@@ -1975,6 +1986,17 @@ void gmmu_t::page_refresh(mem_access_t ma)
     accessed_pages.push_back(page_num);	
 }
 
+unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
+{
+    float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*4)) );
+    return  gpu_tot_sim_cycle + gpu_sim_cycle + (unsigned long long) ( (float)(m_config.page_size * num_pages) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
+}
+
+float gmmu_t::get_pcie_utilization(unsigned num_pages)
+{
+    return 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*4)) ) / m_config.pcie_bandwith;
+}
+
 void gmmu_t::activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream)
 {
      for(std::list<prefetch_req>::iterator iter = prefetch_req_buffer.begin(); iter!=prefetch_req_buffer.end(); iter++){
@@ -2020,7 +2042,10 @@ void gmmu_t::cycle()
     // schedule a write back transfer if there is a write back request in staging queue and a free lane
     if ( !pcie_write_stage_queue.empty() && pcie_write_latency_queue == NULL) {
         pcie_write_latency_queue = pcie_write_stage_queue.front();
-        pcie_write_latency_queue->ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
+        pcie_write_latency_queue->ready_cycle = get_ready_cycle( pcie_write_latency_queue->page_list.size() );
+
+	for(unsigned long long write_period = gpu_tot_sim_cycle + gpu_sim_cycle; write_period != pcie_write_latency_queue->ready_cycle; write_period++ )
+		m_new_stats->pcie_write_utilization.push_back( std::make_pair(write_period, get_pcie_utilization(pcie_write_latency_queue->page_list.size())) );
 
         for (std::list<mem_addr_t>::iterator iter = pcie_write_latency_queue->page_list.begin();
               iter != pcie_write_latency_queue->page_list.end(); iter++) {
@@ -2128,7 +2153,10 @@ void gmmu_t::cycle()
     // schedule a transfer if there is a page request in staging queue and a free lane
     if ( !pcie_read_stage_queue.empty() && pcie_read_latency_queue == NULL  && m_gpu->get_global_memory()->get_free_pages() > 0) {
         pcie_read_latency_queue = pcie_read_stage_queue.front();
-        pcie_read_latency_queue->ready_cycle = gpu_sim_cycle + gpu_tot_sim_cycle + pcie_latency;
+        pcie_read_latency_queue->ready_cycle = get_ready_cycle( pcie_read_latency_queue->page_list.size() );
+
+	for(unsigned long long read_period = gpu_tot_sim_cycle + gpu_sim_cycle; read_period != pcie_read_latency_queue->ready_cycle; read_period++ )
+                m_new_stats->pcie_read_utilization.push_back( std::make_pair(read_period, get_pcie_utilization(pcie_read_latency_queue->page_list.size())) );
 
 	pcie_read_stage_queue.pop_front();
 

@@ -363,13 +363,15 @@ private:
 
     unsigned long long liveness_message_freq; 
     unsigned long long page_table_walk_latency;
-    int pcie_num_lanes;
     char* eviction_policy;
 
     float free_page_buffer_percentage;
 
-    char* pcie_transfer_rate_string;
-    float pcie_transfer_rate; 
+    char* pcie_bandwith_string;
+    float pcie_bandwith; 
+
+    float curve_a;
+    float curve_b;
 
     friend class gpgpu_sim;
     friend class gmmu_t;
@@ -590,6 +592,10 @@ public:
 
    void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
    void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
+
+   unsigned long long get_ready_cycle(unsigned num_pages);
+
+   float get_pcie_utilization(unsigned num_pages);
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -641,9 +647,6 @@ private:
     enum class eviction_policy { LRU, RANDOM }; 
 
     eviction_policy policy;    
-
-    // PCI-e latency in number of core cycles
-    const unsigned long long pcie_latency;
 
     struct prefetch_req {
         // starting address (rolled up and down for page alignment) for the prefetch
