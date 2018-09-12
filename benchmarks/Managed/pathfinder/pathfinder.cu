@@ -173,8 +173,8 @@ int calc_path(int *gpuWall, int *gpuResult[2], int rows, int cols, \
         dim3 dimGrid(blockCols);  
 	
 #ifdef PREF
-	cudaStream_t stream2;
-	cudaStreamCreate(&stream2);
+	cudaStream_t stream3;
+	cudaStreamCreate(&stream3);
 #endif
 
         int src = 1, dst = 0;
@@ -183,7 +183,7 @@ int calc_path(int *gpuWall, int *gpuResult[2], int rows, int cols, \
             src = dst;
             dst = temp;
 #ifdef PREF
-            dynproc_kernel<<<dimGrid, dimBlock, 0, stream2>>>(
+            dynproc_kernel<<<dimGrid, dimBlock, 0, stream3>>>(
                 MIN(pyramid_height, rows-t-1), 
                 gpuWall, gpuResult[src], gpuResult[dst],
                 cols,rows, t, borderCols);
@@ -226,8 +226,11 @@ void run(int argc, char** argv)
     cudaStream_t stream1;
     cudaStreamCreate(&stream1);
 
+    cudaStream_t stream2;
+    cudaStreamCreate(&stream2);
+
     cudaMemPrefetchAsync( gpuResult[0], sizeof(int)*cols, DEVICE, stream1);
-    cudaMemPrefetchAsync( gpuWall, sizeof(int)*(size-cols), DEVICE, stream1);
+    cudaMemPrefetchAsync( gpuWall, sizeof(int)*(size-cols), DEVICE, stream2);
 #endif
 
     int final_ret = calc_path(gpuWall, gpuResult, rows, cols, \

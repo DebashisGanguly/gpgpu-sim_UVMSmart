@@ -241,8 +241,8 @@ int compute_tran_temp(float *MatrixPower,float *MatrixTemp[2], int col, int row,
         int src = 1, dst = 0;
 	
 #ifdef PREF
-	cudaStream_t stream2;
-    	cudaStreamCreate(&stream2);
+	cudaStream_t stream3;
+    	cudaStreamCreate(&stream3);
 #endif
 
 	for (t = 0; t < total_iterations; t+=num_iterations) {
@@ -252,7 +252,7 @@ int compute_tran_temp(float *MatrixPower,float *MatrixTemp[2], int col, int row,
 
 	    
 #ifdef PREF
-            calculate_temp<<<dimGrid, dimBlock, 0, stream2>>>(MIN(num_iterations, total_iterations-t), MatrixPower,MatrixTemp[src],MatrixTemp[dst],\
+            calculate_temp<<<dimGrid, dimBlock, 0, stream3>>>(MIN(num_iterations, total_iterations-t), MatrixPower,MatrixTemp[src],MatrixTemp[dst],\
 		col,row,borderCols, borderRows, Cap,Rx,Ry,Rz,step,time_elapsed);
 #else
 	    calculate_temp<<<dimGrid, dimBlock>>>(MIN(num_iterations, total_iterations-t), MatrixPower,MatrixTemp[src],MatrixTemp[dst],\
@@ -337,8 +337,11 @@ void run(int argc, char** argv)
     cudaStream_t stream1;
     cudaStreamCreate(&stream1);
 
+    cudaStream_t stream2;
+    cudaStreamCreate(&stream2);
+
     cudaMemPrefetchAsync( MatrixTemp[0], sizeof(float)*size, device, stream1);
-    cudaMemPrefetchAsync( MatrixPower, sizeof(float)*size, device, stream1);
+    cudaMemPrefetchAsync( MatrixPower, sizeof(float)*size, device, stream2);
 #endif
 
     printf("Start computing the transient temperature\n");

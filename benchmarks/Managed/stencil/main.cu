@@ -93,8 +93,11 @@ int main(int argc, char** argv) {
   cudaStream_t stream2;
   cudaStreamCreate(&stream2);
 
+  cudaStream_t stream3;
+  cudaStreamCreate(&stream3);
+
   cudaMemPrefetchAsync(h_A0, sizeof(float)*size, device, stream1);
-  cudaMemPrefetchAsync(h_Anext, sizeof(float)*size, device, stream1);
+  cudaMemPrefetchAsync(h_Anext, sizeof(float)*size, device, stream2);
 #endif
 	
   //only use tx-by-ty threads
@@ -110,7 +113,7 @@ int main(int argc, char** argv) {
   for(int t=0;t<iteration;t++)
     {
 #ifdef PREF
-      block2D_hybrid_coarsen_x<<<grid, block,sh_size, stream2>>>(c0,c1, h_A0, h_Anext, nx, ny,  nz);
+      block2D_hybrid_coarsen_x<<<grid, block,sh_size, stream3>>>(c0,c1, h_A0, h_Anext, nx, ny,  nz);
 #else
       block2D_hybrid_coarsen_x<<<grid, block,sh_size>>>(c0,c1, h_A0, h_Anext, nx, ny,  nz);
 #endif

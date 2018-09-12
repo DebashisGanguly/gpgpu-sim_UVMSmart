@@ -40,15 +40,18 @@ int main(void)
   cudaStream_t stream2;
   cudaStreamCreate(&stream2);
 
+  cudaStream_t stream3;
+  cudaStreamCreate(&stream3);
+
   cudaMemPrefetchAsync(x, N*sizeof(float), device, stream1);
-  cudaMemPrefetchAsync(y, N*sizeof(float), device, stream1);
+  cudaMemPrefetchAsync(y, N*sizeof(float), device, stream2);
 #endif
   // Launch kernel on 1M elements on the GPU
   int blockSize = 256;
   int numBlocks = (N + blockSize - 1) / blockSize;
 
 #ifdef PREF
-  add<<<numBlocks, blockSize, 0, stream2>>>(N, x, y);
+  add<<<numBlocks, blockSize, 0, stream3>>>(N, x, y);
 #else
   add<<<numBlocks, blockSize>>>(N, x, y);
 #endif

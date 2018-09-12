@@ -170,12 +170,27 @@ void BFSGraph( int argc, char** argv)
 	cudaStream_t stream2;
 	cudaStreamCreate(&stream2);
 
+	cudaStream_t stream3;
+	cudaStreamCreate(&stream3);
+
+	cudaStream_t stream4;
+	cudaStreamCreate(&stream4);
+
+	cudaStream_t stream5;
+	cudaStreamCreate(&stream5);
+
+	cudaStream_t stream6;
+	cudaStreamCreate(&stream6);
+
+	cudaStream_t stream7;
+	cudaStreamCreate(&stream7);
+
 	cudaMemPrefetchAsync( graph_nodes, sizeof(Node)*no_of_nodes, device, stream1);
-	cudaMemPrefetchAsync( graph_edges, sizeof(int)*edge_list_size, device, stream1);
-	cudaMemPrefetchAsync( graph_mask, sizeof(bool)*no_of_nodes, device, stream1);
-	cudaMemPrefetchAsync( updating_graph_mask, sizeof(bool)*no_of_nodes, device, stream1);
-	cudaMemPrefetchAsync( graph_visited, sizeof(bool)*no_of_nodes, device, stream1);
-	cudaMemPrefetchAsync( cost, sizeof(int)*no_of_nodes, device, stream1);
+	cudaMemPrefetchAsync( graph_edges, sizeof(int)*edge_list_size, device, stream2);
+	cudaMemPrefetchAsync( graph_mask, sizeof(bool)*no_of_nodes, device, stream3);
+	cudaMemPrefetchAsync( updating_graph_mask, sizeof(bool)*no_of_nodes, device, stream4);
+	cudaMemPrefetchAsync( graph_visited, sizeof(bool)*no_of_nodes, device, stream5);
+	cudaMemPrefetchAsync( cost, sizeof(int)*no_of_nodes, device, stream6);
 #endif
 
 	// setup execution parameters
@@ -193,11 +208,11 @@ void BFSGraph( int argc, char** argv)
                 cudaMemcpy( d_over, &stop, sizeof(bool), cudaMemcpyHostToDevice) ;
 
 #ifdef PREF
-		Kernel<<< grid, threads, 0, stream2>>>( graph_nodes, graph_edges, graph_mask, updating_graph_mask, graph_visited, cost, no_of_nodes);
+		Kernel<<< grid, threads, 0, stream7>>>( graph_nodes, graph_edges, graph_mask, updating_graph_mask, graph_visited, cost, no_of_nodes);
 		// check if kernel execution generated and error
 		
 
-		Kernel2<<< grid, threads, 0, stream2>>>( graph_mask, updating_graph_mask, graph_visited, d_over, no_of_nodes);
+		Kernel2<<< grid, threads, 0, stream7>>>( graph_mask, updating_graph_mask, graph_visited, d_over, no_of_nodes);
 		// check if kernel execution generated and error
 #else
 		Kernel<<< grid, threads, 0 >>>( graph_nodes, graph_edges, graph_mask, updating_graph_mask, graph_visited, cost, no_of_nodes);

@@ -147,8 +147,11 @@ void runTest( int argc, char** argv)
 	cudaStream_t stream2;
 	cudaStreamCreate(&stream2);
 
+	cudaStream_t stream3;
+	cudaStreamCreate(&stream3);
+
 	cudaMemPrefetchAsync( referrence, sizeof(int)*size, device, stream1);
-	cudaMemPrefetchAsync( itemsets, sizeof(int)*size, device, stream1);
+	cudaMemPrefetchAsync( itemsets, sizeof(int)*size, device, stream2);
 #endif
 
         dim3 dimGrid;
@@ -162,7 +165,7 @@ void runTest( int argc, char** argv)
 		dimGrid.x = i;
 		dimGrid.y = 1;
 #ifdef PREF
-		needle_cuda_shared_1<<<dimGrid, dimBlock, 0, stream2>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
+		needle_cuda_shared_1<<<dimGrid, dimBlock, 0, stream3>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
 #else
 		needle_cuda_shared_1<<<dimGrid, dimBlock>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
 #endif
@@ -175,7 +178,7 @@ void runTest( int argc, char** argv)
 		dimGrid.x = i;
 		dimGrid.y = 1;
 #ifdef PREF
-		needle_cuda_shared_2<<<dimGrid, dimBlock, 0, stream2>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
+		needle_cuda_shared_2<<<dimGrid, dimBlock, 0, stream3>>>(referrence, itemsets, max_cols, penalty, i, block_width); 
 #else
 		needle_cuda_shared_2<<<dimGrid, dimBlock>>>(referrence, itemsets, max_cols, penalty, i, block_width);
 #endif
