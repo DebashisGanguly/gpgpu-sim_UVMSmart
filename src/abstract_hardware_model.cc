@@ -135,7 +135,7 @@ gpgpu_t::gpgpu_t( const gpgpu_functional_sim_config &config )
    // managed allocations can be evicted on memory overflow whereas unmanaged are pinned
    // also only managed pages may suffer latency for page table walkthrough/access and PCI-E
    // because of this managed and unmanaged allocation can not be from same page
-   m_dev_malloc_managed=GLOBAL_HEAP_START + config.gddr_size; 
+   m_dev_malloc_managed=(4 * 1024) * ((GLOBAL_HEAP_START + config.gddr_size - 1) / (4 * 1024)) + (4 * 1024); 
 
    if(m_function_model_config.get_ptx_inst_debug_to_file() != 0) 
       ptx_inst_debug_file = fopen(m_function_model_config.get_ptx_inst_debug_file(), "w");

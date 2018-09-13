@@ -373,6 +373,9 @@ private:
     float curve_a;
     float curve_b;
 
+public:
+    bool hardware_prefetch;
+
     friend class gpgpu_sim;
     friend class gmmu_t;
 };
@@ -593,6 +596,8 @@ public:
    void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
    void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
 
+   void initialize_large_page(mem_addr_t start_addr, size_t size);
+
    unsigned long long get_ready_cycle(unsigned num_pages);
 
    float get_pcie_utilization(unsigned num_pages);
@@ -682,6 +687,13 @@ private:
     std::list<prefetch_req> prefetch_req_buffer;
 
     std::list<event_stats*> fault_stats;
+
+    struct large_page_req {
+	size_t size;
+	unsigned page_fault_counter;	
+    };
+
+    std::map<mem_addr_t, struct large_page_req*> large_page_info;
     
     class gpgpu_new_stats *m_new_stats;
 };

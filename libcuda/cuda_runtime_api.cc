@@ -478,6 +478,24 @@ __host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, uns
         }
 
         CUctx_st* context = GPGPUSim_Context();
+
+        if ( context->get_device()->get_gpgpu()->get_config().hardware_prefetch ) {
+
+            size_t num_large_pages = (size_t)(size / MAX_PREFETCH_SIZE);
+
+            size_t remainder = size - (num_large_pages * MAX_PREFETCH_SIZE);
+
+            size_t corrected_remainder;
+
+	    if( remainder==0 )
+	        corrected_remainder = 0;
+	    else {
+                for (corrected_remainder = MIN_PREFETCH_SIZE; corrected_remainder < remainder; corrected_remainder *= 2)
+		     ;
+	    }
+
+            size = (num_large_pages * MAX_PREFETCH_SIZE) + corrected_remainder;
+        }
 	
 	//create a piece of memory for cpu side so that cpu side initialization code doesn't get SIGSEGV
 	void *cpuMemPtr = (void *)malloc(size);
@@ -498,6 +516,19 @@ __host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, uns
 	//return cpu memory pointer to the user code 
 	//such that cpu side code can access the memory
 	*devPtr = cpuMemPtr;
+
+        mem_addr_t tempGPUPtr = *((mem_addr_t*)(&gpuMemPtr));
+
+        for (size_t cur_size = 0; cur_size < size; ) {
+             if ((size - cur_size) < MAX_PREFETCH_SIZE) {
+		 context->get_device()->get_gpgpu()->getGmmu()->initialize_large_page(tempGPUPtr, size - cur_size);
+		 break;
+             } else {
+		 context->get_device()->get_gpgpu()->getGmmu()->initialize_large_page(tempGPUPtr, MAX_PREFETCH_SIZE);
+                 cur_size += MAX_PREFETCH_SIZE;
+                 tempGPUPtr += MAX_PREFETCH_SIZE;
+             }
+        }
 
 	if(g_debug_execution >= 3)
 		printf("GPGPU-Sim PTX: cudaMallocing %zu bytes starting at 0x%llx..\n",size, (unsigned long long) *devPtr);

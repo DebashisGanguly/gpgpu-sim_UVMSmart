@@ -516,6 +516,9 @@ struct allocation_info {
     bool     copied;
 };
 
+#define MAX_PREFETCH_SIZE (2*1024*1024)
+#define MIN_PREFETCH_SIZE (64*1024)
+
 class gpgpu_t {
 public:
     gpgpu_t( const gpgpu_functional_sim_config &config );

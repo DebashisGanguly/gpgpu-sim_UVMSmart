@@ -62,6 +62,8 @@ public:
 
       // initialize page flags to default value
       valid = false;
+      dirty = false;
+      access = false;
    }
    mem_storage()
    {
@@ -72,6 +74,8 @@ public:
 
       // initialize page flags to default value
       valid = false;
+      dirty = false;
+      access = false;
    }
    ~mem_storage()
    {
