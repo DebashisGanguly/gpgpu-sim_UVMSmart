@@ -102,16 +102,32 @@ unsigned long long memory_copy_time_d2h = 0;
 unsigned long long prefetch_time = 0;
 unsigned long long devicesync_time = 0;
 
-void calculate_sim_prof(FILE *fout, float freq)
+void calculate_sim_prof(FILE *fout, gpgpu_sim *gpu)
 {
-    freq /= 1000;
+    float freq  = gpu->shader_clock() / 1000.0;
     for(std::map<unsigned long long, std::list<event_stats*> >::iterator iter = sim_prof.begin();iter != sim_prof.end(); iter++){
         for(std::list<event_stats*>::iterator iter2 = iter->second.begin(); iter2 != iter->second.end(); iter2++){
                 (*iter2)->calculate();
         }    
     }
+
+    unsigned long long page_fault_time = 0;
+    if( !gpu->get_config().enable_accurate_simulation ) {
+	unsigned long long tot_page_fault = 0; 
+	for(unsigned i = 0; i < gpu->get_config().num_cluster(); i++) {
+	    tot_page_fault += gpu->m_new_stats->mf_page_fault_outstanding[i];
+	}
+	page_fault_time = tot_page_fault * gpu->get_config().page_fault_latency;
+    }
+
     fprintf(fout, "Tot_prefetch_time: %llu(cycle), %f(us)\n", prefetch_time, ((float)prefetch_time)/freq);
     fprintf(fout, "Tot_kernel_exec_time: %llu(cycle), %f(us)\n", kernel_time, ((float)kernel_time)/freq);
+
+    if( !gpu->get_config().enable_accurate_simulation ) {
+	fprintf(fout, "Tot_kernel_exec_time_and_fault_time: %llu(cycle), %f(us)\n", 
+		kernel_time + page_fault_time, ((float) (kernel_time + page_fault_time))/freq );
+    }
+
     fprintf(fout, "Tot_memcpy_h2d_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d, ((float)memory_copy_time_h2d)/freq);
     fprintf(fout, "Tot_memcpy_d2h_time: %llu(cycle), %f(us)\n", memory_copy_time_d2h, ((float)memory_copy_time_d2h)/freq);
     fprintf(fout, "Tot_memcpy_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d+ memory_copy_time_d2h, ((float)(memory_copy_time_h2d+ memory_copy_time_d2h))/freq);
@@ -563,6 +579,14 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
     option_parser_register(opp, "-hardware_prefetch", OPT_BOOL, &hardware_prefetch,
                 "Enable gpgpu-sim hardware prefetcher",
 		"1");
+
+    option_parser_register(opp, "-page_fault_latency", OPT_INT64, &page_fault_latency,                                                                                          
+               "Average fault latency (in core cycle).",
+               "66645");
+
+    option_parser_register(opp, "-enable_accurate_simulation", OPT_BOOL, &enable_accurate_simulation,                                                                                               
+               "Enable page fault functional simulation.",
+               "0");
 
     ptx_file_line_stats_options(opp);
 
@@ -2042,6 +2066,7 @@ void gmmu_t::page_eviction_procedure()
         p_t->page_list.push_back( page_num );
         p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
         p_t->size = m_gpu->get_global_memory()->get_page_size();
+	p_t->type = latency_type::PCIE_WRITE;
 
         pcie_write_stage_queue.push_back( p_t );
     } else {
@@ -2129,6 +2154,7 @@ void gmmu_t::initialize_large_page(mem_addr_t start_addr, size_t size)
 
 }
 
+
 void gmmu_t::cycle()
 {
     int simt_cluster_id = 0;
@@ -2176,103 +2202,114 @@ void gmmu_t::cycle()
 
     // check whether the current transfer in the pcie latency queue is finished
     if ( pcie_read_latency_queue != NULL && (gpu_sim_cycle+gpu_tot_sim_cycle) >= pcie_read_latency_queue->ready_cycle) {
+
+	if(pcie_read_latency_queue->type == latency_type::PCIE_READ) {
                
-        for (std::list<mem_addr_t>::iterator iter = pcie_read_latency_queue->page_list.begin();
-              iter != pcie_read_latency_queue->page_list.end(); iter++) {
-            // validate the page in page table
-            m_gpu->get_global_memory()->validate_page(*iter);
+           for (std::list<mem_addr_t>::iterator iter = pcie_read_latency_queue->page_list.begin();
+                iter != pcie_read_latency_queue->page_list.end(); iter++) {
+                // validate the page in page table
+                m_gpu->get_global_memory()->validate_page(*iter);
 
-            m_new_stats->page_threshing[*iter].push_back(true);
+                m_new_stats->page_threshing[*iter].push_back(true);
 
-	    assert(req_info.find(*iter) != req_info.end());
+	        assert(req_info.find(*iter) != req_info.end());
 
-            // check if the transferred page is part of a prefetch request
-            if ( !prefetch_req_buffer.empty() ) {
+                // check if the transferred page is part of a prefetch request
+                if ( !prefetch_req_buffer.empty() ) {
 
-                prefetch_req& pre_q = prefetch_req_buffer.front();
+                    prefetch_req& pre_q = prefetch_req_buffer.front();
 
-	        std::list<mem_addr_t>::iterator iter2 = find(pre_q.pending_prefetch.begin(), pre_q.pending_prefetch.end(), *iter);
+	            std::list<mem_addr_t>::iterator iter2 = find(pre_q.pending_prefetch.begin(), pre_q.pending_prefetch.end(), *iter);
 
-	        if ( iter2 != pre_q.pending_prefetch.end() ) {
+	            if ( iter2 != pre_q.pending_prefetch.end() ) {
 			
-                    // pending prefetch holds the list of 4KB pages of a big chunk of tranfer (max upto 2MB)
-                    // remove it from the list as the PCI-e has transferred the page
-	            pre_q.pending_prefetch.erase(iter2);
+                        // pending prefetch holds the list of 4KB pages of a big chunk of tranfer (max upto 2MB)
+                        // remove it from the list as the PCI-e has transferred the page
+	                pre_q.pending_prefetch.erase(iter2);
 		
-		    // if this page is part of current prefecth request 
-                    // add all the dependant memory requests to the outgoing_replayable_nacks
-                    // these should be replayed only when current block of memory transfer is finished
-	            pre_q.outgoing_replayable_nacks[*iter].merge(req_info[*iter]);
+		        // if this page is part of current prefecth request 
+                        // add all the dependant memory requests to the outgoing_replayable_nacks
+                        // these should be replayed only when current block of memory transfer is finished
+	                pre_q.outgoing_replayable_nacks[*iter].merge(req_info[*iter]);
 
-                    // erase the page from the MSHR map
-	            req_info.erase(req_info.find(*iter));		
+                        // erase the page from the MSHR map
+	                req_info.erase(req_info.find(*iter));		
 
-		    m_new_stats->pf_page_fault_latency[*iter].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[*iter].back();
-                }
-	    }
+		        m_new_stats->pf_page_fault_latency[*iter].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[*iter].back();
+                    }
+	        }
 
-	    // this page request is created by core on page fault and not part of a prefetch
-	    if ( req_info.find(*iter) != req_info.end()) {
+	        // this page request is created by core on page fault and not part of a prefetch
+	        if ( req_info.find(*iter) != req_info.end()) {
 
-	        page_finsihed_for_mf.push_back(*iter);
+	            page_finsihed_for_mf.push_back(*iter);
 
-                // for all memory fetches that were waiting for this page, should be replayed back for cache access 
-                for ( std::list<mem_fetch*>::iterator iter2 = req_info[*iter].begin();
-                      iter2 != req_info[*iter].end(); iter2++) {
-                    mem_fetch* mf = *iter2;
+                    // for all memory fetches that were waiting for this page, should be replayed back for cache access 
+                    for ( std::list<mem_fetch*>::iterator iter2 = req_info[*iter].begin();
+                          iter2 != req_info[*iter].end(); iter2++) {
+                        mem_fetch* mf = *iter2;
                         
-                    simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
+                        simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
 
-                    // push the memory fetch into the gmmu to cu queue
-                    (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
-                }    
+                        // push the memory fetch into the gmmu to cu queue
+                        (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
+                    }    
                
-                // erase the page from the MSHR map
-                req_info.erase(req_info.find(*iter));
+                    // erase the page from the MSHR map
+                    req_info.erase(req_info.find(*iter));
 
-                m_new_stats->mf_page_fault_latency[*iter].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[*iter].back(); 
+                    m_new_stats->mf_page_fault_latency[*iter].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[*iter].back(); 
+	        }
+            }
+	} else {
+
+	    if(sim_prof_enable) {
+               for(std::list<event_stats*>::iterator iter = fault_stats.begin(); iter != fault_stats.end(); iter++) {
+                   if( ((page_fault_stats*)(*iter))->transfering_pages.front() == pcie_read_latency_queue->page_list.front() ) {
+		       event_stats* mf_fault = *iter;
+		       mf_fault->end_time = gpu_sim_cycle+gpu_tot_sim_cycle;
+		       sim_prof[mf_fault->start_time].push_back(mf_fault);
+		       fault_stats.erase(iter);
+		       break;
+		   } 
+               }
 	    }
-        }
-        pcie_read_latency_queue = NULL;
-    }
-
-    if(sim_prof_enable && !page_finsihed_for_mf.empty()){
-	for(list<mem_addr_t>::iterator iter = page_finsihed_for_mf.begin(); iter != page_finsihed_for_mf.end(); iter++) {
-        	for(list<event_stats*>::iterator iter2 = fault_stats.begin(); iter2 != fault_stats.end(); iter2++) {
-			list<mem_addr_t>& t_f = ((page_fault_stats*)(*iter2))->transfering_pages;
-			list<mem_addr_t>::iterator it = find( t_f.begin(), t_f.end(), *iter);
-			if( it != t_f.end()) {
-				t_f.erase(it);
-				if(t_f.empty()) {
-					(*iter2)->end_time = gpu_sim_cycle+gpu_tot_sim_cycle;
-					sim_prof[(*iter2)->start_time].push_back(*iter2);
-					fault_stats.erase(iter2);
-				}
-				break;
-			}	
-       		}
 	}
-	
+        pcie_read_latency_queue = NULL;
     }
 
     // schedule a transfer if there is a pending item in staging queue and 
     // nothing is being served at the read latency queue and we have available free pages
     if ( !pcie_read_stage_queue.empty() && pcie_read_latency_queue == NULL  && m_gpu->get_global_memory()->get_free_pages() >= pcie_read_stage_queue.front()->page_list.size()) {
         pcie_read_latency_queue = pcie_read_stage_queue.front();
-        pcie_read_latency_queue->ready_cycle = get_ready_cycle( pcie_read_latency_queue->page_list.size() );
 
-	if(sim_prof_enable) {
-           event_stats* cp_h2d = new memory_stats(memcpy_h2d, gpu_tot_sim_cycle+gpu_sim_cycle, pcie_read_latency_queue->ready_cycle, 
-						  pcie_read_latency_queue->start_addr, pcie_read_latency_queue->size, 0);
-           sim_prof[gpu_tot_sim_cycle+gpu_sim_cycle].push_back(cp_h2d);
-	}
+	if( pcie_read_latency_queue->type == latency_type::PCIE_READ ) {
+            pcie_read_latency_queue->ready_cycle = get_ready_cycle( pcie_read_latency_queue->page_list.size() );
 
-	for(unsigned long long read_period = gpu_tot_sim_cycle + gpu_sim_cycle; read_period != pcie_read_latency_queue->ready_cycle; read_period++ )
+	    if(sim_prof_enable) {
+               event_stats* cp_h2d = new memory_stats(memcpy_h2d, gpu_tot_sim_cycle+gpu_sim_cycle, pcie_read_latency_queue->ready_cycle, 
+						      pcie_read_latency_queue->start_addr, pcie_read_latency_queue->size, 0);
+               sim_prof[gpu_tot_sim_cycle+gpu_sim_cycle].push_back(cp_h2d);
+	    }
+
+	    for(unsigned long long read_period = gpu_tot_sim_cycle + gpu_sim_cycle; read_period != pcie_read_latency_queue->ready_cycle; read_period++ )
                 m_new_stats->pcie_read_utilization.push_back( std::make_pair(read_period, get_pcie_utilization(pcie_read_latency_queue->page_list.size())) );
 
-	pcie_read_stage_queue.pop_front();
+	    m_gpu->get_global_memory()->alloc_pages(pcie_read_latency_queue->page_list.size());
+	} else {
 
-	m_gpu->get_global_memory()->alloc_pages(pcie_read_latency_queue->page_list.size());
+
+	    assert(pcie_read_latency_queue->type == latency_type::PAGE_FAULT);
+	    pcie_read_latency_queue->ready_cycle = gpu_tot_sim_cycle+gpu_sim_cycle + m_config.page_fault_latency * pcie_read_latency_queue->page_list.size();
+
+	    if(sim_prof_enable) {
+              event_stats* mf_fault = new page_fault_stats(gpu_sim_cycle+gpu_tot_sim_cycle, pcie_read_latency_queue->page_list,
+                                                            pcie_read_latency_queue->page_list.size() * m_config.page_size);
+              fault_stats.push_back(mf_fault);
+            }
+	}
+	
+	pcie_read_stage_queue.pop_front();
     }
 
     list<mem_addr_t> page_fault_by_mf;
@@ -2336,6 +2373,13 @@ void gmmu_t::cycle()
                          // because they are always coalesced
  	                 // if there is already a page in the staging queue, don't need to add it again
 		         assert( req_info.find( *(page_list.begin()) ) == req_info.end() );
+			
+			 if( m_config.enable_accurate_simulation ) {
+			    pcie_latency_t* f_t = new pcie_latency_t();
+                            f_t->page_list.push_back( page_list.front() );
+                            f_t->type = latency_type::PAGE_FAULT;
+                            pcie_read_stage_queue.push_back(f_t);
+			 }
 
                          // for each page fault, the possible eviction procudure will only be called once here
                          // if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
@@ -2357,12 +2401,14 @@ void gmmu_t::cycle()
                          p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_list.front());
                          p_t->size = m_gpu->get_global_memory()->get_page_size();
                          p_t->page_list.push_back(page_list.front());
+			 p_t->type = latency_type::PCIE_READ;
                  
                          pcie_read_stage_queue.push_back(p_t);
 
 
                          req_info[*(page_list.begin())].push_back(mf);
 
+			 page_fault_by_mf.push_back(page_list.front());
 		     } else {
 
 			 page_fault_this_turn[page_list.front()].push_back(mf);
@@ -2516,6 +2562,7 @@ void gmmu_t::cycle()
                              p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(cur_transfer_all_pages.front());
                              p_t->page_list = std::list<mem_addr_t> ( cur_transfer_all_pages.begin(), pg_iter);
                              p_t->size = p_t->page_list.size() * m_config.page_size;
+			     p_t->type = latency_type::PCIE_READ;
  
 			     pcie_read_stage_queue.push_back(p_t);
 
@@ -2528,11 +2575,19 @@ void gmmu_t::cycle()
                      // now we split upto this and create a memory transfer 
                      if ( (pf_iter != cur_transfer_faulty_pages.end()) && ((*pf_iter) == (*pg_iter)) ) {
 
+			 if( m_config.enable_accurate_simulation ) {
+			     pcie_latency_t* f_t = new pcie_latency_t();
+                             f_t->page_list.push_back(*pf_iter);
+                             f_t->type = latency_type::PAGE_FAULT;
+                             pcie_read_stage_queue.push_back(f_t);
+			 }
+
                          // add the current split for transfer
                          pcie_latency_t* p_t = new pcie_latency_t();
                          p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(cur_transfer_all_pages.front());
                          p_t->page_list = std::list<mem_addr_t> ( cur_transfer_all_pages.begin(), ++pg_iter);
                          p_t->size = p_t->page_list.size() * m_config.page_size;
+			 p_t->type = latency_type::PCIE_READ;			
  
 			 pcie_read_stage_queue.push_back(p_t);
 
@@ -2550,6 +2605,7 @@ void gmmu_t::cycle()
                      p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(cur_transfer_all_pages.front()); 
                      p_t->page_list = cur_transfer_all_pages;
                      p_t->size = p_t->page_list.size() * m_config.page_size;
+		     p_t->type = latency_type::PCIE_READ;
 
                      pcie_read_stage_queue.push_back(p_t);
                  }
@@ -2574,11 +2630,6 @@ void gmmu_t::cycle()
     }
 
     
-    if(sim_prof_enable && !page_fault_by_mf.empty() ) {
-	event_stats* mf_fault = new page_fault_stats(gpu_sim_cycle+gpu_tot_sim_cycle, page_fault_by_mf, page_fault_by_mf.size() * m_config.page_size);
-	fault_stats.push_back(mf_fault);		
-    }
-
     // fetch from cluster's cu to gmmu queue and push it into the page table way delay queue
     for (unsigned i=0; i<m_shader_config->n_simt_clusters; i++) {
 
@@ -2722,6 +2773,7 @@ void gmmu_t::cycle()
  
              if ( !p_t->page_list.empty() ) {
 		 p_t->size = p_t->page_list.size() * m_config.page_size; 
+		 p_t->type = latency_type::PCIE_READ; 
                  pcie_read_stage_queue.push_back(p_t);
              }
 

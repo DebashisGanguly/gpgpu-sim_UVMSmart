@@ -318,6 +318,8 @@ public:
     unsigned num_core_per_cluster() const { return m_shader_config.n_simt_cores_per_cluster;}
     unsigned get_max_concurrent_kernel() const { return max_concurrent_kernel; }
 
+    void disable_hardware_prefetch() { hardware_prefetch = false; }
+
     void convert_byte_string();
 private:
     void init_clock_domains(void ); 
@@ -493,7 +495,7 @@ extern bool sim_prof_enable;
 
 void print_sim_prof(FILE *fout, float freq);
 
-void calculate_sim_prof(FILE *fout, float freq);
+void calculate_sim_prof(FILE *fout, gpgpu_sim *gpu);
 
 void update_sim_prof_kernel(unsigned kernel_id, unsigned long long end_time);
 
@@ -619,12 +621,16 @@ private:
    //page table walk delay queue
    std::list<page_table_walk_latency_t> page_table_walk_queue;  
 
+   enum class latency_type { PCIE_READ, PCIE_WRITE, PAGE_FAULT };
+
    // data structure to wrap a memory page and delay to transfer over PCI-E
    struct pcie_latency_t {
          mem_addr_t start_addr;
          unsigned long long size;
          std::list<mem_addr_t> page_list;
          unsigned long long ready_cycle;
+
+	 latency_type type;
    }; 
  
     // staging queue to hold the PCI-E requests waiting for scheduling

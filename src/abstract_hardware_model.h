@@ -502,12 +502,16 @@ protected:
     unsigned long long gddr_size;
     int page_size;
 
+    unsigned long long page_fault_latency;
+    bool enable_accurate_simulation;
+
     char* gddr_size_string;
     char* page_size_string;
 
     friend class gpgpu_t;
     friend class kernel_info_t;
     template<unsigned BSIZE> friend class memory_space_impl;
+    friend void calculate_sim_prof(FILE *fout, gpgpu_sim *gpu);
 };
 
 struct allocation_info {

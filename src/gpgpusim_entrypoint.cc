@@ -127,7 +127,7 @@ static void termination_callback()
 
     if(sim_prof_enable) {
        print_sim_prof(stdout, g_the_gpu->shader_clock());
-       calculate_sim_prof(stdout, g_the_gpu->shader_clock());
+       calculate_sim_prof(stdout, g_the_gpu);
     }
  
     printf("GPGPU-Sim: *** exit detected ***\n");
