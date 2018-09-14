@@ -100,6 +100,7 @@ unsigned long long kernel_time = 0;
 unsigned long long memory_copy_time_h2d = 0;
 unsigned long long memory_copy_time_d2h = 0;
 unsigned long long prefetch_time = 0;
+unsigned long long devicesync_time = 0;
 
 void calculate_sim_prof(FILE *fout, float freq)
 {
@@ -114,6 +115,8 @@ void calculate_sim_prof(FILE *fout, float freq)
     fprintf(fout, "Tot_memcpy_h2d_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d, ((float)memory_copy_time_h2d)/freq);
     fprintf(fout, "Tot_memcpy_d2h_time: %llu(cycle), %f(us)\n", memory_copy_time_d2h, ((float)memory_copy_time_d2h)/freq);
     fprintf(fout, "Tot_memcpy_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d+ memory_copy_time_d2h, ((float)(memory_copy_time_h2d+ memory_copy_time_d2h))/freq);
+    fprintf(fout, "Tot_devicesync_time: %llu(cycle), %f(us)\n", devicesync_time, ((float)devicesync_time)/freq);
+    fprintf(fout, "Tot_memcpy_d2h_and_devicesync_time: %llu(cycle), %f(us)\n", devicesync_time+memory_copy_time_d2h, ((float)devicesync_time+memory_copy_time_d2h)/freq);
 }
 
 

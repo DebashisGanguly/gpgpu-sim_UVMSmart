@@ -385,6 +385,7 @@ extern unsigned long long kernel_time;
 extern unsigned long long memory_copy_time_h2d;
 extern unsigned long long memory_copy_time_d2h;
 extern unsigned long long prefetch_time;
+extern unsigned long long devicesync_time;
 
 enum stats_type {
    prefetch=0,
@@ -446,6 +447,8 @@ public:
 		memory_copy_time_d2h += end_time - start_time;
 	} else if(type == prefetch_breakdown) {
 		prefetch_time += end_time - start_time;
+	} else if(type == device_sync) {
+		devicesync_time += end_time - start_time; 
 	}
     }
 };
