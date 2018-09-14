@@ -91,10 +91,13 @@ void gpgpu_functional_sim_config::ptx_set_tex_cache_linesize(unsigned linesize)
 
 void gpgpu_functional_sim_config::convert_byte_string()
 {
+   float temp_size = 0;
    if(strstr(gddr_size_string, "MB")) {
-      gddr_size = strtol(gddr_size_string, NULL, 10) * 1024 * 1024;
+      temp_size = atof(gddr_size_string) * 1024.0 * 1024.0;
+      gddr_size = ((unsigned long long)(temp_size)-1)/4096*4096+4096;
    } else if(strstr(gddr_size_string, "GB")){
-       gddr_size = strtol(gddr_size_string, NULL, 10) * 1024 * 1024 * 1024;
+       temp_size = atof(gddr_size_string) * 1024.0 * 1024.0 * 1024.0;
+       gddr_size = ((unsigned long long)(temp_size)-1)/4096*4096+4096;
    } else {
        printf("-gddr_size must be in MB/GB\n");
        exit(1);

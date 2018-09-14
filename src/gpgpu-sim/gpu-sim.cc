@@ -2463,6 +2463,7 @@ void gmmu_t::cycle()
             block_tree[start_large_page][aligned_addr].push_back(it->first);
         }
 
+
         for ( std::map<mem_addr_t, std::map<mem_addr_t, std::list<mem_addr_t> > >::iterator lp_iter = block_tree.begin();
               lp_iter != block_tree.end(); lp_iter++ ) {
 
@@ -2502,6 +2503,7 @@ void gmmu_t::cycle()
                          // call eviction routine
                          if ( m_gpu->get_global_memory()->should_evict_page(num_pages_read_stage_queue, m_config.free_page_buffer_percentage) ) {
                              page_eviction_procedure();
+			     (const_cast<gpgpu_sim_config&>(m_config)).disable_hardware_prefetch();
                          }
 
                          num_pages_read_stage_queue++;
