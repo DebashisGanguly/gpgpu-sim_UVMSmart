@@ -408,7 +408,7 @@ public:
    unsigned long long start_time;
    unsigned long long end_time;
 
-   virtual void print(FILE * fout) = 0;
+   virtual void print(FILE * fout, float freq) = 0;
    virtual void calculate() = 0;
 };
 
@@ -422,20 +422,22 @@ public:
     size_t size;
     unsigned stream_id;
 
-    virtual void print(FILE * fout) {
+    virtual void print(FILE * fout, float freq) {
 	fprintf(fout, "F: %8llu----T: %8llu \t St: %llx Sz: %lu \t Sm: %u \t ", start_time, end_time, start_addr, size, stream_id);
 	if(type == memcpy_h2d)
-		fprintf(fout, "T: memcpy_h2d\n");
+		fprintf(fout, "T: memcpy_h2d");
 	else if(type == memcpy_d2h)
-		fprintf(fout, "T: memcpy_d2h\n");
+		fprintf(fout, "T: memcpy_d2h");
 	else if(type == memcpy_d2d)
-		fprintf(fout, "T: memcpy_d2d\n");
+		fprintf(fout, "T: memcpy_d2d");
 	else if(type == prefetch) 
-		fprintf(fout, "T: prefetch\n");
+		fprintf(fout, "T: prefetch");
 	else if(type == prefetch_breakdown)
-		fprintf(fout, "T: prefetch_breakdown\n");
+		fprintf(fout, "T: prefetch_breakdown");
 	else 
-		fprintf(fout, "T: device_sync\n");
+		fprintf(fout, "T: device_sync");
+
+	fprintf(fout, "(%f)\n",((float)(end_time-start_time))/freq);
     }
     virtual void calculate() {
 	if(type == memcpy_h2d) {
@@ -455,8 +457,9 @@ public:
    unsigned stream_id;
    unsigned kernel_id;
   
-   virtual void print(FILE * fout) {
-	fprintf(fout, "F: %8llu----T: %8llu \t \t \t Kl: %u \t Sm: %u \t T: kernel_launch\n", start_time, end_time, kernel_id, stream_id);
+   virtual void print(FILE * fout, float freq) {
+	fprintf(fout, "F: %8llu----T: %8llu \t \t \t Kl: %u \t Sm: %u \t T: kernel_launch", start_time, end_time, kernel_id, stream_id);
+	fprintf(fout, "(%f)\n",((float)(end_time-start_time))/freq);
    }
 
    virtual void calculate() {
@@ -472,8 +475,9 @@ public:
    std::list<mem_addr_t> transfering_pages;
    size_t size;
 
-   virtual void print(FILE * fout) {
-	fprintf(fout, "F: %8llu----T: %8llu \t Sz: %u \t T: page_fault\n", start_time, end_time, size);
+   virtual void print(FILE * fout, float freq) {
+	fprintf(fout, "F: %8llu----T: %8llu \t Sz: %u \t T: page_fault", start_time, end_time, size);
+	fprintf(fout, "(%f)\n",((float)(end_time-start_time))/freq);
    }
 
    virtual void calculate() {
@@ -484,7 +488,7 @@ extern std::map<unsigned long long, std::list<event_stats*> > sim_prof;
 
 extern bool sim_prof_enable;
 
-void print_sim_prof(FILE *fout);
+void print_sim_prof(FILE *fout, float freq);
 
 void calculate_sim_prof(FILE *fout, float freq);
 
@@ -574,6 +578,7 @@ class gmmu_t {
 public:
    gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu_new_stats *new_stats);
    unsigned long long calculate_transfer_time(size_t data_size);
+   void calculate_devicesync_time(size_t data_size);
    void cycle();
    void register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb);
    void tlb_flush(mem_addr_t page_num);

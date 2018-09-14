@@ -86,11 +86,12 @@ bool sim_prof_enable = false;
 
 std::map<unsigned long long, std::list<event_stats*> > sim_prof;
 
-void print_sim_prof(FILE *fout)
+void print_sim_prof(FILE *fout, float freq)
 {
+    freq /= 1000;
     for(std::map<unsigned long long, std::list<event_stats*> >::iterator iter = sim_prof.begin();iter != sim_prof.end(); iter++){
 	for(std::list<event_stats*>::iterator iter2 = iter->second.begin(); iter2 != iter->second.end(); iter2++){
-		(*iter2)->print(fout);
+		(*iter2)->print(fout, freq);
 	}
     }
 }
@@ -1897,9 +1898,91 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
 
 unsigned long long gmmu_t::calculate_transfer_time(size_t data_size)
 {
-   return (unsigned long long) ((8.0 * (float)data_size * m_config.core_freq / m_config.pcie_bandwith / 1000000000.0));
+   float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(data_size) / (float)(1024)) );
+   if( data_size>= 2*1024*1024) {
+       speed /= 2;
+   }
+   return  (unsigned long long) ( (float)(data_size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
 }
 
+void gmmu_t::calculate_devicesync_time(size_t data_size)
+{
+
+   unsigned cur_turn = 0;
+   unsigned cur_size = 0;
+
+   float speed;
+
+   while( data_size != 0) {
+
+	unsigned long long cur_cycle = gpu_sim_cycle + gpu_tot_sim_cycle;
+   	unsigned long long cur_time = 0;
+
+	if ( cur_turn == 0 ) {
+             cur_size = MIN_PREFETCH_SIZE;
+        } else {
+             cur_size = MIN_PREFETCH_SIZE * pow(2, cur_turn - 1);
+        }
+
+	if(data_size < 4096) {
+	   speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(data_size) / (float)(1024)) );
+	   cur_time = (unsigned long long) ( (float)(data_size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0));
+	   
+	   if(sim_prof_enable) {
+	      event_stats* d_sync  = new memory_stats(device_sync, cur_cycle, cur_cycle+cur_time, 0, data_size, 0);
+              sim_prof[cur_cycle].push_back(d_sync);		
+	   }
+
+	   gpu_tot_sim_cycle += cur_time;
+
+	   return;
+	} else {
+	   cur_size -= 4096;
+	   data_size -= 4096;
+	   speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(4096) / (float)(1024)) );
+           cur_time = (unsigned long long) ( (float)(4096) * m_config.core_freq / speed / (1024.0*1024.0*1024.0));
+
+           if(sim_prof_enable) {
+              event_stats* d_sync  = new memory_stats(device_sync, cur_cycle, cur_cycle+cur_time, 0, 4096, 0);
+              sim_prof[cur_cycle].push_back(d_sync);            
+           }
+
+	   gpu_tot_sim_cycle += cur_time;
+	}
+
+	if( data_size < cur_size) {
+	   speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(data_size) / (float)(1024)) );
+           cur_time = (unsigned long long) ( (float)(data_size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0));
+
+           if(sim_prof_enable) {
+              event_stats* d_sync  = new memory_stats(device_sync, cur_cycle, cur_cycle+cur_time, 0, data_size, 0);
+              sim_prof[cur_cycle].push_back(d_sync);            
+           }
+
+	   gpu_tot_sim_cycle += cur_time;
+
+           return;
+	} else {
+	   data_size -= cur_size;
+	   speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(cur_size) / (float)(1024)) );
+           cur_time = (unsigned long long) ( (float)(cur_size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0));
+
+           if(sim_prof_enable) {
+              event_stats* d_sync  = new memory_stats(device_sync, cur_cycle, cur_cycle+cur_time, 0, cur_size, 0);
+              sim_prof[cur_cycle].push_back(d_sync);            
+           }
+	
+	   gpu_tot_sim_cycle += cur_time;
+	}
+
+	cur_turn++;
+	if(cur_turn == 6) {
+	   cur_turn = 0;
+	}
+
+   }
+   return;
+}
 void gmmu_t::accessed_pages_erase(mem_addr_t page_num)
 {
     assert( find( accessed_pages.begin(), accessed_pages.end(), page_num ) != accessed_pages.end());
