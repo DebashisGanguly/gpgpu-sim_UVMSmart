@@ -388,6 +388,7 @@ extern unsigned long long memory_copy_time_h2d;
 extern unsigned long long memory_copy_time_d2h;
 extern unsigned long long prefetch_time;
 extern unsigned long long devicesync_time;
+extern unsigned long long writeback_time;
 
 enum stats_type {
    prefetch=0,
@@ -398,6 +399,7 @@ enum stats_type {
    kernel_launch,
    page_fault,
    device_sync,
+   write_back
 };
 
 
@@ -437,8 +439,10 @@ public:
 		fprintf(fout, "T: prefetch");
 	else if(type == prefetch_breakdown)
 		fprintf(fout, "T: prefetch_breakdown");
-	else 
+	else if(type == device_sync) 
 		fprintf(fout, "T: device_sync");
+	else
+		fprintf(fout, "T: write_back");
 
 	fprintf(fout, "(%f)\n",((float)(end_time-start_time))/freq);
     }
@@ -451,6 +455,8 @@ public:
 		prefetch_time += end_time - start_time;
 	} else if(type == device_sync) {
 		devicesync_time += end_time - start_time; 
+	} else if(type == write_back) {
+		writeback_time += end_time - start_time;
 	}
     }
 };
@@ -701,6 +707,7 @@ private:
     std::list<prefetch_req> prefetch_req_buffer;
 
     std::list<event_stats*> fault_stats;
+    std::list<event_stats*> writeback_stats;
 
     struct large_page_req {
 	size_t size;
