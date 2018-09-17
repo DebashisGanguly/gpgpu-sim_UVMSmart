@@ -606,8 +606,11 @@ public:
    // get list of accessed pages 
    // used by Load/Store Unit for LRU TLB replacement
    const std::list<mem_addr_t>& get_accessed_pages() { return accessed_pages; }
+   
+   const std::list<mem_addr_t>& get_valid_pages() { return valid_pages; }
 
    void accessed_pages_erase(mem_addr_t pagenum);
+   void valid_pages_erase(mem_addr_t pagenum);
 
    void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
    void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
@@ -667,6 +670,8 @@ private:
 
     // list of accessed pages (valid = 1, accessed = 1, dirty = 1/0) ordered as LRU
     std::list<mem_addr_t> accessed_pages;
+
+    std::list<mem_addr_t> valid_pages;
 
     // page eviction policy lru or random
     enum class eviction_policy { LRU, RANDOM }; 
