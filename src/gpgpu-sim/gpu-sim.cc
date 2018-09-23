@@ -1754,7 +1754,7 @@ void gpgpu_new_stats::print(FILE *fout) const
            tot_mf_fault++; 
        }    
    }
-   fprintf(fout, "Total_memory_access_page_fault: %llu, Average_latency %f\n", tot_mf_fault, avg_mf_latency);
+   fprintf(fout, "Total_memory_access_page_fault: %llu, Average_latency: %f\n", tot_mf_fault, avg_mf_latency);
 
    
    fprintf(fout, "========================================Page threshing statistics==============================\n");
@@ -2115,13 +2115,13 @@ void gmmu_t::page_refresh(mem_access_t ma)
 
 unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
 {
-    float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*4)) );
+    float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*m_config.page_size)/1024.0) );
     return  gpu_tot_sim_cycle + gpu_sim_cycle + (unsigned long long) ( (float)(m_config.page_size * num_pages) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
 }
 
 float gmmu_t::get_pcie_utilization(unsigned num_pages)
 {
-    return 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*4)) ) / m_config.pcie_bandwith;
+    return 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*m_config.page_size)/1024.0) ) / m_config.pcie_bandwith;
 }
 
 void gmmu_t::activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream)
@@ -2434,6 +2434,8 @@ void gmmu_t::cycle()
                          req_info[*(page_list.begin())].push_back(mf);
 
 			 page_fault_by_mf.push_back(page_list.front());
+
+			 m_new_stats->mf_page_fault_latency[page_list.front()].push_back(gpu_sim_cycle+gpu_tot_sim_cycle);
 		     } else {
 
 			 page_fault_this_turn[page_list.front()].push_back(mf);
