@@ -2013,17 +2013,10 @@ void gmmu_t::calculate_devicesync_time(size_t data_size)
    }
    return;
 }
-
 void gmmu_t::accessed_pages_erase(mem_addr_t page_num)
 {
     assert( find( accessed_pages.begin(), accessed_pages.end(), page_num ) != accessed_pages.end());
     accessed_pages.erase( find( accessed_pages.begin(), accessed_pages.end(), page_num ) );
-}
-
-void gmmu_t::valid_pages_erase(mem_addr_t page_num)
-{
-    assert( find( valid_pages.begin(), valid_pages.end(), page_num ) != valid_pages.end());
-    valid_pages.erase( find( valid_pages.begin(), valid_pages.end(), page_num) );
 }
 
 void gmmu_t::register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb)
@@ -2056,77 +2049,48 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num)
 
 void gmmu_t::page_eviction_procedure()
 {
-    if( policy == eviction_policy::LRU ){
-        assert( !accessed_pages.empty() );
+    assert( !accessed_pages.empty() );
 
-        mem_addr_t page_num;
+    mem_addr_t page_num;
 
-	// in lru, only evict the least recently used pages at the front of accessed pages queue
+    // in lru, only evict the least recently used pages at the front of accessed pages queue
+    if( policy == eviction_policy::LRU ) {
         page_num =  accessed_pages.front() ;
-
-
-        if( m_gpu->get_global_memory()->is_page_dirty(page_num) ) {
-            pcie_latency_t *p_t = new pcie_latency_t();
-
-            p_t->page_list.push_back( page_num );
-            p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
-            p_t->size = m_gpu->get_global_memory()->get_page_size();
-	    p_t->type = latency_type::PCIE_WRITE;
-
-            pcie_write_stage_queue.push_back( p_t );
-        } else {
-	    // if the page is not touched, evict it directly
-	    m_gpu->get_global_memory()->invalidate_page( page_num );
-            m_gpu->get_global_memory()->clear_page_access( page_num ); 
-
-            m_gpu->get_global_memory()->free_pages(1);
-
-	    m_new_stats->page_threshing[page_num].push_back(false);
-
-	    m_new_stats->page_evict_not_dirty++;
-
-	    tlb_flush( page_num);
-        }
-   
-        accessed_pages.pop_front();
-    } else{
-	assert( !valid_pages.empty() );
-
-	mem_addr_t page_num;
-
-	// in random eviction, select a random page
-        list<mem_addr_t>::iterator iter = valid_pages.begin();
-        std::advance(iter, rand() % valid_pages.size() );
+    } else {
+    // in random eviction, select a random page
+	list<mem_addr_t>::iterator iter = accessed_pages.begin();
+        std::advance(iter, rand() % accessed_pages.size() );
         page_num = *iter;
+    }
 
-	if( m_gpu->get_global_memory()->is_page_dirty(page_num) ) {
-            pcie_latency_t *p_t = new pcie_latency_t();
 
-            p_t->page_list.push_back( page_num );
-            p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
-            p_t->size = m_gpu->get_global_memory()->get_page_size();
-            p_t->type = latency_type::PCIE_WRITE;
+    if( m_gpu->get_global_memory()->is_page_dirty(page_num) ) {
+        pcie_latency_t *p_t = new pcie_latency_t();
 
-            pcie_write_stage_queue.push_back( p_t );
-        } else {
-            // if the page is not touched, evict it directly
-            m_gpu->get_global_memory()->invalidate_page( page_num );
-            m_gpu->get_global_memory()->clear_page_access( page_num ); 
+        p_t->page_list.push_back( page_num );
+        p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
+        p_t->size = m_gpu->get_global_memory()->get_page_size();
+	p_t->type = latency_type::PCIE_WRITE;
 
-            m_gpu->get_global_memory()->free_pages(1);
+        pcie_write_stage_queue.push_back( p_t );
+    } else {
+	// if the page is not touched, evict it directly
+	m_gpu->get_global_memory()->invalidate_page( page_num );
+        m_gpu->get_global_memory()->clear_page_access( page_num ); 
 
-            m_new_stats->page_threshing[page_num].push_back(false);
+        m_gpu->get_global_memory()->free_pages(1);
 
-            m_new_stats->page_evict_not_dirty++;
+	m_new_stats->page_threshing[page_num].push_back(false);
 
-            tlb_flush( page_num);
-        }
+	m_new_stats->page_evict_not_dirty++;
 
-	valid_pages.erase ( find( valid_pages.begin(), valid_pages.end(), page_num ) );
-
-	if( find(accessed_pages.begin(), accessed_pages.end(), page_num) != accessed_pages.end() ) {
-	    accessed_pages.erase( find(accessed_pages.begin(), accessed_pages.end(), page_num) ); 
-	} 
+	tlb_flush( page_num);
+    }
+   
+    if( policy == eviction_policy::LRU ) {
+        accessed_pages.pop_front();
+    } else {
+	accessed_pages.erase ( find( accessed_pages.begin(), accessed_pages.end(), page_num ) );
     }
 }
 
@@ -2147,10 +2111,6 @@ void gmmu_t::page_refresh(mem_access_t ma)
     }
 
     accessed_pages.push_back(page_num);	
-
-    if( find( valid_pages.begin(), valid_pages.end(), page_num) == valid_pages.end() ) {
-	valid_pages.push_back(page_num);
-    }	
 }
 
 unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
@@ -2274,10 +2234,6 @@ void gmmu_t::cycle()
                 iter != pcie_read_latency_queue->page_list.end(); iter++) {
                 // validate the page in page table
                 m_gpu->get_global_memory()->validate_page(*iter);
-
-		if( req_info[*iter].size() == 0 ){
-		    valid_pages.push_back(*iter);
-		}
 
                 m_new_stats->page_threshing[*iter].push_back(true);
 
