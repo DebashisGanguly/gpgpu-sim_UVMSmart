@@ -1,0 +1,34 @@
+nvprof ./hotspot 512 2 2 ../../data/hotspot/temp_512 ../../data/hotspot/power_512 output.out
+WG size of kernel = 16 X 16
+==145835== NVPROF is profiling process 145835, command: ./hotspot 512 2 2 ../../data/hotspot/temp_512 ../../data/hotspot/power_512 output.out
+pyramidHeight: 2
+gridSize: [512, 512]
+border:[2, 2]
+blockGrid:[43, 43]
+targetBlock:[12, 12]
+Start computing the transient temperature
+Ending simulation
+==145835== Profiling application: ./hotspot 512 2 2 ../../data/hotspot/temp_512 ../../data/hotspot/power_512 output.out
+==145835== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:  100.00%  887.30us         1  887.30us  887.30us  887.30us  calculate_temp(int, float*, float*, float*, int, int, int, int, float, float, float, float, float, float)
+      API calls:   99.39%  347.40ms         3  115.80ms  11.631us  347.36ms  cudaMallocManaged
+                    0.25%  886.29us         1  886.29us  886.29us  886.29us  cudaDeviceSynchronize
+                    0.18%  626.63us        94  6.6660us     140ns  284.23us  cuDeviceGetAttribute
+                    0.08%  277.19us         3  92.395us  12.499us  146.85us  cudaFree
+                    0.04%  141.75us         1  141.75us  141.75us  141.75us  cuDeviceTotalMem
+                    0.04%  128.57us         1  128.57us  128.57us  128.57us  cudaLaunch
+                    0.02%  63.847us         1  63.847us  63.847us  63.847us  cuDeviceGetName
+                    0.00%  6.5980us        14     471ns     117ns  4.0170us  cudaSetupArgument
+                    0.00%  3.2390us         1  3.2390us  3.2390us  3.2390us  cudaConfigureCall
+                    0.00%  2.0600us         3     686ns     142ns  1.6890us  cuDeviceGetCount
+                    0.00%     788ns         2     394ns     177ns     611ns  cuDeviceGet
+
+==145835== Unified Memory profiling result:
+Device "GeForce GTX 1080 Ti (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+      32  64.000KB  4.0000KB  484.00KB  2.000000MB  206.4320us  Host To Device
+      10  102.40KB  4.0000KB  508.00KB  1.000000MB  86.56000us  Device To Host
+       9         -         -         -           -  808.0000us  Gpu page fault groups
+Total CPU Page faults: 15
+

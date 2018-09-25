@@ -1,0 +1,31 @@
+nvprof ./main ../../data/stencil/128x128x32.bin 128 128 32 40
+CUDA accelerated 7 points stencil codes****
+Original version by Li-Wen Chang <lchang20@illinois.edu> and I-Jui Sung<sung10@illinois.edu>
+This version maintained by Chris Rodrigues  ***********
+==151502== NVPROF is profiling process 151502, command: ./main ../../data/stencil/128x128x32.bin 128 128 32 40
+==151502== Profiling application: ./main ../../data/stencil/128x128x32.bin 128 128 32 40
+==151502== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:  100.00%  2.6331ms        40  65.826us  40.737us  1.0029ms  block2D_hybrid_coarsen_x(float, float, float*, float*, int, int, int)
+      API calls:   98.87%  330.58ms         2  165.29ms  35.338us  330.55ms  cudaMallocManaged
+                    0.67%  2.2450ms         1  2.2450ms  2.2450ms  2.2450ms  cudaDeviceSynchronize
+                    0.17%  571.37us        94  6.0780us     146ns  252.55us  cuDeviceGetAttribute
+                    0.13%  420.50us        40  10.512us  5.9300us  142.66us  cudaLaunch
+                    0.09%  292.86us         2  146.43us  100.06us  192.80us  cudaFree
+                    0.04%  134.98us         1  134.98us  134.98us  134.98us  cuDeviceTotalMem
+                    0.02%  57.048us         1  57.048us  57.048us  57.048us  cuDeviceGetName
+                    0.01%  45.266us       280     161ns     123ns  3.8320us  cudaSetupArgument
+                    0.00%  11.757us        40     293ns     196ns  2.8750us  cudaConfigureCall
+                    0.00%  1.6830us         3     561ns     139ns  1.3120us  cuDeviceGetCount
+                    0.00%     725ns         2     362ns     196ns     529ns  cuDeviceGet
+                    0.00%     277ns         1     277ns     277ns     277ns  cudaGetLastError
+
+==151502== Unified Memory profiling result:
+Device "GeForce GTX 1080 Ti (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+      63  65.016KB  4.0000KB  976.00KB  4.000000MB  400.9920us  Host To Device
+      12  170.67KB  4.0000KB  0.9961MB  2.000000MB  167.6800us  Device To Host
+      13         -         -         -           -  1.126240ms  Gpu page fault groups
+Total CPU Page faults: 19
+
+

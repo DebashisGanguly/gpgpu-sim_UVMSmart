@@ -1,0 +1,33 @@
+nvprof ./srad 1024 1024 0 127 0 127 0.5 2 > 1
+==151415== NVPROF is profiling process 151415, command: ./srad 1024 1024 0 127 0 127 0.5 2
+==151415== Profiling application: ./srad 1024 1024 0 127 0 127 0.5 2
+==151415== Warning: 2 records have invalid timestamps due to insufficient device buffer space. You can configure the buffer space using the option --device-buffer-size.
+==151415== Profiling result:
+No kernels were profiled.
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+      API calls:   89.71%  260.77ms         5  52.153ms  133.06us  260.20ms  cudaMalloc
+                    7.02%  20.399ms         1  20.399ms  20.399ms  20.399ms  cudaMallocManaged
+                    2.66%  7.7192ms         2  3.8596ms  1.1250us  7.7181ms  cudaDeviceSynchronize
+                    0.30%  875.06us         2  437.53us  2.8320us  872.23us  cudaMemPrefetchAsync
+                    0.16%  458.45us        94  4.8770us     140ns  201.57us  cuDeviceGetAttribute
+                    0.05%  139.07us         4  34.768us     608ns  121.37us  cudaLaunch
+                    0.04%  125.31us         1  125.31us  125.31us  125.31us  cuDeviceTotalMem
+                    0.03%  84.896us         2  42.448us  15.854us  69.042us  cudaStreamCreate
+                    0.02%  67.086us         1  67.086us  67.086us  67.086us  cuDeviceGetName
+                    0.00%  11.258us        38     296ns     124ns  5.4200us  cudaSetupArgument
+                    0.00%  9.8690us         6  1.6440us     375ns  7.9230us  cudaFree
+                    0.00%  7.3170us         2  3.6580us  2.0160us  5.3010us  cudaGetDevice
+                    0.00%  2.6000us         4     650ns     150ns  1.8190us  cudaConfigureCall
+                    0.00%  1.9230us         3     641ns     158ns  1.5410us  cuDeviceGetCount
+                    0.00%     834ns         2     417ns     187ns     647ns  cuDeviceGet
+                    0.00%     708ns         1     708ns     708ns     708ns  cudaThreadSynchronize
+
+==151415== Unified Memory profiling result:
+Device "GeForce GTX 1080 Ti (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+       2  2.0000MB  2.0000MB  2.0000MB  4.000000MB  357.1200us  Host To Device
+      24  170.67KB  4.0000KB  0.9961MB  4.000000MB  335.0080us  Device To Host
+       1         -         -         -           -  113.6960us  Gpu page fault groups
+Total CPU Page faults: 24
+
+

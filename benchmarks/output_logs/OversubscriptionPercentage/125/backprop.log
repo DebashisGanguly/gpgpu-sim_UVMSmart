@@ -1,0 +1,2548 @@
+
+
+        *** GPGPU-Sim Simulator Version 3.2.2  [build gpgpu-sim_git-commit-b59af3f95cf1bd6710f57ba8441bced1b556b409_modified_44] ***
+
+
+GPGPU-Sim PTX: simulation mode 0 (can change with PTX_SIM_MODE_FUNC environment variable:
+               1=functional simulation only, 0=detailed performance simulator)
+GPGPU-Sim: Configuration options:
+
+-network_mode                           1 # Interconnection network mode
+-inter_config_file   config_fermi_islip.icnt # Interconnection network config file
+-gpgpu_ptx_use_cuobjdump                    1 # Use cuobjdump to extract ptx and sass from binaries
+-gpgpu_experimental_lib_support                    0 # Try to extract code from cuda libraries [Broken because of unknown cudaGetExportTable]
+-gpgpu_ptx_convert_to_ptxplus                    0 # Convert SASS (native ISA) to ptxplus and run ptxplus
+-gpgpu_ptx_force_max_capability                   20 # Force maximum compute capability
+-gpgpu_ptx_inst_debug_to_file                    0 # Dump executed instructions' debug information to file
+-gpgpu_ptx_inst_debug_file       inst_debug.txt # Executed instructions' debug output file
+-gpgpu_ptx_inst_debug_thread_uid                    1 # Thread UID for executed instructions' debug output
+-gpgpu_simd_model                       1 # 1 = post-dominator
+-gpgpu_shader_core_pipeline              2048:32 # shader core pipeline config, i.e., {<nthread>:<warpsize>}
+-gpgpu_tex_cache:l1  16:128:24,L:R:m:N:L,F:128:4,128:2 # per-shader L1 texture cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
+-gpgpu_const_cache:l1 128:64:2,L:R:f:N:L,A:2:64,4 # per-shader L1 constant memory cache  (READ-ONLY) config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:il1     8:128:4,L:R:f:N:L,A:2:48,4 # shader L1 instruction cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>} 
+-gpgpu_cache:dl1     64:128:6,L:L:m:N:H,A:128:8,8 # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PrefL1                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gpgpu_cache:dl1PrefShared                 none # per-shader L1 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+-gmem_skip_L1D                          1 # global memory access skip L1D cache (implements -Xptxas -dlcm=cg, default=no skip)
+-gpgpu_perfect_mem                      0 # enable perfect memory mode (no cache miss)
+-n_regfile_gating_group                    4 # group of lanes that should be read/written together)
+-gpgpu_clock_gated_reg_file                    0 # enable clock gated reg file for power calculations
+-gpgpu_clock_gated_lanes                    0 # enable clock gated lanes for power calculations
+-gpgpu_shader_registers                65536 # Number of registers per shader core. Limits number of concurrent CTAs. (default 8192)
+-gpgpu_shader_cta                      32 # Maximum number of concurrent CTAs in shader (default 8)
+-gpgpu_num_cta_barriers                   16 # Maximum number of named barriers per CTA (default 16)
+-gpgpu_n_clusters                      28 # number of processing clusters
+-gpgpu_n_cores_per_cluster                    1 # number of simd cores per cluster
+-gpgpu_n_cluster_ejection_buffer_size                    8 # number of packets in ejection buffer
+-gpgpu_n_ldst_response_buffer_size                    2 # number of response packets in ld/st unit ejection buffer
+-gpgpu_shmem_size                   16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size                   98304 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefL1                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_size_PrefShared                16384 # Size of shared memory per shader core (default 16kB)
+-gpgpu_shmem_num_banks                   32 # Number of banks in the shared memory in each shader core (default 16)
+-gpgpu_shmem_limited_broadcast                    0 # Limit shared memory to do one broadcast per cycle (default on)
+-gpgpu_shmem_warp_parts                    1 # Number of portions a warp is divided into for shared memory bank conflict check 
+-gpgpu_warpdistro_shader                   -1 # Specify which shader core to collect the warp size distribution from
+-gpgpu_warp_issue_shader                    0 # Specify which shader core to collect the warp issue distribution from
+-gpgpu_local_mem_map                    1 # Mapping from local memory space address to simulated GPU physical address space (default = enabled)
+-gpgpu_num_reg_banks                   32 # Number of register banks (default = 8)
+-gpgpu_reg_bank_use_warp_id                    0 # Use warp ID in mapping registers to banks (default = off)
+-gpgpu_operand_collector_num_units_sp                   20 # number of collector units (default = 4)
+-gpgpu_operand_collector_num_units_sfu                    4 # number of collector units (default = 4)
+-gpgpu_operand_collector_num_units_mem                    8 # number of collector units (default = 2)
+-gpgpu_operand_collector_num_units_gen                    0 # number of collector units (default = 0)
+-gpgpu_operand_collector_num_in_ports_sp                    4 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_sfu                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_mem                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_in_ports_gen                    0 # number of collector unit in ports (default = 0)
+-gpgpu_operand_collector_num_out_ports_sp                    4 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_sfu                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_mem                    1 # number of collector unit in ports (default = 1)
+-gpgpu_operand_collector_num_out_ports_gen                    0 # number of collector unit in ports (default = 0)
+-gpgpu_coalesce_arch                   13 # Coalescing arch (default = 13, anything else is off for now)
+-gpgpu_num_sched_per_core                    2 # Number of warp schedulers per core
+-gpgpu_max_insn_issue_per_warp                    2 # Max number of instructions that can be issued per warp in one cycle by scheduler
+-gpgpu_simt_core_sim_order                    1 # Select the simulation order of cores in a cluster (0=Fix, 1=Round-Robin)
+-gpgpu_pipeline_widths        4,1,1,4,1,1,6 # Pipeline widths ID_OC_SP,ID_OC_SFU,ID_OC_MEM,OC_EX_SP,OC_EX_SFU,OC_EX_MEM,EX_WB
+-gpgpu_num_sp_units                     4 # Number of SP units (default=1)
+-gpgpu_num_sfu_units                    1 # Number of SF units (default=1)
+-gpgpu_num_mem_units                    1 # Number if ldst units (default=1) WARNING: not hooked up to anything
+-gpgpu_scheduler                      gto # Scheduler configuration: < lrr | gto | two_level_active > If two_level_active:<num_active_warps>:<inner_prioritization>:<outer_prioritization>For complete list of prioritization values see shader.h enum scheduler_prioritization_typeDefault: gto
+-gpgpu_concurrent_kernel_sm                    0 # Support concurrent kernels on a SM (default = disabled)
+-tlb_size                            4096 # Number of tlb entries per SM.
+-gpgpu_dram_scheduler                    1 # 0 = fifo, 1 = FR-FCFS (defaul)
+-gpgpu_dram_partition_queues              8:8:8:8 # i2$:$2d:d2$:$2i
+-l2_ideal                               0 # Use a ideal L2 cache that always hit
+-gpgpu_cache:dl2     64:128:16,L:B:m:W:L,A:1024:1024,4:0,32 # unified banked L2 data cache config  {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
+-gpgpu_cache:dl2_texture_only                    0 # L2 cache used for texture only
+-gpgpu_n_mem                           11 # number of memory modules (e.g. memory controllers) in gpu
+-gpgpu_n_sub_partition_per_mchannel                    2 # number of memory subpartition in each memory module
+-gpgpu_n_mem_per_ctrlr                    1 # number of memory chips per memory controller
+-gpgpu_memlatency_stat                   14 # track and display latency statistics 0x2 enables MC, 0x4 enables queue logs
+-gpgpu_frfcfs_dram_sched_queue_size                   64 # 0 = unlimited (default); # entries per chip
+-gpgpu_dram_return_queue_size                  116 # 0 = unlimited (default); # entries per chip
+-gpgpu_dram_buswidth                    4 # default = 4 bytes (8 bytes per cycle at DDR)
+-gpgpu_dram_burst_length                    8 # Burst length of each DRAM request (default = 4 data bus cycle)
+-dram_data_command_freq_ratio                    4 # Frequency ratio between DRAM data bus and command bus (default = 2 times, i.e. DDR)
+-gpgpu_dram_timing_opt nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0 # DRAM timing parameters = {nbk:tCCD:tRRD:tRCD:tRAS:tRP:tRC:CL:WL:tCDLR:tWR:nbkgrp:tCCDL:tRTPL}
+-rop_latency                          120 # ROP queue latency (default 85)
+-dram_latency                         100 # DRAM latency (default 30)
+-gpgpu_mem_addr_mapping dramid@8;00000000.00000000.00000000.00000000.0000RRRR.RRRRRRRR.RBBBCCCC.BCCSSSSS # mapping memory address to dram model {dramid@<start bit>;<memory address map>}
+-gpgpu_mem_addr_test                    0 # run sweep test to check address mapping for aliased address
+-gpgpu_mem_address_mask                    1 # 0 = old addressing mask, 1 = new addressing mask, 2 = new add. mask + flipped bank sel and chip sel bits
+-gpuwattch_xml_file  gpuwattch_geforcegtx1080ti.xml # GPUWattch XML file
+-power_simulation_enabled                    1 # Turn on power simulator (1=On, 0=Off)
+-power_per_cycle_dump                    0 # Dump detailed power output each cycle
+-power_trace_enabled                    0 # produce a file for the power trace (1=On, 0=Off)
+-power_trace_zlevel                     6 # Compression level of the power trace output log (0=no comp, 9=highest)
+-steady_power_levels_enabled                    0 # produce a file for the steady power levels (1=On, 0=Off)
+-steady_state_definition                  8:4 # allowed deviation:number of samples
+-gpgpu_max_cycle                        0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_max_insn                         0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_max_cta                          0 # terminates gpu simulation early (0 = no limit)
+-gpgpu_runtime_stat                   500 # display runtime statistics such as dram utilization {<freq>:<flag>}
+-liveness_message_freq                    1 # Minimum number of seconds between simulation liveness messages (0 = always print)
+-gpgpu_flush_l1_cache                    0 # Flush L1 cache at the end of each kernel call
+-gpgpu_flush_l2_cache                    0 # Flush L2 cache at the end of each kernel call
+-gpgpu_deadlock_detect                    0 # Stop the simulation at deadlock (1=on (default), 0=off)
+-gpgpu_ptx_instruction_classification                    0 # if enabled will classify ptx instruction types per kernel (Max 255 kernels now)
+-gpgpu_ptx_sim_mode                     0 # Select between Performance (default) or Functional simulation (1)
+-gpgpu_clock_domains 1481.0:2962.0:1481.0:2750.0 # Clock Domain Frequencies in MhZ {<Core Clock>:<ICNT Clock>:<L2 Clock>:<DRAM Clock>}
+-gpgpu_max_concurrent_kernel                    8 # maximum kernels that can run concurrently on GPU
+-gpgpu_cflog_interval                    0 # Interval between each snapshot in control flow logger
+-visualizer_enabled                     0 # Turn on visualizer output (1=On, 0=Off)
+-visualizer_outputfile                 NULL # Specifies the output log file for visualizer
+-visualizer_zlevel                      6 # Compression level of the visualizer output log (0=no comp, 9=highest)
+-trace_enabled                          0 # Turn on traces
+-trace_components                    none # comma seperated list of traces to enable. Complete list found in trace_streams.tup. Default none
+-trace_sampling_core                    0 # The core which is printed using CORE_DPRINTF. Default 0
+-trace_sampling_memory_partition                   -1 # The memory partition which is printed using MEMPART_DPRINTF. Default -1 (i.e. all)
+-gddr_size                       1.9775MB # Size of GDDR in MB/GB.(GLOBAL_HEAP_START, GLOBAL_HEAP_START + gddr_size) would be used for unmanged memory, (GLOBAL_HEAP_START + gddr_size, GLOBAL_HEAP_START + gddr_size*2) would be used for managed memory. 
+-page_table_walk_latency                  100 # Average page table walk latency (in core cycle).
+-eviction_policy                      lru # Memory eviction policy: lru or random.
+-percentage_of_free_page_buffer                    0 # Percentage of free page buffer to trigger the page eviction.
+-page_size                            4KB # GDDR page size, only 4KB/2MB avaliable.
+-pcie_bandwith                   16.0GB/s # PCI-e bandwith per direction, in GB/s.
+-sim_prof_enable                        1 # Enable gpgpu-sim profiler
+-hardware_prefetch                      1 # Enable gpgpu-sim hardware prefetcher
+-page_fault_latency                 66645 # Average fault latency (in core cycle).
+-enable_accurate_simulation                    0 # Enable page fault functional simulation.
+-enable_ptx_file_line_stats                    1 # Turn on PTX source line statistic profiling. (1 = On)
+-ptx_line_stats_filename gpgpu_inst_stats.txt # Output file for PTX source line statistics.
+-gpgpu_kernel_launch_latency               222150 # Kernel launch latency in cycles. Default: 0
+-gpgpu_cdp_enabled                      0 # Turn on CDP
+-save_embedded_ptx                      0 # saves ptx files embedded in binary as <n>.ptx
+-keep                                   0 # keep intermediate files created by GPGPU-Sim when interfacing with external programs
+-gpgpu_ptx_save_converted_ptxplus                    0 # Saved converted ptxplus to a file
+-ptx_opcode_latency_int         4,13,4,5,145 # Opcode latencies for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,19,25,145
+-ptx_opcode_latency_fp          4,13,4,5,39 # Opcode latencies for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,30
+-ptx_opcode_latency_dp         8,19,8,8,330 # Opcode latencies for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,335
+-ptx_opcode_initiation_int            1,2,2,2,8 # Opcode initiation intervals for integers <ADD,MAX,MUL,MAD,DIV>Default 1,1,4,4,32
+-ptx_opcode_initiation_fp            1,2,1,1,4 # Opcode initiation intervals for single precision floating points <ADD,MAX,MUL,MAD,DIV>Default 1,1,1,1,5
+-ptx_opcode_initiation_dp          1,2,1,1,130 # Opcode initiation intervals for double precision floating points <ADD,MAX,MUL,MAD,DIV>Default 8,8,8,8,130
+-cdp_latency         7200,8000,100,12000,1600 # CDP API latency <cudaStreamCreateWithFlags, cudaGetParameterBufferV2_init_perWarp, cudaGetParameterBufferV2_perKernel, cudaLaunchDeviceV2_init_perWarp, cudaLaunchDevicV2_perKernel>Default 7200,8000,100,12000,1600
+DRAM Timing Options:
+nbk                                    16 # number of banks
+CCD                                     2 # column to column delay
+RRD                                     6 # minimal delay between activation of rows in different banks
+RCD                                    12 # row to column delay
+RAS                                    28 # time needed to activate row
+RP                                     12 # time needed to precharge (deactivate) row
+RC                                     40 # row cycle time
+CDLR                                    5 # switching from write to read (changes tWTR)
+WR                                     12 # last data-in to row precharge
+CL                                     12 # CAS latency
+WL                                      4 # Write latency
+nbkgrp                                  1 # number of bank groups
+CCDL                                    0 # column to column delay between accesses to different bank groups
+RTPL                                    0 # read to precharge delay between accesses to different bank groups
+Total number of memory sub partition = 22
+addr_dec_mask[CHIP]  = 0000000000000000 	high:64 low:0
+addr_dec_mask[BK]    = 0000000000007080 	high:15 low:7
+addr_dec_mask[ROW]   = 000000000fff8000 	high:28 low:15
+addr_dec_mask[COL]   = 0000000000000f7f 	high:12 low:0
+addr_dec_mask[BURST] = 000000000000001f 	high:5 low:0
+sub_partition_id_mask = 0000000000000080
+GPGPU-Sim uArch: clock freqs: 1481000000.000000:2962000000.000000:1481000000.000000:2750000000.000000
+GPGPU-Sim uArch: clock periods: 0.00000000067521944632:0.00000000033760972316:0.00000000067521944632:0.00000000036363636364
+*** Initializing Memory Statistics ***
+GPGPU-Sim uArch: interconnect node map (shaderID+MemID to icntID)
+GPGPU-Sim uArch: Memory nodes ID start from index: 28
+GPGPU-Sim uArch:    0   1   2   3   4   5   6
+GPGPU-Sim uArch:    7   8   9  10  11  12  13
+GPGPU-Sim uArch:   14  15  16  17  18  19  20
+GPGPU-Sim uArch:   21  22  23  24  25  26  27
+GPGPU-Sim uArch:   28  29  30  31  32  33  34
+GPGPU-Sim uArch:   35  36  37  38  39  40  41
+GPGPU-Sim uArch:   42  43  44  45  46  47  48
+GPGPU-Sim uArch:   49
+GPGPU-Sim uArch: interconnect node reverse map (icntID to shaderID+MemID)
+GPGPU-Sim uArch: Memory nodes start from ID: 28
+GPGPU-Sim uArch:    0   1   2   3   4   5   6
+GPGPU-Sim uArch:    7   8   9  10  11  12  13
+GPGPU-Sim uArch:   14  15  16  17  18  19  20
+GPGPU-Sim uArch:   21  22  23  24  25  26  27
+GPGPU-Sim uArch:   28  29  30  31  32  33  34
+GPGPU-Sim uArch:   35  36  37  38  39  40  41
+GPGPU-Sim uArch:   42  43  44  45  46  47  48
+GPGPU-Sim uArch:   49
+72651cc23714cb8f1bdd63defa896397  /home/gpuser/Documents/gpgpu-sim_UVM_new_backprop/benchmarks/Managed/backprop_gddr_0.8/backprop
+GPGPU-Sim uArch: performance model initialization complete.
+GPGPU-Sim PTX: __cudaRegisterFatBinary, fat_cubin_handle = 1, filename=default
+self exe links to: /home/gpuser/Documents/gpgpu-sim_UVM_new_backprop/benchmarks/Managed/backprop_gddr_0.8/backprop
+Running md5sum using "md5sum /home/gpuser/Documents/gpgpu-sim_UVM_new_backprop/benchmarks/Managed/backprop_gddr_0.8/backprop "
+Parsing file _cuobjdump_complete_output_GfUIUi
+######### cuobjdump parser ########
+## Adding new section ELF
+Adding arch: sm_20
+Adding identifier: default
+## Adding new section ELF
+Adding arch: sm_20
+Adding identifier: default
+## Adding new section PTX
+Adding ptx filename: _cuobjdump_1.ptx
+Adding arch: sm_20
+Adding identifier: default
+Done parsing!!!
+GPGPU-Sim PTX: __cudaRegisterFunction _Z24bpnn_adjust_weights_cudaPfiS_iS_S_ : hostFun 0x0x402d5b, fat_cubin_handle = 1
+GPGPU-Sim PTX: allocating shared region for "_Z22bpnn_layerforward_CUDAPfS_S_S_ii$__cuda_local_var_17900_34_non_const_input_node" from 0x0 to 0x40 (shared memory space)
+GPGPU-Sim PTX: allocating shared region for "_Z22bpnn_layerforward_CUDAPfS_S_S_ii$__cuda_local_var_17901_34_non_const_weight_matrix" from 0x80 to 0x480 (shared memory space)
+GPGPU-Sim PTX: instruction assembly for function '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...   done.
+GPGPU-Sim PTX: finding reconvergence points for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding dominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding immediate dominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding postdominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: Finding immediate postdominators for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: pre-decoding instructions for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'...
+GPGPU-Sim PTX: reconvergence points for _Z22bpnn_layerforward_CUDAPfS_S_S_ii...
+GPGPU-Sim PTX:  1 (potential) branch divergence @  PC=0x068 (_1.ptx:47) @%p2 bra BB0_2;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x0a0 (_1.ptx:57) cvta.to.global.u64 %rd3, %rd8;
+GPGPU-Sim PTX:  2 (potential) branch divergence @  PC=0x168 (_1.ptx:82) @%p3 bra BB0_7;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x250 (_1.ptx:119) setp.eq.s32%p1, %r3, 0;
+GPGPU-Sim PTX:  3 (potential) branch divergence @  PC=0x1c8 (_1.ptx:97) @%p4 bra BB0_6;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x228 (_1.ptx:112) bar.sync 0;
+GPGPU-Sim PTX:  4 (potential) branch divergence @  PC=0x248 (_1.ptx:116) @%p5 bra BB0_4;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x250 (_1.ptx:119) setp.eq.s32%p1, %r3, 0;
+GPGPU-Sim PTX:  5 (potential) branch divergence @  PC=0x270 (_1.ptx:123) @!%p1 bra BB0_9;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x2c8 (_1.ptx:138) ret;
+GPGPU-Sim PTX:  6 (potential) branch divergence @  PC=0x278 (_1.ptx:124) bra.uni BB0_8;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x280 (_1.ptx:127) cvt.u32.u64%r20, %rd1;
+GPGPU-Sim PTX: ... end of reconvergence points for _Z22bpnn_layerforward_CUDAPfS_S_S_ii
+GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'.
+GPGPU-Sim PTX: instruction assembly for function '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...   done.
+GPGPU-Sim PTX: finding reconvergence points for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding dominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding immediate dominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding postdominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: Finding immediate postdominators for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'...
+GPGPU-Sim PTX: reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_...
+GPGPU-Sim PTX:  1 (potential) branch divergence @  PC=0x470 (_1.ptx:210) @%p1 bra BB1_2;
+GPGPU-Sim PTX:    immediate post dominator      @  PC=0x530 (_1.ptx:237) ret;
+GPGPU-Sim PTX: ... end of reconvergence points for _Z24bpnn_adjust_weights_cudaPfiS_iS_S_
+GPGPU-Sim PTX: ... done pre-decoding instructions for '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'.
+GPGPU-Sim PTX: finished parsing EMBEDDED .ptx file _1.ptx
+Adding _cuobjdump_1.ptx with cubin handle 1
+GPGPU-Sim PTX: extracting embedded .ptx to temporary file "_ptx_fGtPOy"
+Running: cat _ptx_fGtPOy | sed 's/.version 1.5/.version 1.4/' | sed 's/, texmode_independent//' | sed 's/\(\.extern \.const\[1\] .b8 \w\+\)\[\]/\1\[1\]/' | sed 's/const\[.\]/const\[0\]/g' > _ptx2_kOSXIO
+GPGPU-Sim PTX: generating ptxinfo using "$CUDA_INSTALL_PATH/bin/ptxas --gpu-name=sm_20 -v _ptx2_kOSXIO --output-file  /dev/null 2> _ptx_fGtPOyinfo"
+GPGPU-Sim PTX: Kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' : regs=22, lmem=0, smem=0, cmem=80
+GPGPU-Sim PTX: Kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' : regs=11, lmem=0, smem=1088, cmem=72
+GPGPU-Sim PTX: removing ptxinfo using "rm -f _ptx_fGtPOy _ptx2_kOSXIO _ptx_fGtPOyinfo"
+GPGPU-Sim PTX: loading globals with explicit initializers... 
+GPGPU-Sim PTX: finished loading globals (0 bytes total).
+GPGPU-Sim PTX: loading constants with explicit initializers...  done.
+GPGPU-Sim PTX: __cudaRegisterFunction _Z22bpnn_layerforward_CUDAPfS_S_S_ii : hostFun 0x0x402c0a, fat_cubin_handle = 1
+Random number generator seed: 7
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+cudaMallocManaged called
+Input layer size : 18000
+Starting training kernel
+Performing GPU computation
+
+GPGPU-Sim PTX: cudaLaunch for 0x0x402c0a (mode=performance simulation) on stream 0
+GPGPU-Sim PTX: pushing kernel '_Z22bpnn_layerforward_CUDAPfS_S_S_ii' to stream 0, gridDim= (1,1125,1) blockDim = (16,16,1) 
+GPGPU-Sim uArch: Shader 1 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: CTA/core = 8, limited by: threads
+GPGPU-Sim uArch: Shader 2 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 3 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 4 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 5 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 6 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 7 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 8 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 9 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 10 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 11 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 12 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 13 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 14 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 15 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 16 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 17 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 18 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 19 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 20 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 21 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 22 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 23 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 24 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 25 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 26 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 27 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+GPGPU-Sim uArch: Shader 0 bind to kernel 1 '_Z22bpnn_layerforward_CUDAPfS_S_S_ii'
+Destroy streams for kernel 1: size 0
+kernel_name = _Z22bpnn_layerforward_CUDAPfS_S_S_ii 
+kernel_launch_uid = 1 
+gpu_sim_cycle = 299466
+gpu_sim_insn = 30888000
+gpu_ipc =     103.1436
+gpu_tot_sim_cycle = 521616
+gpu_tot_sim_insn = 30888000
+gpu_tot_ipc =      59.2160
+gpu_tot_issued_cta = 1125
+max_total_param_size = 0
+gpu_stall_dramfull = 772
+gpu_stall_icnt2sh    = 54574
+partiton_reqs_in_parallel = 6587480
+partiton_reqs_in_parallel_total    = 0
+partiton_level_parallism =      21.9974
+partiton_level_parallism_total  =      12.6290
+partiton_reqs_in_parallel_util = 6587480
+partiton_reqs_in_parallel_util_total    = 0
+gpu_sim_cycle_parition_util = 299466
+gpu_tot_sim_cycle_parition_util    = 0
+partiton_level_parallism_util =      21.9974
+partiton_level_parallism_util_total  =      21.9974
+partiton_replys_in_parallel = 54758
+partiton_replys_in_parallel_total    = 0
+L2_BW  =      17.3315 GB/Sec
+L2_BW_total  =       9.9502 GB/Sec
+gpu_total_sim_rate=23560
+
+========= Core cache stats =========
+L1I_cache:
+	L1I_total_cache_accesses = 642375
+	L1I_total_cache_misses = 3489
+	L1I_total_cache_miss_rate = 0.0054
+	L1I_total_cache_pending_hits = 0
+	L1I_total_cache_reservation_fails = 6846
+L1D_cache:
+	L1D_cache_core[0]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[1]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[2]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[3]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[4]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[5]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[6]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[7]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[8]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[9]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[10]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[11]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[12]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[13]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[14]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[15]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[16]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[17]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[18]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[19]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[20]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[21]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[22]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[23]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[24]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[25]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[26]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[27]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_total_cache_accesses = 0
+	L1D_total_cache_misses = 0
+	L1D_total_cache_pending_hits = 0
+	L1D_total_cache_reservation_fails = 0
+	L1D_cache_data_port_util = 0.000
+	L1D_cache_fill_port_util = 0.000
+L1C_cache:
+	L1C_total_cache_accesses = 36000
+	L1C_total_cache_misses = 1792
+	L1C_total_cache_miss_rate = 0.0498
+	L1C_total_cache_pending_hits = 0
+	L1C_total_cache_reservation_fails = 4886
+L1T_cache:
+	L1T_total_cache_accesses = 0
+	L1T_total_cache_misses = 0
+	L1T_total_cache_pending_hits = 0
+	L1T_total_cache_reservation_fails = 0
+
+Total_core_cache_stats:
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[CONST_ACC_R][HIT] = 34208
+	Total_core_cache_stats_breakdown[CONST_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[CONST_ACC_R][MISS] = 1792
+	Total_core_cache_stats_breakdown[CONST_ACC_R][RESERVATION_FAIL] = 4886
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][HIT] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][MISS] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][HIT] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][MISS] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][HIT] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][MISS] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][HIT] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][MISS] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[INST_ACC_R][HIT] = 638886
+	Total_core_cache_stats_breakdown[INST_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[INST_ACC_R][MISS] = 3489
+	Total_core_cache_stats_breakdown[INST_ACC_R][RESERVATION_FAIL] = 6846
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[CONST_ACC_R][TOTAL_ACCESS] = 36000
+	Total_core_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 642375
+Shader 0 warp_id issue ditsribution:
+warp_id:
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 
+distro:
+901, 716, 777, 717, 843, 714, 782, 717, 901, 712, 774, 711, 838, 713, 781, 713, 902, 716, 777, 716, 845, 716, 783, 720, 901, 710, 775, 710, 842, 712, 781, 721, 901, 715, 777, 715, 844, 716, 781, 719, 900, 716, 775, 715, 842, 714, 781, 722, 900, 712, 773, 711, 841, 712, 780, 718, 900, 715, 775, 716, 843, 715, 781, 721, 
+gpgpu_n_tot_thrd_icount = 39060000
+gpgpu_n_tot_w_icount = 1220625
+gpgpu_n_stall_shd_mem = 49184
+gpgpu_n_mem_read_local = 0
+gpgpu_n_mem_write_local = 0
+gpgpu_n_mem_read_global = 27562
+gpgpu_n_mem_write_global = 27000
+gpgpu_n_mem_texture = 0
+gpgpu_n_mem_const = 28
+gpgpu_n_load_insn  = 306000
+gpgpu_n_store_insn = 306000
+gpgpu_n_shmem_insn = 2286000
+gpgpu_n_tex_insn = 0
+gpgpu_n_const_mem_insn = 0
+gpgpu_n_param_mem_insn = 1152000
+gpgpu_n_shmem_bkconflict = 0
+gpgpu_n_cache_bkconflict = 0
+gpgpu_n_intrawarp_mshr_merge = 0
+gpgpu_n_cmem_portconflict = 4886
+gpgpu_stall_shd_mem[c_mem][bk_conf] = 4886
+gpgpu_stall_shd_mem[c_mem][mshr_rc] = 0
+gpgpu_stall_shd_mem[c_mem][icnt_rc] = 0
+gpgpu_stall_shd_mem[c_mem][data_port_stall] = 0
+gpgpu_stall_shd_mem[t_mem][mshr_rc] = 0
+gpgpu_stall_shd_mem[t_mem][icnt_rc] = 0
+gpgpu_stall_shd_mem[t_mem][data_port_stall] = 0
+gpgpu_stall_shd_mem[s_mem][bk_conf] = 0
+gpgpu_stall_shd_mem[gl_mem][bk_conf] = 0
+gpgpu_stall_shd_mem[gl_mem][coal_stall] = 37193
+gpgpu_stall_shd_mem[gl_mem][data_port_stall] = 0
+gpgpu_stall_shd_mem[g_mem_ld][mshr_rc] = 0
+gpgpu_stall_shd_mem[g_mem_ld][icnt_rc] = 7105
+gpgpu_stall_shd_mem[g_mem_ld][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[g_mem_ld][wb_rsrv_fail] = 0
+gpgpu_stall_shd_mem[g_mem_st][mshr_rc] = 0
+gpgpu_stall_shd_mem[g_mem_st][icnt_rc] = 0
+gpgpu_stall_shd_mem[g_mem_st][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[g_mem_st][wb_rsrv_fail] = 0
+gpgpu_stall_shd_mem[l_mem_ld][mshr_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_rsrv_fail] = 0
+gpgpu_stall_shd_mem[l_mem_st][mshr_rc] = 0
+gpgpu_stall_shd_mem[l_mem_st][icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_rsrv_fail] = 0
+gpu_reg_bank_conflict_stalls = 0
+Warp Occupancy Distribution:
+Stall:56361	W0_Idle:884365	W0_Scoreboard:14773196	W1:0	W2:144000	W3:0	W4:0	W5:0	W6:0	W7:0	W8:0	W9:0	W10:0	W11:0	W12:0	W13:0	W14:0	W15:0	W16:185625	W17:0	W18:0	W19:0	W20:0	W21:0	W22:0	W23:0	W24:0	W25:0	W26:0	W27:0	W28:0	W29:0	W30:0	W31:0	W32:891000
+traffic_breakdown_coretomem[CONST_ACC_R] = 224 {8:28,}
+traffic_breakdown_coretomem[GLOBAL_ACC_R] = 220496 {8:27562,}
+traffic_breakdown_coretomem[GLOBAL_ACC_W] = 2087968 {40:13501,72:4499,136:9000,}
+traffic_breakdown_coretomem[INST_ACC_R] = 1344 {8:168,}
+traffic_breakdown_memtocore[CONST_ACC_R] = 2016 {72:28,}
+traffic_breakdown_memtocore[GLOBAL_ACC_R] = 2200496 {40:12375,72:5624,136:9563,}
+traffic_breakdown_memtocore[GLOBAL_ACC_W] = 216000 {8:27000,}
+traffic_breakdown_memtocore[INST_ACC_R] = 22848 {136:168,}
+maxmrqlatency = 461 
+maxdqlatency = 0 
+maxmflatency = 111951 
+averagemflatency = 12999 
+max_icnt2mem_latency = 111694 
+max_icnt2sh_latency = 521615 
+mrq_lat_table:6279 	421 	731 	2093 	2034 	2099 	1498 	1377 	1644 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+dq_lat_table:0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+mf_lat_table:0 	0 	0 	0 	0 	0 	0 	24888 	10777 	0 	0 	1147 	200 	3037 	3531 	9705 	1305 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+icnt2mem_lat_table:0 	0 	7937 	15903 	1485 	26 	9999 	483 	0 	0 	0 	1190 	157 	3037 	6085 	7151 	1305 	0 	0 	0 	0 	0 	0 	0 	
+icnt2sh_lat_table:0 	0 	6146 	12881 	7885 	678 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	2032 	24968 	0 	0 	0 	0 	0 	
+mf_lat_pw_table:0 	0 	0 	0 	0 	0 	0 	86 	18 	0 	0 	4 	0 	7 	13 	23 	23 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+maximum concurrent accesses to same row:
+dram[0]:        69        69        16        16        16        16        16        16        16        16        16        16        34        34        95        79 
+dram[1]:        69        61        16        16        16        16        16        16        16        16        16        16        51        51        70        61 
+dram[2]:        77        71        16        16        16        16        16        16        16        16        16        16        51        51        61        61 
+dram[3]:        74        67        16        16        16        16        16        16        16        16        16        16        51        51        77        61 
+dram[4]:        52        60        16        16        16        16        16        16        16        16        16        16        51        51        68        77 
+dram[5]:        52        57        16        16        16        16        16        16        16        16        16        16        51        51        77        69 
+dram[6]:        60        44        16        16        16        16        16        16        16        16        16        16        51        51        68        61 
+dram[7]:        52        58        16        16        16        16        16        16        16        16        16        16        51        51        62       102 
+dram[8]:        52        52        16        16        16        16        16        16        16        16        16        16        51        51        99        69 
+dram[9]:        44        50        16        16        16        16        16        16        16        16        16        16        51        51        78        89 
+dram[10]:        44        57        16        16        16        16        16        16        16        16        16        16        51        51        94        86 
+maximum service time to same row:
+dram[0]:     73118     73119     95979     95980     71589     71570    111564    111559    111541    111539     64126     64097     67486     67490     64706     64836 
+dram[1]:     73114     73121     95977     95977     71586     71597    111557    111555    111553    111525     64095     64068     67492     67493     64769     64905 
+dram[2]:     73120     73120     95977     95957     71551     71609    111553    111553    111523    111522     63981     63971     67491     67490     64790     64541 
+dram[3]:     73125     73110     95957     95920     71522     71593    111552    111560    111529    108194     63992     63941     67469     67468     64622     64742 
+dram[4]:     73115     73114     95919     95931     71622     71622    111560    111564    108195    108197     63935     63938     67466     67482     64680     64759 
+dram[5]:     73110     73105     95991     95990     71625     71646    111558    111559    108197    108203     63867     63955     67486     67483     64935     64818 
+dram[6]:     73105     73111     95986     95988     71620     71620    111556    111557    108202    108192     63923     63846     67483     67478     64604     64603 
+dram[7]:     73113     73125     95960     95951     71581     71585    111569    111564    108192    108230     63849     63805     67487     67482     65231     65048 
+dram[8]:     73127     73132     95947     95932     71554     71653    111563    111556    108236    108237     63836     63817     67483     67481     65006     64940 
+dram[9]:     73124     73123     96005     96004     71578     71576    111561    111562    108235    108232     63692     64445     67490     67491     64872     65303 
+dram[10]:     73129     73129     95998     95988     71576     71620    111562    111562    108244    108246     64317     64135     67480     67481     64787     64835 
+average row accesses per activate:
+dram[0]: 28.000000 27.833334 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000 13.250000 13.250000 10.666667 10.666667 11.000000 11.000000 42.285713 37.714287 
+dram[1]: 27.833334 26.500000 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000 13.250000 13.250000 10.666667 10.666667 13.250000 13.250000 31.111111 31.111111 
+dram[2]: 29.166666 28.166666 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000 13.500000 13.500000 10.666667 10.666667 13.250000 13.250000 30.000000 30.222221 
+dram[3]: 28.666666 27.500000 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000 13.500000  9.000000 10.666667 10.666667 13.250000 13.250000 33.555557 31.111111 
+dram[4]: 27.833334 29.166666 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000  9.000000  9.000000 10.666667  8.000000 13.250000 13.250000 28.600000 29.700001 
+dram[5]: 27.833334 28.666666 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000  9.000000  9.000000  8.000000  8.000000 13.250000 13.250000 30.100000 26.000000 
+dram[6]: 29.166666 26.500000 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000  9.000000  9.000000  8.000000  8.000000 13.250000 13.250000 27.363636 23.363636 
+dram[7]: 26.500000 26.000000 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000  9.000000  9.000000  8.000000  8.000000 13.250000 13.250000 27.333334 33.777779 
+dram[8]: 25.000000 25.000000 16.000000 16.000000 16.000000 16.000000 16.000000 16.000000  9.000000  9.000000  8.000000  8.000000 13.250000 13.125000 34.888889 29.333334 
+dram[9]: 23.666666 24.666666 15.750000 15.750000 16.000000 16.000000 16.000000 16.000000  9.000000  9.000000  8.000000  8.000000 13.125000 13.125000 30.555555 31.222221 
+dram[10]: 23.666666 25.833334 15.750000 15.750000 16.000000 16.000000 16.000000 16.000000  9.000000  9.000000  8.000000  8.000000 13.125000 13.125000 30.000000 32.444443 
+average row locality = 18176/1007 = 18.049652
+number of total memory accesses made:
+dram[0]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[1]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[2]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[3]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[4]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[5]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[6]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[7]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[8]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[9]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[10]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+total accesses: 0
+min_bank_accesses = 0!
+min_chip_accesses = 0!
+number of total read accesses:
+dram[0]:        72        71        64        64        48        48        48        48        53        53        64        64        56        56        80        80 
+dram[1]:        71        71        64        64        48        48        48        48        53        53        64        64        58        58        80        80 
+dram[2]:        71        71        64        64        48        48        48        48        54        54        64        64        58        58        80        80 
+dram[3]:        71        71        64        64        48        48        48        48        54        54        64        64        58        58        80        80 
+dram[4]:        71        71        64        64        48        48        48        48        54        54        64        64        58        58        81        81 
+dram[5]:        71        71        64        64        48        48        48        48        54        54        64        64        58        58        81        81 
+dram[6]:        71        71        64        64        48        48        48        48        54        54        64        64        58        58        81        81 
+dram[7]:        71        70        64        64        48        48        48        48        54        54        64        64        58        58        80        80 
+dram[8]:        70        70        64        64        48        48        48        48        54        54        64        64        58        57        80        80 
+dram[9]:        70        70        63        63        48        48        48        48        54        54        64        64        57        57        80        80 
+dram[10]:        70        70        63        63        48        48        48        48        54        54        64        64        57        57        80        80 
+total reads: 10697
+bank skew: 81/48 = 1.69
+chip skew: 976/968 = 1.01
+number of total write accesses:
+dram[0]:        96        96         0         0         0         0         0         0         0         0         0         0        32        32       216       184 
+dram[1]:        96        88         0         0         0         0         0         0         0         0         0         0        48        48       200       200 
+dram[2]:       104        98         0         0         0         0         0         0         0         0         0         0        48        48       190       192 
+dram[3]:       101        94         0         0         0         0         0         0         0         0         0         0        48        48       222       200 
+dram[4]:        96       104         0         0         0         0         0         0         0         0         0         0        48        48       205       216 
+dram[5]:        96       101         0         0         0         0         0         0         0         0         0         0        48        48       220       205 
+dram[6]:       104        88         0         0         0         0         0         0         0         0         0         0        48        48       220       176 
+dram[7]:        88        86         0         0         0         0         0         0         0         0         0         0        48        48       166       224 
+dram[8]:        80        80         0         0         0         0         0         0         0         0         0         0        48        48       234       184 
+dram[9]:        72        78         0         0         0         0         0         0         0         0         0         0        48        48       195       201 
+dram[10]:        72        85         0         0         0         0         0         0         0         0         0         0        48        48       190       212 
+total reads: 7479
+min_bank_accesses = 0!
+chip skew: 718/642 = 1.12
+average mf latency per bank:
+dram[0]:      29721     28759     72950     73148     44819     44878     64511     64596     63189     63281     49701     50748     54197     54319     19228     21168
+dram[1]:      28414     29721     72742     72509     44820     46214     65332     65410     63264     63283     50592     49601     50707     50674     19451     19434
+dram[2]:      27508     31626     72706     72909     44852     44874     64491     64613     63135     62675     49593     49705     50506     50544     19902     19929
+dram[3]:      30480     30303     72928     72535     44943     44980     64494     64628     60098     60798     49677     49627     51175     51514     17950     19347
+dram[4]:      33139     30391     72147     72643     44850     44814     65826     65931     60683     60028     49425     49337     50845     50602     18883     18166
+dram[5]:      33750     32126     75065     75042     45458     44259     64508     64619     59220     59939     49431     49477     50927     49492     17947     19099
+dram[6]:      30040     33058     73648     73613     44812     44862     64519     64608     59933     61132     49982     50037     50405     50413     17916     20688
+dram[7]:      34021     33383     73583     74067     45577     46355     64517     64621     64106     61553     49317     49488     50139     50134     21674     17547
+dram[8]:      34780     34335     74184     71960     46750     47413     64515     64617     62196     62245     49389     49488     49265     49091     17421     20951
+dram[9]:      35692     33528     71527     71405     47355     47411     64512     65431     62201     62275     50385     50306     48801     48747     19785     19195
+dram[10]:      34813     31679     71406     71770     48046     46186     65320     64607     62017     62839     49313     49292     50042     48733     19945     18464
+maximum mf latency per bank:
+dram[0]:      94037     94052    111933    111950     63717     63748     63639     63726     63531     63645     63455     63430     63231     63234     81061     81096
+dram[1]:      94053     94050    111930    111949     63717     63759     63661     63727     63538     63631     63405     63438     63190     63225     81047     81046
+dram[2]:      94052     94057    111951    111950     63714     63750     63649     63681     63570     63650     63365     63443     63209     63262     81047     81073
+dram[3]:      94058     94074    111935    111946     63715     63745     63592     63784     63593     63699     63389     63467     63208     63307     81076     81093
+dram[4]:      94058     94067    111932    111928     63715     63743     63665     63799     63558     63640     63380     63432     63228     63299     81079     81092
+dram[5]:      94066     94050    111930    111946     63683     63716     63701     63809     63582     63606     63360     63436     63226     63287     81083     81093
+dram[6]:      94050     94052    111931    111943     63677     63715     63677     63774     63546     63607     63374     63426     63195     63270     81079     81069
+dram[7]:      94053     94055    111943    111944     63733     63781     63661     63791     63509     63644     63398     63480     63246     63287     81071     81077
+dram[8]:      94055     94057    111941    111927     63758     63796     63704     63762     63565     63581     63437     63516     63243     63294     81071     81077
+dram[9]:      94045     94037    111931    111933     63772     63825     63631     63763     63490     63610     63444     63539     63246     63306     81096     81113
+dram[10]:      94037     94059    111940    111945     63773     63808     63656     63752     63539     63625     63446     63502     63242     63293     81079     81090
+Memory Partition 0: 
+Cache L2_bank_000:
+MSHR contents
+
+Cache L2_bank_001:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[0]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551381 n_act=83 n_pre=67 n_req=1625 n_rd=3876 n_write=656 bw_util=0.0163
+n_activity=12582 dram_eff=0.7204
+bk0: 288a 554015i bk1: 284a 553593i bk2: 256a 554474i bk3: 256a 554145i bk4: 192a 555283i bk5: 192a 554993i bk6: 192a 555236i bk7: 192a 554880i bk8: 212a 554813i bk9: 212a 554454i bk10: 256a 554732i bk11: 256a 554309i bk12: 224a 554130i bk13: 224a 553706i bk14: 320a 552994i bk15: 320a 552524i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.324404
+Memory Partition 1: 
+Cache L2_bank_002:
+MSHR contents
+
+Cache L2_bank_003:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[1]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551339 n_act=86 n_pre=70 n_req=1652 n_rd=3888 n_write=680 bw_util=0.01643
+n_activity=12798 dram_eff=0.7139
+bk0: 284a 554032i bk1: 284a 553525i bk2: 256a 554528i bk3: 256a 554198i bk4: 192a 555232i bk5: 192a 554890i bk6: 192a 555226i bk7: 192a 554876i bk8: 212a 554783i bk9: 212a 554424i bk10: 256a 554632i bk11: 256a 554390i bk12: 232a 554011i bk13: 232a 553621i bk14: 320a 552741i bk15: 320a 552151i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.331937
+Memory Partition 2: 
+Cache L2_bank_004:
+MSHR contents
+
+Cache L2_bank_005:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[2]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551331 n_act=86 n_pre=70 n_req=1654 n_rd=3896 n_write=680 bw_util=0.01646
+n_activity=12864 dram_eff=0.7114
+bk0: 284a 554078i bk1: 284a 553702i bk2: 256a 554514i bk3: 256a 554232i bk4: 192a 555286i bk5: 192a 555147i bk6: 192a 555254i bk7: 192a 554888i bk8: 216a 554757i bk9: 216a 554400i bk10: 256a 554667i bk11: 256a 554279i bk12: 232a 554072i bk13: 232a 553651i bk14: 320a 552905i bk15: 320a 552535i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.328616
+Memory Partition 3: 
+Cache L2_bank_006:
+MSHR contents
+
+Cache L2_bank_007:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[3]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551294 n_act=88 n_pre=72 n_req=1687 n_rd=3896 n_write=713 bw_util=0.01658
+n_activity=13119 dram_eff=0.7026
+bk0: 284a 554010i bk1: 284a 553638i bk2: 256a 554519i bk3: 256a 554091i bk4: 192a 555216i bk5: 192a 555054i bk6: 192a 555263i bk7: 192a 554861i bk8: 216a 554706i bk9: 216a 554323i bk10: 256a 554591i bk11: 256a 554363i bk12: 232a 554039i bk13: 232a 553598i bk14: 320a 552715i bk15: 320a 552446i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.327204
+Memory Partition 4: 
+Cache L2_bank_008:
+MSHR contents
+
+Cache L2_bank_009:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[4]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551270 n_act=94 n_pre=78 n_req=1693 n_rd=3904 n_write=717 bw_util=0.01662
+n_activity=13278 dram_eff=0.696
+bk0: 284a 554047i bk1: 284a 553550i bk2: 256a 554448i bk3: 256a 554124i bk4: 192a 555393i bk5: 192a 555115i bk6: 192a 555268i bk7: 192a 554869i bk8: 216a 554677i bk9: 216a 554352i bk10: 256a 554660i bk11: 256a 554328i bk12: 232a 554016i bk13: 232a 553639i bk14: 324a 552944i bk15: 324a 552441i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.327792
+Memory Partition 5: 
+Cache L2_bank_010:
+MSHR contents
+
+Cache L2_bank_011:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[5]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551263 n_act=97 n_pre=81 n_req=1694 n_rd=3904 n_write=718 bw_util=0.01662
+n_activity=13054 dram_eff=0.7081
+bk0: 284a 554021i bk1: 284a 553519i bk2: 256a 554610i bk3: 256a 554258i bk4: 192a 555357i bk5: 192a 555005i bk6: 192a 555224i bk7: 192a 554872i bk8: 216a 554730i bk9: 216a 554345i bk10: 256a 554624i bk11: 256a 554272i bk12: 232a 554078i bk13: 232a 553635i bk14: 324a 552940i bk15: 324a 552475i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.329826
+Memory Partition 6: 
+Cache L2_bank_012:
+MSHR contents
+
+Cache L2_bank_013:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[6]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551295 n_act=98 n_pre=82 n_req=1660 n_rd=3904 n_write=684 bw_util=0.0165
+n_activity=13084 dram_eff=0.7013
+bk0: 284a 553990i bk1: 284a 553688i bk2: 256a 554571i bk3: 256a 554161i bk4: 192a 555234i bk5: 192a 554916i bk6: 192a 555244i bk7: 192a 554888i bk8: 216a 554706i bk9: 216a 554348i bk10: 256a 554663i bk11: 256a 554311i bk12: 232a 554066i bk13: 232a 553643i bk14: 324a 552892i bk15: 324a 552469i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.328909
+Memory Partition 7: 
+Cache L2_bank_014:
+MSHR contents
+
+Cache L2_bank_015:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[7]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551339 n_act=94 n_pre=78 n_req=1633 n_rd=3892 n_write=660 bw_util=0.01637
+n_activity=12983 dram_eff=0.7012
+bk0: 284a 553989i bk1: 280a 553598i bk2: 256a 554596i bk3: 256a 554326i bk4: 192a 555332i bk5: 192a 555002i bk6: 192a 555229i bk7: 192a 554836i bk8: 216a 554668i bk9: 216a 554361i bk10: 256a 554662i bk11: 256a 554301i bk12: 232a 553995i bk13: 232a 553586i bk14: 320a 553043i bk15: 320a 552362i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.327718
+Memory Partition 8: 
+Cache L2_bank_016:
+MSHR contents
+
+Cache L2_bank_017:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[8]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551333 n_act=94 n_pre=78 n_req=1645 n_rd=3884 n_write=674 bw_util=0.01639
+n_activity=12899 dram_eff=0.7067
+bk0: 280a 554052i bk1: 280a 553660i bk2: 256a 554506i bk3: 256a 554199i bk4: 192a 555238i bk5: 192a 555132i bk6: 192a 555216i bk7: 192a 554857i bk8: 216a 554729i bk9: 216a 554404i bk10: 256a 554623i bk11: 256a 554295i bk12: 232a 554019i bk13: 228a 553602i bk14: 320a 552869i bk15: 320a 552415i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.329783
+Memory Partition 9: 
+Cache L2_bank_018:
+MSHR contents
+
+Cache L2_bank_019:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[9]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551377 n_act=94 n_pre=78 n_req=1610 n_rd=3872 n_write=642 bw_util=0.01624
+n_activity=12780 dram_eff=0.7064
+bk0: 280a 554097i bk1: 280a 553668i bk2: 252a 554497i bk3: 252a 554242i bk4: 192a 555276i bk5: 192a 554999i bk6: 192a 555224i bk7: 192a 554804i bk8: 216a 554727i bk9: 216a 554394i bk10: 256a 554607i bk11: 256a 554172i bk12: 228a 554117i bk13: 228a 553610i bk14: 320a 552907i bk15: 320a 552637i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.323774
+Memory Partition 10: 
+Cache L2_bank_020:
+MSHR contents
+
+Cache L2_bank_021:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[10]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=556063 n_nop=551364 n_act=94 n_pre=78 n_req=1623 n_rd=3872 n_write=655 bw_util=0.01628
+n_activity=12856 dram_eff=0.7043
+bk0: 280a 554109i bk1: 280a 553757i bk2: 252a 554512i bk3: 252a 554128i bk4: 192a 555342i bk5: 192a 555181i bk6: 192a 555237i bk7: 192a 554850i bk8: 216a 554756i bk9: 216a 554397i bk10: 256a 554673i bk11: 256a 554290i bk12: 228a 553998i bk13: 228a 553586i bk14: 320a 552974i bk15: 320a 552371i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.317885
+
+========= L2 cache stats =========
+L2_cache_bank[0]: Access = 2487, Miss = 485, Miss_rate = 0.195, Pending_hits = 1076, Reservation_fails = 0
+L2_cache_bank[1]: Access = 2459, Miss = 484, Miss_rate = 0.197, Pending_hits = 1054, Reservation_fails = 0
+L2_cache_bank[2]: Access = 2477, Miss = 486, Miss_rate = 0.196, Pending_hits = 1079, Reservation_fails = 0
+L2_cache_bank[3]: Access = 2479, Miss = 486, Miss_rate = 0.196, Pending_hits = 1036, Reservation_fails = 0
+L2_cache_bank[4]: Access = 2493, Miss = 487, Miss_rate = 0.195, Pending_hits = 1066, Reservation_fails = 0
+L2_cache_bank[5]: Access = 2496, Miss = 487, Miss_rate = 0.195, Pending_hits = 1040, Reservation_fails = 0
+L2_cache_bank[6]: Access = 2496, Miss = 487, Miss_rate = 0.195, Pending_hits = 1060, Reservation_fails = 0
+L2_cache_bank[7]: Access = 2496, Miss = 487, Miss_rate = 0.195, Pending_hits = 1086, Reservation_fails = 0
+L2_cache_bank[8]: Access = 2524, Miss = 488, Miss_rate = 0.193, Pending_hits = 1101, Reservation_fails = 0
+L2_cache_bank[9]: Access = 2522, Miss = 488, Miss_rate = 0.193, Pending_hits = 1115, Reservation_fails = 0
+L2_cache_bank[10]: Access = 2524, Miss = 488, Miss_rate = 0.193, Pending_hits = 1131, Reservation_fails = 0
+L2_cache_bank[11]: Access = 2524, Miss = 488, Miss_rate = 0.193, Pending_hits = 1095, Reservation_fails = 0
+L2_cache_bank[12]: Access = 2524, Miss = 488, Miss_rate = 0.193, Pending_hits = 1111, Reservation_fails = 0
+L2_cache_bank[13]: Access = 2524, Miss = 488, Miss_rate = 0.193, Pending_hits = 1045, Reservation_fails = 0
+L2_cache_bank[14]: Access = 2488, Miss = 487, Miss_rate = 0.196, Pending_hits = 1033, Reservation_fails = 0
+L2_cache_bank[15]: Access = 2480, Miss = 486, Miss_rate = 0.196, Pending_hits = 1082, Reservation_fails = 0
+L2_cache_bank[16]: Access = 2470, Miss = 486, Miss_rate = 0.197, Pending_hits = 1024, Reservation_fails = 0
+L2_cache_bank[17]: Access = 2461, Miss = 485, Miss_rate = 0.197, Pending_hits = 1023, Reservation_fails = 0
+L2_cache_bank[18]: Access = 2459, Miss = 484, Miss_rate = 0.197, Pending_hits = 1012, Reservation_fails = 0
+L2_cache_bank[19]: Access = 2459, Miss = 484, Miss_rate = 0.197, Pending_hits = 998, Reservation_fails = 0
+L2_cache_bank[20]: Access = 2459, Miss = 484, Miss_rate = 0.197, Pending_hits = 989, Reservation_fails = 0
+L2_cache_bank[21]: Access = 2457, Miss = 484, Miss_rate = 0.197, Pending_hits = 1054, Reservation_fails = 0
+L2_total_cache_accesses = 54758
+L2_total_cache_misses = 10697
+L2_total_cache_miss_rate = 0.1954
+L2_total_cache_pending_hits = 23310
+L2_total_cache_reservation_fails = 0
+L2_total_cache_breakdown:
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][HIT] = 1200
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][HIT_RESERVED] = 16235
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][MISS] = 10127
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][HIT] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][MISS] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[CONST_ACC_R][HIT] = 0
+	L2_cache_stats_breakdown[CONST_ACC_R][HIT_RESERVED] = 27
+	L2_cache_stats_breakdown[CONST_ACC_R][MISS] = 1
+	L2_cache_stats_breakdown[CONST_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][HIT] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][MISS] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][HIT] = 19521
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][HIT_RESERVED] = 6916
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][MISS] = 563
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][HIT] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][MISS] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][HIT] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][MISS] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][HIT] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][MISS] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[INST_ACC_R][HIT] = 30
+	L2_cache_stats_breakdown[INST_ACC_R][HIT_RESERVED] = 132
+	L2_cache_stats_breakdown[INST_ACC_R][MISS] = 6
+	L2_cache_stats_breakdown[INST_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][HIT] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][MISS] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][HIT] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][MISS] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][TOTAL_ACCESS] = 27562
+	L2_cache_stats_breakdown[CONST_ACC_R][TOTAL_ACCESS] = 28
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][TOTAL_ACCESS] = 27000
+	L2_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 168
+L2_cache_data_port_util = 0.008
+L2_cache_fill_port_util = 0.006
+
+icnt_total_pkts_mem_to_simt=117361
+icnt_total_pkts_simt_to_mem=113257
+LD_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ST_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+----------------------------Interconnect-DETAILS--------------------------------
+Class 0:
+Packet latency average = 19.4974
+	minimum = 6
+	maximum = 137
+Network latency average = 14.313
+	minimum = 6
+	maximum = 112
+Slowest packet = 27
+Flit latency average = 13.7205
+	minimum = 6
+	maximum = 108
+Slowest flit = 144128
+Fragmentation average = 9.13109e-06
+	minimum = 0
+	maximum = 1
+Injected packet rate average = 0.00365706
+	minimum = 0.00308383 (at node 3)
+	maximum = 0.00421418 (at node 36)
+Accepted packet rate average = 0.00365706
+	minimum = 0.00308383 (at node 3)
+	maximum = 0.00421418 (at node 36)
+Injected flit rate average = 0.007701
+	minimum = 0.00637303 (at node 3)
+	maximum = 0.00911793 (at node 39)
+Accepted flit rate average= 0.007701
+	minimum = 0.0066168 (at node 3)
+	maximum = 0.00867046 (at node 39)
+Injected packet length average = 2.10579
+Accepted packet length average = 2.10579
+Total in-flight flits = 0 (0 measured)
+====== Overall Traffic Statistics ======
+====== Traffic class 0 ======
+Packet latency average = 19.4974 (1 samples)
+	minimum = 6 (1 samples)
+	maximum = 137 (1 samples)
+Network latency average = 14.313 (1 samples)
+	minimum = 6 (1 samples)
+	maximum = 112 (1 samples)
+Flit latency average = 13.7205 (1 samples)
+	minimum = 6 (1 samples)
+	maximum = 108 (1 samples)
+Fragmentation average = 9.13109e-06 (1 samples)
+	minimum = 0 (1 samples)
+	maximum = 1 (1 samples)
+Injected packet rate average = 0.00365706 (1 samples)
+	minimum = 0.00308383 (1 samples)
+	maximum = 0.00421418 (1 samples)
+Accepted packet rate average = 0.00365706 (1 samples)
+	minimum = 0.00308383 (1 samples)
+	maximum = 0.00421418 (1 samples)
+Injected flit rate average = 0.007701 (1 samples)
+	minimum = 0.00637303 (1 samples)
+	maximum = 0.00911793 (1 samples)
+Accepted flit rate average = 0.007701 (1 samples)
+	minimum = 0.0066168 (1 samples)
+	maximum = 0.00867046 (1 samples)
+Injected packet size average = 2.10579 (1 samples)
+Accepted packet size average = 2.10579 (1 samples)
+Hops average = 1 (1 samples)
+----------------------------END-of-Interconnect-DETAILS-------------------------
+
+
+gpgpu_simulation_time = 0 days, 0 hrs, 21 min, 51 sec (1311 sec)
+gpgpu_simulation_rate = 23560 (inst/sec)
+gpgpu_simulation_rate = 397 (cycle/sec)
+GPGPU-Sim: synchronize waiting for inactive GPU simulation
+GPGPU-Sim API: Stream Manager State
+GPGPU-Sim: detected inactive GPU simulation thread
+
+GPGPU-Sim PTX: cudaLaunch for 0x0x402d5b (mode=performance simulation) on stream 0
+GPGPU-Sim PTX: pushing kernel '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_' to stream 0, gridDim= (1,1125,1) blockDim = (16,16,1) 
+GPGPU-Sim uArch: Shader 18 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: CTA/core = 8, limited by: threads
+GPGPU-Sim uArch: Shader 19 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 20 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 21 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 22 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 23 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 24 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 25 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 26 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 27 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 0 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 1 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 2 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 3 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 4 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 5 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 6 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 7 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 8 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 9 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 10 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 11 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 12 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 13 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 14 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 15 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 16 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+GPGPU-Sim uArch: Shader 17 bind to kernel 2 '_Z24bpnn_adjust_weights_cudaPfiS_iS_S_'
+Destroy streams for kernel 2: size 0
+kernel_name = _Z24bpnn_adjust_weights_cudaPfiS_iS_S_ 
+kernel_launch_uid = 2 
+gpu_sim_cycle = 1578418
+gpu_sim_insn = 15552352
+gpu_ipc =       9.8531
+gpu_tot_sim_cycle = 2490860
+gpu_tot_sim_insn = 46440352
+gpu_tot_ipc =      18.6443
+gpu_tot_issued_cta = 2250
+max_total_param_size = 0
+gpu_stall_dramfull = 35545
+gpu_stall_icnt2sh    = 61847
+partiton_reqs_in_parallel = 34690423
+partiton_reqs_in_parallel_total    = 6587480
+partiton_level_parallism =      21.9780
+partiton_level_parallism_total  =      16.5717
+partiton_reqs_in_parallel_util = 34690423
+partiton_reqs_in_parallel_util_total    = 6587480
+gpu_sim_cycle_parition_util = 1578418
+gpu_tot_sim_cycle_parition_util    = 299466
+partiton_level_parallism_util =      21.9780
+partiton_level_parallism_util_total  =      21.9811
+partiton_replys_in_parallel = 127244
+partiton_replys_in_parallel_total    = 54758
+L2_BW  =       7.6410 GB/Sec
+L2_BW_total  =       6.9257 GB/Sec
+gpu_total_sim_rate=5953
+
+========= Core cache stats =========
+L1I_cache:
+	L1I_total_cache_accesses = 894386
+	L1I_total_cache_misses = 6586
+	L1I_total_cache_miss_rate = 0.0074
+	L1I_total_cache_pending_hits = 0
+	L1I_total_cache_reservation_fails = 61373
+L1D_cache:
+	L1D_cache_core[0]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[1]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[2]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[3]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[4]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[5]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[6]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[7]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[8]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[9]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[10]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[11]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[12]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[13]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[14]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[15]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[16]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[17]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[18]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[19]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[20]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[21]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[22]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[23]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[24]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[25]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[26]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_cache_core[27]: Access = 0, Miss = 0, Miss_rate = -nan, Pending_hits = 0, Reservation_fails = 0
+	L1D_total_cache_accesses = 0
+	L1D_total_cache_misses = 0
+	L1D_total_cache_pending_hits = 0
+	L1D_total_cache_reservation_fails = 0
+	L1D_cache_data_port_util = 0.000
+	L1D_cache_fill_port_util = 0.000
+L1C_cache:
+	L1C_total_cache_accesses = 81000
+	L1C_total_cache_misses = 1792
+	L1C_total_cache_miss_rate = 0.0221
+	L1C_total_cache_pending_hits = 0
+	L1C_total_cache_reservation_fails = 4886
+L1T_cache:
+	L1T_total_cache_accesses = 0
+	L1T_total_cache_misses = 0
+	L1T_total_cache_pending_hits = 0
+	L1T_total_cache_reservation_fails = 0
+
+Total_core_cache_stats:
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[CONST_ACC_R][HIT] = 79208
+	Total_core_cache_stats_breakdown[CONST_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[CONST_ACC_R][MISS] = 1792
+	Total_core_cache_stats_breakdown[CONST_ACC_R][RESERVATION_FAIL] = 4886
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[TEXTURE_ACC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][HIT] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][MISS] = 0
+	Total_core_cache_stats_breakdown[GLOBAL_ACC_W][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][HIT] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][MISS] = 0
+	Total_core_cache_stats_breakdown[LOCAL_ACC_W][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][HIT] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][MISS] = 0
+	Total_core_cache_stats_breakdown[L1_WRBK_ACC][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][HIT] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][MISS] = 0
+	Total_core_cache_stats_breakdown[L2_WRBK_ACC][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[INST_ACC_R][HIT] = 887800
+	Total_core_cache_stats_breakdown[INST_ACC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[INST_ACC_R][MISS] = 6586
+	Total_core_cache_stats_breakdown[INST_ACC_R][RESERVATION_FAIL] = 61373
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[L1_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][HIT] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][HIT_RESERVED] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][MISS] = 0
+	Total_core_cache_stats_breakdown[L2_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	Total_core_cache_stats_breakdown[CONST_ACC_R][TOTAL_ACCESS] = 81000
+	Total_core_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 894386
+Shader 0 warp_id issue ditsribution:
+warp_id:
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 
+distro:
+1210, 1025, 1082, 1021, 1152, 1023, 1091, 1025, 1210, 1022, 1079, 1017, 1147, 1022, 1090, 1021, 1211, 1025, 1082, 1021, 1154, 1026, 1092, 1028, 1210, 1019, 1080, 1014, 1151, 1021, 1090, 1029, 1210, 1024, 1082, 1019, 1153, 1025, 1090, 1027, 1209, 1025, 1080, 1022, 1151, 1024, 1090, 1032, 1209, 1021, 1080, 1019, 1150, 1022, 1090, 1026, 1209, 1024, 1080, 1025, 1152, 1022, 1089, 1030, 
+gpgpu_n_tot_thrd_icount = 54612736
+gpgpu_n_tot_w_icount = 1706648
+gpgpu_n_stall_shd_mem = 258403
+gpgpu_n_mem_read_local = 0
+gpgpu_n_mem_write_local = 0
+gpgpu_n_mem_read_global = 118691
+gpgpu_n_mem_write_global = 63002
+gpgpu_n_mem_texture = 0
+gpgpu_n_mem_const = 28
+gpgpu_n_load_insn  = 2322080
+gpgpu_n_store_insn = 882032
+gpgpu_n_shmem_insn = 2286000
+gpgpu_n_tex_insn = 0
+gpgpu_n_const_mem_insn = 0
+gpgpu_n_param_mem_insn = 2592000
+gpgpu_n_shmem_bkconflict = 0
+gpgpu_n_cache_bkconflict = 0
+gpgpu_n_intrawarp_mshr_merge = 0
+gpgpu_n_cmem_portconflict = 4886
+gpgpu_stall_shd_mem[c_mem][bk_conf] = 4886
+gpgpu_stall_shd_mem[c_mem][mshr_rc] = 0
+gpgpu_stall_shd_mem[c_mem][icnt_rc] = 0
+gpgpu_stall_shd_mem[c_mem][data_port_stall] = 0
+gpgpu_stall_shd_mem[t_mem][mshr_rc] = 0
+gpgpu_stall_shd_mem[t_mem][icnt_rc] = 0
+gpgpu_stall_shd_mem[t_mem][data_port_stall] = 0
+gpgpu_stall_shd_mem[s_mem][bk_conf] = 0
+gpgpu_stall_shd_mem[gl_mem][bk_conf] = 0
+gpgpu_stall_shd_mem[gl_mem][coal_stall] = 94280
+gpgpu_stall_shd_mem[gl_mem][data_port_stall] = 0
+gpgpu_stall_shd_mem[g_mem_ld][mshr_rc] = 0
+gpgpu_stall_shd_mem[g_mem_ld][icnt_rc] = 159237
+gpgpu_stall_shd_mem[g_mem_ld][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[g_mem_ld][wb_rsrv_fail] = 0
+gpgpu_stall_shd_mem[g_mem_st][mshr_rc] = 0
+gpgpu_stall_shd_mem[g_mem_st][icnt_rc] = 0
+gpgpu_stall_shd_mem[g_mem_st][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[g_mem_st][wb_rsrv_fail] = 0
+gpgpu_stall_shd_mem[l_mem_ld][mshr_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_rsrv_fail] = 0
+gpgpu_stall_shd_mem[l_mem_st][mshr_rc] = 0
+gpgpu_stall_shd_mem[l_mem_st][icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_icnt_rc] = 0
+gpgpu_stall_shd_mem[l_mem_ld][wb_rsrv_fail] = 0
+gpu_reg_bank_conflict_stalls = 0
+Warp Occupancy Distribution:
+Stall:83172	W0_Idle:967198	W0_Scoreboard:101667020	W1:0	W2:144000	W3:0	W4:0	W5:0	W6:0	W7:0	W8:0	W9:0	W10:0	W11:0	W12:0	W13:0	W14:0	W15:0	W16:185648	W17:0	W18:0	W19:0	W20:0	W21:0	W22:0	W23:0	W24:0	W25:0	W26:0	W27:0	W28:0	W29:0	W30:0	W31:0	W32:1377000
+traffic_breakdown_coretomem[CONST_ACC_R] = 224 {8:28,}
+traffic_breakdown_coretomem[GLOBAL_ACC_R] = 949528 {8:118691,}
+traffic_breakdown_coretomem[GLOBAL_ACC_W] = 5544176 {40:22503,72:13497,136:27002,}
+traffic_breakdown_coretomem[INST_ACC_R] = 2248 {8:281,}
+traffic_breakdown_memtocore[CONST_ACC_R] = 2016 {72:28,}
+traffic_breakdown_memtocore[GLOBAL_ACC_R] = 10778136 {40:41626,72:21371,136:55694,}
+traffic_breakdown_memtocore[GLOBAL_ACC_W] = 504016 {8:63002,}
+traffic_breakdown_memtocore[INST_ACC_R] = 38216 {136:281,}
+maxmrqlatency = 461 
+maxdqlatency = 0 
+maxmflatency = 156473 
+averagemflatency = 31923 
+max_icnt2mem_latency = 156209 
+max_icnt2sh_latency = 2490859 
+mrq_lat_table:24225 	1298 	1740 	3945 	5677 	2933 	1498 	1377 	1644 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+dq_lat_table:0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+mf_lat_table:0 	0 	0 	0 	0 	0 	0 	112723 	11036 	0 	0 	1521 	1217 	3798 	3893 	12111 	7966 	27456 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+icnt2mem_lat_table:0 	0 	74712 	34952 	3103 	374 	10372 	499 	0 	0 	0 	1638 	1223 	3703 	6447 	9557 	7966 	27456 	0 	0 	0 	0 	0 	0 	
+icnt2sh_lat_table:0 	0 	66823 	25701 	23840 	2319 	36 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	2032 	24968 	0 	25238 	10764 	0 	0 	
+mf_lat_pw_table:0 	0 	0 	0 	0 	0 	0 	727 	23 	0 	1 	10 	13 	27 	34 	190 	150 	313 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	0 	
+maximum concurrent accesses to same row:
+dram[0]:        69        69        16        16        16        16        16        16        16        16        16        16        34        34        95        79 
+dram[1]:        69        61        16        16        16        16        16        16        16        16        16        16        51        51        70        61 
+dram[2]:        77        71        16        16        16        16        16        16        16        16        16        16        51        51        61        61 
+dram[3]:        74        67        16        16        16        16        16        16        16        16        16        16        51        51        77        61 
+dram[4]:        52        60        16        16        16        16        16        16        16        16        16        16        51        51        68        77 
+dram[5]:        52        57        16        16        16        16        16        16        16        16        16        16        51        51        77        69 
+dram[6]:        60        51        16        16        16        16        16        16        16        16        16        16        51        51        68        61 
+dram[7]:        52        58        16        16        16        16        16        16        16        16        16        16        51        51        62       102 
+dram[8]:        52        52        16        16        16        16        16        16        16        16        16        16        51        51        99        69 
+dram[9]:        44        50        16        16        16        16        16        16        16        16        16        16        51        51        78        89 
+dram[10]:        44        57        16        16        16        16        16        16        16        16        16        16        51        51        94        86 
+maximum service time to same row:
+dram[0]:    263104    263105    442850    442849    229240    229241    229241    229240    270922    270922    229240    229239    385540    385540    385540    385540 
+dram[1]:    263105    263106    442849    442849    229240    229242    229242    229244    270919    270923    229243    229241    385538    385542    385539    385542 
+dram[2]:    263106    263100    442851    442847    229237    229238    229239    229242    270923    270922    229238    229238    385539    385537    385542    385542 
+dram[3]:    263100    263099    442847    442852    229237    229233    229243    229241    270919    270919    229240    229243    385537    385543    385536    385537 
+dram[4]:    263097    263105    442851    442851    229233    229233    229242    229243    270919    270919    229238    229239    385544    385537    385542    385542 
+dram[5]:    263109    263109    442850    442849    229246    229245    229239    229243    270929    270921    229243    229243    385531    385539    385542    385542 
+dram[6]:    263110    263104    442852    442851    229238    229239    229241    229242    270920    270920    229249    229234    385540    385538    385542    278746 
+dram[7]:    263105    263106    442852    442853    229238    229243    229239    229239    270921    270920    229234    229243    385545    385545    278747    278747 
+dram[8]:    263107    263108    442852    442852    229244    229245    229238    229239    270927    270926    229241    229242    385544    385551    278733    278742 
+dram[9]:    263109    263108    442844    442844    229246    229245    229248    229254    270926    270919    229242    229242    385536    385536    278754    385544 
+dram[10]:    263107    263111    442843    442853    229247    229234    229243    229242    270919    270918    229242    229234    385542    385542    385542    385543 
+average row accesses per activate:
+dram[0]:  5.785714  5.962963  5.179487  5.179487  6.428571  6.428571  7.652174  7.652174  5.000000  5.000000  4.723404  4.723404  5.102041  5.102041  7.453125  6.323944 
+dram[1]:  5.962963  5.814815  5.179487  5.179487  6.428571  6.428571  7.652174  7.652174  5.000000  5.000000  4.625000  4.625000  5.489796  5.489796  6.910448  6.808824 
+dram[2]:  6.111111  6.000000  5.179487  5.179487  6.428571  6.428571  7.652174  7.652174  5.054054  5.054054  4.723404  4.723404  5.489796  5.489796  6.691176  6.705883 
+dram[3]:  6.540000  6.173077  5.179487  5.179487  5.515152  6.428571  7.652174  7.652174  5.194445  4.921052  4.723404  4.723404  5.075472  5.489796  7.102941  7.015152 
+dram[4]:  6.211538  6.600000  5.179487  5.179487  6.428571  6.428571  7.652174  7.652174  5.054054  5.054054  4.723404  4.530612  5.723404  5.723404  6.605634  7.134328 
+dram[5]:  6.440000  6.540000  5.179487  5.179487  6.428571  6.428571  6.518518  6.518518  4.947369  5.081081  4.530612  4.530612  5.723404  5.723404  7.194030  6.513889 
+dram[6]:  6.307693  6.000000  5.179487  5.179487  6.428571  6.428571  6.518518  6.518518  4.894737  4.894737  4.530612  4.530612  5.604167  5.604167  7.000000  5.753247 
+dram[7]:  6.220000  6.160000  5.179487  5.179487  6.428571  6.428571  5.709677  5.709677  4.894737  5.027027  4.530612  4.530612  5.604167  5.604167  5.437500  6.643836 
+dram[8]:  6.040000  6.040000  5.179487  5.179487  6.428571  7.458333  6.103448  6.103448  4.868421  5.027027  4.530612  4.530612  5.723404  5.955555  6.689189  5.625000 
+dram[9]:  5.444445  5.555555  4.697674  4.809524  7.458333  7.458333  6.103448  7.040000  4.625000  4.625000  4.392157  4.392157  5.955555  5.955555  5.974026  6.458333 
+dram[10]:  5.250000  5.685185  4.697674  4.926829  6.392857  6.392857  7.652174  7.652174  4.650000  4.650000  4.392157  4.392157  5.469388  5.469388  6.148649  6.690141 
+average row locality = 44337/7711 = 5.749838
+number of total memory accesses made:
+dram[0]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[1]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[2]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[3]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[4]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[5]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[6]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[7]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[8]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[9]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+dram[10]:         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0         0 
+total accesses: 0
+min_bank_accesses = 0!
+min_chip_accesses = 0!
+number of total read accesses:
+dram[0]:       186       185       160       160       144       144       144       144       149       149       180       180       184       184       208       208 
+dram[1]:       185       185       160       160       144       144       144       144       149       149       180       180       186       186       208       208 
+dram[2]:       185       185       160       160       144       144       144       144       150       150       180       180       186       186       208       208 
+dram[3]:       185       185       160       160       145       144       144       144       150       150       180       180       186       186       208       208 
+dram[4]:       185       185       160       160       144       144       144       144       150       150       180       180       186       186       209       209 
+dram[5]:       185       185       160       160       144       144       144       144       150       150       180       180       186       186       209       209 
+dram[6]:       183       183       160       160       144       144       144       144       150       150       180       180       186       186       209       209 
+dram[7]:       183       182       160       160       144       144       144       144       150       150       180       180       186       186       209       209 
+dram[8]:       182       182       160       160       144       144       144       144       150       150       180       180       186       185       209       209 
+dram[9]:       182       182       159       159       144       144       144       144       150       150       182       182       185       185       209       208 
+dram[10]:       182       182       159       159       144       144       144       144       150       150       182       182       185       185       208       208 
+total reads: 29831
+bank skew: 209/144 = 1.45
+chip skew: 2716/2708 = 1.00
+number of total write accesses:
+dram[0]:       138       137        42        42        36        36        32        32        36        36        42        42        66        66       269       241 
+dram[1]:       137       129        42        42        36        36        32        32        36        36        42        42        83        83       255       255 
+dram[2]:       145       139        42        42        36        36        32        32        37        37        42        42        83        83       247       248 
+dram[3]:       142       136        42        42        37        36        32        32        37        37        42        42        83        83       275       255 
+dram[4]:       138       145        42        42        36        36        32        32        37        37        42        42        83        83       260       269 
+dram[5]:       137       142        42        42        36        36        32        32        38        38        42        42        83        83       273       260 
+dram[6]:       145       129        42        42        36        36        32        32        36        36        42        42        83        83       274       234 
+dram[7]:       128       126        42        42        36        36        33        33        36        36        42        42        83        83       226       276 
+dram[8]:       120       120        42        42        36        35        33        33        35        36        42        42        83        83       286       241 
+dram[9]:       112       118        43        43        35        35        33        32        35        35        42        42        83        83       251       257 
+dram[10]:       112       125        43        43        35        35        32        32        36        36        42        42        83        83       247       267 
+total reads: 14506
+bank skew: 286/32 = 8.94
+chip skew: 1358/1279 = 1.06
+average mf latency per bank:
+dram[0]:     107254    107301    154983    155093    160797    161768    161003    160932    150015    150217    139381    138075    173089    172573     80047     84974
+dram[1]:     107774    110416    157094    156705    164854    163675    158821    158776    148923    148755    136708    136241    162102    161533     82330     82857
+dram[2]:     105545    108048    154919    154773    163216    162848    159226    159165    147679    149202    137008    137639    162873    162588     84259     83355
+dram[3]:     107520    107858    155380    156707    242333    165033    160985    160279    148582    146893    137733    137296    161628    161136     79060     82406
+dram[4]:     110073    107184    155536    154574    164587    161545    158942    159525    147071    146807    137160    136838    160685    160887     81318     80421
+dram[5]:     109422    107487    155878    155903    161992    161607    159231    159194    145866    147680    137460    138082    162064    160373     79968     81757
+dram[6]:     105001    110330    155027    156451    163550    163574    160337    160260    149204    147911    137249    136271    160155    159582     78452     85539
+dram[7]:     112233    112033    156653    154947    162540    163444    158544    158520    149164    147268    138266    136549    159001    159513     87953     79224
+dram[8]:     113175    112960    155582    154937    162673    162977    158335    160017    148967    149019    139387    139318    157228    154505     77493     84774
+dram[9]:     115916    114086    154607    156156    164857    164975    160055    157927    150081    148976    137518    138482    154291    153722     82997     82137
+dram[10]:     116752    111646    156575    154776    163467    162788    159360    158831    147982    148100    137513    138260    154063    154662     83792     80243
+maximum mf latency per bank:
+dram[0]:     156270    156275    156293    156277    156449    156451    156260    156277    156259    156271    156296    156284    156272    156282    156270    156270
+dram[1]:     156277    156275    156274    156279    156405    156446    156265    156283    156266    156271    156285    156286    156279    156290    156268    156267
+dram[2]:     156285    156286    156274    156277    156446    156455    156263    156271    156266    156274    156289    156279    156290    156282    156264    156274
+dram[3]:     156286    156286    156271    156277    156446    156459    156259    156281    156267    156270    156273    156282    156297    156282    156272    156275
+dram[4]:     156274    156285    156271    156287    156448    156461    156274    156285    156268    156275    156264    156276    156281    156282    156263    156274
+dram[5]:     156275    156280    156273    156272    156462    156473    156272    156275    156259    156274    156272    156285    156281    156282    156270    156276
+dram[6]:     156280    156282    156282    156276    156450    156459    156260    156277    156267    156278    156272    156275    156275    156281    156268    156277
+dram[7]:     156269    156273    156272    156277    156449    156459    156263    156276    156275    156271    156270    156273    156280    156294    156272    156272
+dram[8]:     156271    156282    156270    156274    156448    156469    156280    156280    156268    156278    156273    156288    156294    156281    156261    156271
+dram[9]:     156266    156285    156282    156289    156450    156457    156275    156269    156266    156275    156297    156279    156270    156274    156280    156272
+dram[10]:     156274    156276    156277    156287    156446    156448    156267    156274    156280    156285    156285    156273    156274    156275    156268    156293
+Memory Partition 0: 
+Cache L2_bank_000:
+MSHR contents
+
+Cache L2_bank_001:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[0]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471545 n_act=692 n_pre=676 n_req=4002 n_rd=10836 n_write=3204 bw_util=0.008053
+n_activity=46105 dram_eff=0.609
+bk0: 744a 3481971i bk1: 740a 3480967i bk2: 640a 3482905i bk3: 640a 3481873i bk4: 576a 3484058i bk5: 576a 3483121i bk6: 576a 3484214i bk7: 576a 3483168i bk8: 596a 3483443i bk9: 596a 3482397i bk10: 720a 3482914i bk11: 720a 3481756i bk12: 736a 3482382i bk13: 736a 3481211i bk14: 832a 3480655i bk15: 832a 3479146i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0586544
+Memory Partition 1: 
+Cache L2_bank_002:
+MSHR contents
+
+Cache L2_bank_003:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[1]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471507 n_act=691 n_pre=675 n_req=4030 n_rd=10848 n_write=3232 bw_util=0.008076
+n_activity=46257 dram_eff=0.6088
+bk0: 740a 3482012i bk1: 740a 3480930i bk2: 640a 3482973i bk3: 640a 3481977i bk4: 576a 3484004i bk5: 576a 3482983i bk6: 576a 3484179i bk7: 576a 3483221i bk8: 596a 3483451i bk9: 596a 3482444i bk10: 720a 3482812i bk11: 720a 3481767i bk12: 744a 3482255i bk13: 744a 3481163i bk14: 832a 3480295i bk15: 832a 3478767i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0599311
+Memory Partition 2: 
+Cache L2_bank_004:
+MSHR contents
+
+Cache L2_bank_005:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[2]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471481 n_act=690 n_pre=674 n_req=4037 n_rd=10856 n_write=3252 bw_util=0.008092
+n_activity=46324 dram_eff=0.6091
+bk0: 740a 3482107i bk1: 740a 3481127i bk2: 640a 3482886i bk3: 640a 3481974i bk4: 576a 3484029i bk5: 576a 3483261i bk6: 576a 3484271i bk7: 576a 3483244i bk8: 600a 3483291i bk9: 600a 3482424i bk10: 720a 3482897i bk11: 720a 3481719i bk12: 744a 3482301i bk13: 744a 3481190i bk14: 832a 3480456i bk15: 832a 3479174i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.059236
+Memory Partition 3: 
+Cache L2_bank_006:
+MSHR contents
+
+Cache L2_bank_007:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[3]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471454 n_act=691 n_pre=675 n_req=4068 n_rd=10860 n_write=3273 bw_util=0.008106
+n_activity=46754 dram_eff=0.6046
+bk0: 740a 3482191i bk1: 740a 3481076i bk2: 640a 3482864i bk3: 640a 3481847i bk4: 580a 3483850i bk5: 576a 3483179i bk6: 576a 3484212i bk7: 576a 3483122i bk8: 600a 3483228i bk9: 600a 3482310i bk10: 720a 3482914i bk11: 720a 3481844i bk12: 744a 3482154i bk13: 744a 3481190i bk14: 832a 3480283i bk15: 832a 3479319i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0591706
+Memory Partition 4: 
+Cache L2_bank_008:
+MSHR contents
+
+Cache L2_bank_009:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[4]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471464 n_act=684 n_pre=668 n_req=4072 n_rd=10864 n_write=3273 bw_util=0.008109
+n_activity=46570 dram_eff=0.6071
+bk0: 740a 3482155i bk1: 740a 3481105i bk2: 640a 3482850i bk3: 640a 3481950i bk4: 576a 3484195i bk5: 576a 3483304i bk6: 576a 3484181i bk7: 576a 3483161i bk8: 600a 3483234i bk9: 600a 3482353i bk10: 720a 3482948i bk11: 720a 3481819i bk12: 744a 3482343i bk13: 744a 3481198i bk14: 836a 3480554i bk15: 836a 3479263i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0592896
+Memory Partition 5: 
+Cache L2_bank_010:
+MSHR contents
+
+Cache L2_bank_011:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[5]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471439 n_act=694 n_pre=678 n_req=4074 n_rd=10864 n_write=3278 bw_util=0.008111
+n_activity=46825 dram_eff=0.604
+bk0: 740a 3482224i bk1: 740a 3481042i bk2: 640a 3483052i bk3: 640a 3482015i bk4: 576a 3484216i bk5: 576a 3483214i bk6: 576a 3484119i bk7: 576a 3483183i bk8: 600a 3483236i bk9: 600a 3482333i bk10: 720a 3482849i bk11: 720a 3481756i bk12: 744a 3482307i bk13: 744a 3481269i bk14: 836a 3480611i bk15: 836a 3479229i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0590992
+Memory Partition 6: 
+Cache L2_bank_012:
+MSHR contents
+
+Cache L2_bank_013:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[6]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471461 n_act=708 n_pre=692 n_req=4036 n_rd=10848 n_write=3244 bw_util=0.008083
+n_activity=46918 dram_eff=0.6007
+bk0: 732a 3482051i bk1: 732a 3481197i bk2: 640a 3483014i bk3: 640a 3481909i bk4: 576a 3484066i bk5: 576a 3483088i bk6: 576a 3484049i bk7: 576a 3483173i bk8: 600a 3483376i bk9: 600a 3482393i bk10: 720a 3482915i bk11: 720a 3481803i bk12: 744a 3482294i bk13: 744a 3481119i bk14: 836a 3480557i bk15: 836a 3479120i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0587903
+Memory Partition 7: 
+Cache L2_bank_014:
+MSHR contents
+
+Cache L2_bank_015:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[7]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471469 n_act=718 n_pre=702 n_req=4011 n_rd=10844 n_write=3220 bw_util=0.008067
+n_activity=47254 dram_eff=0.5953
+bk0: 732a 3482122i bk1: 728a 3481243i bk2: 640a 3482974i bk3: 640a 3482034i bk4: 576a 3484207i bk5: 576a 3483232i bk6: 576a 3483957i bk7: 576a 3482930i bk8: 600a 3483242i bk9: 600a 3482428i bk10: 720a 3482877i bk11: 720a 3481744i bk12: 744a 3482128i bk13: 744a 3481084i bk14: 836a 3480197i bk15: 836a 3479033i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0585158
+Memory Partition 8: 
+Cache L2_bank_016:
+MSHR contents
+
+Cache L2_bank_017:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[8]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471505 n_act=707 n_pre=691 n_req=4018 n_rd=10836 n_write=3214 bw_util=0.008059
+n_activity=46835 dram_eff=0.6
+bk0: 728a 3482249i bk1: 728a 3481213i bk2: 640a 3482891i bk3: 640a 3481908i bk4: 576a 3483971i bk5: 576a 3483439i bk6: 576a 3484022i bk7: 576a 3482964i bk8: 600a 3483429i bk9: 600a 3482476i bk10: 720a 3482829i bk11: 720a 3481733i bk12: 744a 3482287i bk13: 740a 3481215i bk14: 836a 3480287i bk15: 836a 3478857i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0588815
+Memory Partition 9: 
+Cache L2_bank_018:
+MSHR contents
+
+Cache L2_bank_019:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[9]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471511 n_act=716 n_pre=700 n_req=3988 n_rd=10836 n_write=3190 bw_util=0.008045
+n_activity=46731 dram_eff=0.6003
+bk0: 728a 3482223i bk1: 728a 3481133i bk2: 636a 3482732i bk3: 636a 3481850i bk4: 576a 3484126i bk5: 576a 3483172i bk6: 576a 3484054i bk7: 576a 3483100i bk8: 600a 3483309i bk9: 600a 3482382i bk10: 728a 3482776i bk11: 728a 3481608i bk12: 740a 3482510i bk13: 740a 3481220i bk14: 836a 3480286i bk15: 832a 3479432i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0578889
+Memory Partition 10: 
+Cache L2_bank_020:
+MSHR contents
+
+Cache L2_bank_021:
+MSHR contents
+
+In Dram Latency Queue (total = 0): 
+DRAM[10]: 16 bks, busW=4 BL=8 CL=12, tRRD=2 tCCD=6, tRCD=12 tRAS=28 tRP=12 tRC=40
+n_cmd=3486953 n_nop=3471488 n_act=721 n_pre=705 n_req=4001 n_rd=10832 n_write=3207 bw_util=0.008052
+n_activity=46831 dram_eff=0.5996
+bk0: 728a 3482123i bk1: 728a 3481144i bk2: 636a 3482734i bk3: 636a 3481829i bk4: 576a 3484094i bk5: 576a 3483286i bk6: 576a 3484211i bk7: 576a 3483162i bk8: 600a 3483342i bk9: 600a 3482328i bk10: 728a 3482815i bk11: 728a 3481655i bk12: 740a 3482256i bk13: 740a 3481103i bk14: 832a 3480374i bk15: 832a 3479061i 
+dram_util_bins: 0 0 0 0 0 0 0 0 0 0
+dram_eff_bins: 0 0 0 0 0 0 0 0 0 0
+mrqq: max=64 avg=0.0568493
+
+========= L2 cache stats =========
+L2_cache_bank[0]: Access = 7432, Miss = 1355, Miss_rate = 0.182, Pending_hits = 1844, Reservation_fails = 0
+L2_cache_bank[1]: Access = 7404, Miss = 1354, Miss_rate = 0.183, Pending_hits = 1821, Reservation_fails = 0
+L2_cache_bank[2]: Access = 7422, Miss = 1356, Miss_rate = 0.183, Pending_hits = 1847, Reservation_fails = 0
+L2_cache_bank[3]: Access = 7419, Miss = 1356, Miss_rate = 0.183, Pending_hits = 1802, Reservation_fails = 0
+L2_cache_bank[4]: Access = 7470, Miss = 1357, Miss_rate = 0.182, Pending_hits = 1834, Reservation_fails = 0
+L2_cache_bank[5]: Access = 7475, Miss = 1357, Miss_rate = 0.182, Pending_hits = 1808, Reservation_fails = 0
+L2_cache_bank[6]: Access = 25477, Miss = 1358, Miss_rate = 0.053, Pending_hits = 1953, Reservation_fails = 0
+L2_cache_bank[7]: Access = 7475, Miss = 1357, Miss_rate = 0.182, Pending_hits = 1852, Reservation_fails = 0
+L2_cache_bank[8]: Access = 7503, Miss = 1358, Miss_rate = 0.181, Pending_hits = 1868, Reservation_fails = 0
+L2_cache_bank[9]: Access = 7501, Miss = 1358, Miss_rate = 0.181, Pending_hits = 1883, Reservation_fails = 0
+L2_cache_bank[10]: Access = 7498, Miss = 1358, Miss_rate = 0.181, Pending_hits = 1897, Reservation_fails = 0
+L2_cache_bank[11]: Access = 7498, Miss = 1358, Miss_rate = 0.181, Pending_hits = 1861, Reservation_fails = 0
+L2_cache_bank[12]: Access = 7493, Miss = 1356, Miss_rate = 0.181, Pending_hits = 1877, Reservation_fails = 0
+L2_cache_bank[13]: Access = 7493, Miss = 1356, Miss_rate = 0.181, Pending_hits = 1810, Reservation_fails = 0
+L2_cache_bank[14]: Access = 7485, Miss = 1356, Miss_rate = 0.181, Pending_hits = 1825, Reservation_fails = 0
+L2_cache_bank[15]: Access = 7472, Miss = 1355, Miss_rate = 0.181, Pending_hits = 1871, Reservation_fails = 0
+L2_cache_bank[16]: Access = 7451, Miss = 1355, Miss_rate = 0.182, Pending_hits = 1794, Reservation_fails = 0
+L2_cache_bank[17]: Access = 7397, Miss = 1354, Miss_rate = 0.183, Pending_hits = 1789, Reservation_fails = 0
+L2_cache_bank[18]: Access = 7432, Miss = 1355, Miss_rate = 0.182, Pending_hits = 1780, Reservation_fails = 0
+L2_cache_bank[19]: Access = 7404, Miss = 1354, Miss_rate = 0.183, Pending_hits = 1765, Reservation_fails = 0
+L2_cache_bank[20]: Access = 7399, Miss = 1354, Miss_rate = 0.183, Pending_hits = 1755, Reservation_fails = 0
+L2_cache_bank[21]: Access = 7402, Miss = 1354, Miss_rate = 0.183, Pending_hits = 1821, Reservation_fails = 0
+L2_total_cache_accesses = 182002
+L2_total_cache_misses = 29831
+L2_total_cache_miss_rate = 0.1639
+L2_total_cache_pending_hits = 40357
+L2_total_cache_reservation_fails = 0
+L2_total_cache_breakdown:
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][HIT] = 56213
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][HIT_RESERVED] = 33222
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][MISS] = 29256
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][HIT] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][MISS] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[CONST_ACC_R][HIT] = 0
+	L2_cache_stats_breakdown[CONST_ACC_R][HIT_RESERVED] = 27
+	L2_cache_stats_breakdown[CONST_ACC_R][MISS] = 1
+	L2_cache_stats_breakdown[CONST_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][HIT] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][MISS] = 0
+	L2_cache_stats_breakdown[TEXTURE_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][HIT] = 55523
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][HIT_RESERVED] = 6916
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][MISS] = 563
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][HIT] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][MISS] = 0
+	L2_cache_stats_breakdown[LOCAL_ACC_W][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][HIT] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][MISS] = 0
+	L2_cache_stats_breakdown[L1_WRBK_ACC][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][HIT] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][MISS] = 0
+	L2_cache_stats_breakdown[L2_WRBK_ACC][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[INST_ACC_R][HIT] = 78
+	L2_cache_stats_breakdown[INST_ACC_R][HIT_RESERVED] = 192
+	L2_cache_stats_breakdown[INST_ACC_R][MISS] = 11
+	L2_cache_stats_breakdown[INST_ACC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][HIT] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][MISS] = 0
+	L2_cache_stats_breakdown[L1_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][HIT] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][HIT_RESERVED] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][MISS] = 0
+	L2_cache_stats_breakdown[L2_WR_ALLOC_R][RESERVATION_FAIL] = 0
+	L2_cache_stats_breakdown[GLOBAL_ACC_R][TOTAL_ACCESS] = 118691
+	L2_cache_stats_breakdown[CONST_ACC_R][TOTAL_ACCESS] = 28
+	L2_cache_stats_breakdown[GLOBAL_ACC_W][TOTAL_ACCESS] = 63002
+	L2_cache_stats_breakdown[INST_ACC_R][TOTAL_ACCESS] = 281
+L2_cache_data_port_util = 0.008
+L2_cache_fill_port_util = 0.003
+
+icnt_total_pkts_mem_to_simt=490326
+icnt_total_pkts_simt_to_mem=339507
+LD_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ST_mem_lat_dist  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+----------------------------Interconnect-DETAILS--------------------------------
+Class 0:
+Packet latency average = 38.8832
+	minimum = 6
+	maximum = 5481
+Network latency average = 25.0521
+	minimum = 6
+	maximum = 3045
+Slowest packet = 109988
+Flit latency average = 17.2268
+	minimum = 6
+	maximum = 3045
+Slowest flit = 231202
+Fragmentation average = 0
+	minimum = 0
+	maximum = 0
+Injected packet rate average = 0.0016123
+	minimum = 0.00142611 (at node 4)
+	maximum = 0.00727976 (at node 34)
+Accepted packet rate average = 0.0016123
+	minimum = 0.00142611 (at node 4)
+	maximum = 0.00727976 (at node 34)
+Injected flit rate average = 0.0037963
+	minimum = 0.00252722 (at node 4)
+	maximum = 0.0325915 (at node 34)
+Accepted flit rate average= 0.0037963
+	minimum = 0.00298717 (at node 45)
+	maximum = 0.00870587 (at node 34)
+Injected packet length average = 2.35459
+Accepted packet length average = 2.35459
+Total in-flight flits = 0 (0 measured)
+====== Overall Traffic Statistics ======
+====== Traffic class 0 ======
+Packet latency average = 29.1903 (2 samples)
+	minimum = 6 (2 samples)
+	maximum = 2809 (2 samples)
+Network latency average = 19.6826 (2 samples)
+	minimum = 6 (2 samples)
+	maximum = 1578.5 (2 samples)
+Flit latency average = 15.4737 (2 samples)
+	minimum = 6 (2 samples)
+	maximum = 1576.5 (2 samples)
+Fragmentation average = 4.56554e-06 (2 samples)
+	minimum = 0 (2 samples)
+	maximum = 0.5 (2 samples)
+Injected packet rate average = 0.00263468 (2 samples)
+	minimum = 0.00225497 (2 samples)
+	maximum = 0.00574697 (2 samples)
+Accepted packet rate average = 0.00263468 (2 samples)
+	minimum = 0.00225497 (2 samples)
+	maximum = 0.00574697 (2 samples)
+Injected flit rate average = 0.00574865 (2 samples)
+	minimum = 0.00445012 (2 samples)
+	maximum = 0.0208547 (2 samples)
+Accepted flit rate average = 0.00574865 (2 samples)
+	minimum = 0.00480199 (2 samples)
+	maximum = 0.00868817 (2 samples)
+Injected packet size average = 2.18192 (2 samples)
+Accepted packet size average = 2.18192 (2 samples)
+Hops average = 1 (2 samples)
+----------------------------END-of-Interconnect-DETAILS-------------------------
+
+
+gpgpu_simulation_time = 0 days, 2 hrs, 10 min, 1 sec (7801 sec)
+gpgpu_simulation_rate = 5953 (inst/sec)
+gpgpu_simulation_rate = 319 (cycle/sec)
+Training done
+========================================UVM statistics==============================
+========================================TLB statistics(access)==============================
+Shader0: Tlb_access: 6471 Tlb_hit: 4050 Tlb_miss: 2421 Tlb_hit_rate: 0.625869
+Shader1: Tlb_access: 6571 Tlb_hit: 4061 Tlb_miss: 2510 Tlb_hit_rate: 0.618019
+Shader2: Tlb_access: 6511 Tlb_hit: 4003 Tlb_miss: 2508 Tlb_hit_rate: 0.614806
+Shader3: Tlb_access: 6364 Tlb_hit: 3916 Tlb_miss: 2448 Tlb_hit_rate: 0.615336
+Shader4: Tlb_access: 6394 Tlb_hit: 3947 Tlb_miss: 2447 Tlb_hit_rate: 0.617297
+Shader5: Tlb_access: 6517 Tlb_hit: 4051 Tlb_miss: 2466 Tlb_hit_rate: 0.621605
+Shader6: Tlb_access: 6452 Tlb_hit: 3999 Tlb_miss: 2453 Tlb_hit_rate: 0.619808
+Shader7: Tlb_access: 6473 Tlb_hit: 3980 Tlb_miss: 2493 Tlb_hit_rate: 0.614862
+Shader8: Tlb_access: 6418 Tlb_hit: 3970 Tlb_miss: 2448 Tlb_hit_rate: 0.618573
+Shader9: Tlb_access: 6514 Tlb_hit: 4040 Tlb_miss: 2474 Tlb_hit_rate: 0.620203
+Shader10: Tlb_access: 6451 Tlb_hit: 4023 Tlb_miss: 2428 Tlb_hit_rate: 0.623624
+Shader11: Tlb_access: 6638 Tlb_hit: 4112 Tlb_miss: 2526 Tlb_hit_rate: 0.619464
+Shader12: Tlb_access: 6514 Tlb_hit: 4085 Tlb_miss: 2429 Tlb_hit_rate: 0.627111
+Shader13: Tlb_access: 6623 Tlb_hit: 4152 Tlb_miss: 2471 Tlb_hit_rate: 0.626906
+Shader14: Tlb_access: 6512 Tlb_hit: 4055 Tlb_miss: 2457 Tlb_hit_rate: 0.622697
+Shader15: Tlb_access: 6577 Tlb_hit: 4139 Tlb_miss: 2438 Tlb_hit_rate: 0.629314
+Shader16: Tlb_access: 6502 Tlb_hit: 4067 Tlb_miss: 2435 Tlb_hit_rate: 0.625500
+Shader17: Tlb_access: 6509 Tlb_hit: 4090 Tlb_miss: 2419 Tlb_hit_rate: 0.628361
+Shader18: Tlb_access: 6480 Tlb_hit: 4088 Tlb_miss: 2392 Tlb_hit_rate: 0.630864
+Shader19: Tlb_access: 6469 Tlb_hit: 4073 Tlb_miss: 2396 Tlb_hit_rate: 0.629618
+Shader20: Tlb_access: 6454 Tlb_hit: 3994 Tlb_miss: 2460 Tlb_hit_rate: 0.618841
+Shader21: Tlb_access: 6461 Tlb_hit: 4026 Tlb_miss: 2435 Tlb_hit_rate: 0.623123
+Shader22: Tlb_access: 6504 Tlb_hit: 4047 Tlb_miss: 2457 Tlb_hit_rate: 0.622232
+Shader23: Tlb_access: 6453 Tlb_hit: 4047 Tlb_miss: 2406 Tlb_hit_rate: 0.627150
+Shader24: Tlb_access: 6446 Tlb_hit: 4010 Tlb_miss: 2436 Tlb_hit_rate: 0.622091
+Shader25: Tlb_access: 6461 Tlb_hit: 4012 Tlb_miss: 2449 Tlb_hit_rate: 0.620956
+Shader26: Tlb_access: 6450 Tlb_hit: 4014 Tlb_miss: 2436 Tlb_hit_rate: 0.622326
+Shader27: Tlb_access: 6504 Tlb_hit: 4053 Tlb_miss: 2451 Tlb_hit_rate: 0.623155
+Tlb_tot_access: 181693 Tlb_tot_hit: 113104, Tlb_tot_miss: 68589, Tlb_tot_hit_rate: 0.622501
+========================================TLB statistics(validate)==============================
+Shader0: Tlb_validate: 191 Tlb_invalidate: 175 Tlb_evict: 0 Tlb_page_evict: 175
+Shader1: Tlb_validate: 194 Tlb_invalidate: 178 Tlb_evict: 0 Tlb_page_evict: 178
+Shader2: Tlb_validate: 183 Tlb_invalidate: 167 Tlb_evict: 0 Tlb_page_evict: 167
+Shader3: Tlb_validate: 182 Tlb_invalidate: 166 Tlb_evict: 0 Tlb_page_evict: 166
+Shader4: Tlb_validate: 185 Tlb_invalidate: 169 Tlb_evict: 0 Tlb_page_evict: 169
+Shader5: Tlb_validate: 183 Tlb_invalidate: 167 Tlb_evict: 0 Tlb_page_evict: 167
+Shader6: Tlb_validate: 190 Tlb_invalidate: 174 Tlb_evict: 0 Tlb_page_evict: 174
+Shader7: Tlb_validate: 191 Tlb_invalidate: 175 Tlb_evict: 0 Tlb_page_evict: 175
+Shader8: Tlb_validate: 188 Tlb_invalidate: 172 Tlb_evict: 0 Tlb_page_evict: 172
+Shader9: Tlb_validate: 180 Tlb_invalidate: 165 Tlb_evict: 0 Tlb_page_evict: 165
+Shader10: Tlb_validate: 191 Tlb_invalidate: 175 Tlb_evict: 0 Tlb_page_evict: 175
+Shader11: Tlb_validate: 186 Tlb_invalidate: 170 Tlb_evict: 0 Tlb_page_evict: 170
+Shader12: Tlb_validate: 195 Tlb_invalidate: 179 Tlb_evict: 0 Tlb_page_evict: 179
+Shader13: Tlb_validate: 194 Tlb_invalidate: 178 Tlb_evict: 0 Tlb_page_evict: 178
+Shader14: Tlb_validate: 188 Tlb_invalidate: 173 Tlb_evict: 0 Tlb_page_evict: 173
+Shader15: Tlb_validate: 188 Tlb_invalidate: 172 Tlb_evict: 0 Tlb_page_evict: 172
+Shader16: Tlb_validate: 192 Tlb_invalidate: 177 Tlb_evict: 0 Tlb_page_evict: 177
+Shader17: Tlb_validate: 182 Tlb_invalidate: 167 Tlb_evict: 0 Tlb_page_evict: 167
+Shader18: Tlb_validate: 190 Tlb_invalidate: 175 Tlb_evict: 0 Tlb_page_evict: 175
+Shader19: Tlb_validate: 178 Tlb_invalidate: 163 Tlb_evict: 0 Tlb_page_evict: 163
+Shader20: Tlb_validate: 194 Tlb_invalidate: 179 Tlb_evict: 0 Tlb_page_evict: 179
+Shader21: Tlb_validate: 183 Tlb_invalidate: 168 Tlb_evict: 0 Tlb_page_evict: 168
+Shader22: Tlb_validate: 191 Tlb_invalidate: 176 Tlb_evict: 0 Tlb_page_evict: 176
+Shader23: Tlb_validate: 193 Tlb_invalidate: 177 Tlb_evict: 0 Tlb_page_evict: 177
+Shader24: Tlb_validate: 193 Tlb_invalidate: 177 Tlb_evict: 0 Tlb_page_evict: 177
+Shader25: Tlb_validate: 189 Tlb_invalidate: 173 Tlb_evict: 0 Tlb_page_evict: 173
+Shader26: Tlb_validate: 189 Tlb_invalidate: 173 Tlb_evict: 0 Tlb_page_evict: 173
+Shader27: Tlb_validate: 180 Tlb_invalidate: 164 Tlb_evict: 0 Tlb_page_evict: 164
+Tlb_tot_valiate: 5263 Tlb_invalidate: 4824, Tlb_tot_evict: 0, Tlb_tot_evict page: 4824
+========================================TLB statistics(threshing)==============================
+Shader0: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader1: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader2: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader3: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader4: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader5: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader6: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader7: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader8: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader9: Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 2
+Shader10: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader11: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader12: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader13: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader14: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader15: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader16: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader17: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader18: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader19: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader20: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader21: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader22: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Total 2
+Shader23: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader24: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader25: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader26: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Shader27: Page: 524810 Treshed: 1 | Page: 524811 Treshed: 1 | Page: 524812 Treshed: 1 | Total 3
+Tlb_tot_thresh: 75
+========================================Page fault statistics==============================
+Shader0: Page_table_access:2421 Page_hit: 383 Page_miss: 2038 Page_hit_rate: 0.158199 Page_fault: 29 Page_pending: 2009
+Shader1: Page_table_access:2510 Page_hit: 397 Page_miss: 2113 Page_hit_rate: 0.158167 Page_fault: 31 Page_pending: 2082
+Shader2: Page_table_access:2508 Page_hit: 395 Page_miss: 2113 Page_hit_rate: 0.157496 Page_fault: 24 Page_pending: 2089
+Shader3: Page_table_access:2448 Page_hit: 437 Page_miss: 2011 Page_hit_rate: 0.178513 Page_fault: 23 Page_pending: 1988
+Shader4: Page_table_access:2447 Page_hit: 370 Page_miss: 2077 Page_hit_rate: 0.151206 Page_fault: 22 Page_pending: 2055
+Shader5: Page_table_access:2466 Page_hit: 365 Page_miss: 2101 Page_hit_rate: 0.148013 Page_fault: 26 Page_pending: 2075
+Shader6: Page_table_access:2453 Page_hit: 358 Page_miss: 2095 Page_hit_rate: 0.145944 Page_fault: 20 Page_pending: 2074
+Shader7: Page_table_access:2494 Page_hit: 381 Page_miss: 2113 Page_hit_rate: 0.152767 Page_fault: 31 Page_pending: 2081
+Shader8: Page_table_access:2448 Page_hit: 387 Page_miss: 2061 Page_hit_rate: 0.158088 Page_fault: 22 Page_pending: 2039
+Shader9: Page_table_access:2474 Page_hit: 407 Page_miss: 2067 Page_hit_rate: 0.164511 Page_fault: 16 Page_pending: 2051
+Shader10: Page_table_access:2428 Page_hit: 383 Page_miss: 2045 Page_hit_rate: 0.157743 Page_fault: 11 Page_pending: 2034
+Shader11: Page_table_access:2526 Page_hit: 418 Page_miss: 2108 Page_hit_rate: 0.165479 Page_fault: 28 Page_pending: 2080
+Shader12: Page_table_access:2429 Page_hit: 389 Page_miss: 2040 Page_hit_rate: 0.160148 Page_fault: 35 Page_pending: 2005
+Shader13: Page_table_access:2471 Page_hit: 387 Page_miss: 2084 Page_hit_rate: 0.156617 Page_fault: 20 Page_pending: 2064
+Shader14: Page_table_access:2457 Page_hit: 373 Page_miss: 2084 Page_hit_rate: 0.151811 Page_fault: 20 Page_pending: 2064
+Shader15: Page_table_access:2438 Page_hit: 371 Page_miss: 2067 Page_hit_rate: 0.152174 Page_fault: 26 Page_pending: 2040
+Shader16: Page_table_access:2435 Page_hit: 359 Page_miss: 2076 Page_hit_rate: 0.147433 Page_fault: 24 Page_pending: 2051
+Shader17: Page_table_access:2419 Page_hit: 392 Page_miss: 2027 Page_hit_rate: 0.162050 Page_fault: 25 Page_pending: 2002
+Shader18: Page_table_access:2392 Page_hit: 356 Page_miss: 2036 Page_hit_rate: 0.148829 Page_fault: 25 Page_pending: 2011
+Shader19: Page_table_access:2396 Page_hit: 329 Page_miss: 2067 Page_hit_rate: 0.137312 Page_fault: 20 Page_pending: 2047
+Shader20: Page_table_access:2460 Page_hit: 400 Page_miss: 2060 Page_hit_rate: 0.162602 Page_fault: 19 Page_pending: 2041
+Shader21: Page_table_access:2435 Page_hit: 366 Page_miss: 2069 Page_hit_rate: 0.150308 Page_fault: 19 Page_pending: 2050
+Shader22: Page_table_access:2457 Page_hit: 363 Page_miss: 2094 Page_hit_rate: 0.147741 Page_fault: 24 Page_pending: 2070
+Shader23: Page_table_access:2406 Page_hit: 355 Page_miss: 2051 Page_hit_rate: 0.147548 Page_fault: 26 Page_pending: 2027
+Shader24: Page_table_access:2436 Page_hit: 361 Page_miss: 2075 Page_hit_rate: 0.148194 Page_fault: 19 Page_pending: 2056
+Shader25: Page_table_access:2449 Page_hit: 380 Page_miss: 2069 Page_hit_rate: 0.155165 Page_fault: 23 Page_pending: 2046
+Shader26: Page_table_access:2436 Page_hit: 377 Page_miss: 2059 Page_hit_rate: 0.154762 Page_fault: 25 Page_pending: 2034
+Shader27: Page_table_access:2451 Page_hit: 388 Page_miss: 2063 Page_hit_rate: 0.158303 Page_fault: 22 Page_pending: 2042
+Page_talbe_tot_access: 68590 Page_tot_hit: 10627, Page_tot_miss 57963, Page_tot_hit_rate: 0.154935 Page_tot_fault: 655 Page_tot_pending: 57307
+Total_memory_access_page_fault: 655, Average_latency: 1604219.500000
+========================================Page threshing statistics==============================
+Page_validate: 951 Page_evict_diry: 121 Page_evict_not_diry: 6
+Page: 524810 Treshed: 1
+Page: 524811 Treshed: 1
+Page: 524812 Treshed: 1
+Page_tot_thresh: 3
+========================================Memory access statistics==============================
+========================================Prefetch statistics==============================
+Tot_page_hit: 0, Tot_page_miss: 0, Tot_page_fault: 0
+Avg_page_latency: 0.000000, Avg_prefetch_size: -nan, Avg_prefetch_latency: 0.000000
+========================================PCI-e statistics==============================
+Pcie_read_utilization: 0.180070
+[0-25]: 0.917593, [26-50]: 0.003567, [51-75]: 0.078840, [76-100]: 0.000000
+Pcie_write_utilization: 0.135698
+[0-25]: 1.000000, [26-50]: 0.000000, [51-75]: 0.000000, [76-100]: 0.000000
+F:   222150----T:   521616 	 	 	 Kl: 1 	 Sm: 0 	 T: kernel_launch(202.205261)
+F:   223063----T:   225668 	 St: 801fb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   225668----T:   233908 	 St: 801fc000 Sz: 61440 	 Sm: 0 	 T: memcpy_h2d(5.563808)
+F:   233908----T:   237720 	 St: 8026b000 Sz: 20480 	 Sm: 0 	 T: memcpy_h2d(2.573936)
+F:   237720----T:   244132 	 St: 80270000 Sz: 45056 	 Sm: 0 	 T: memcpy_h2d(4.329507)
+F:   244132----T:   246737 	 St: 8027b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   246737----T:   254977 	 St: 8027c000 Sz: 61440 	 Sm: 0 	 T: memcpy_h2d(5.563808)
+F:   254977----T:   257777 	 St: 8028b000 Sz: 8192 	 Sm: 0 	 T: memcpy_h2d(1.890614)
+F:   257777----T:   273003 	 St: 8028d000 Sz: 122880 	 Sm: 0 	 T: memcpy_h2d(10.280891)
+F:   273003----T:   275608 	 St: 8089b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   275608----T:   283848 	 St: 8089c000 Sz: 61440 	 Sm: 0 	 T: memcpy_h2d(5.563808)
+F:   283848----T:   286453 	 St: 802ab000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   286453----T:   317176 	 St: 802ac000 Sz: 258048 	 Sm: 0 	 T: memcpy_h2d(20.744766)
+F:   321143----T:   323748 	 St: 802eb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   323748----T:   384584 	 St: 802ec000 Sz: 520192 	 Sm: 0 	 T: memcpy_h2d(41.077652)
+F:   393244----T:   395849 	 St: 8020b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   395849----T:   404089 	 St: 8020c000 Sz: 61440 	 Sm: 0 	 T: memcpy_h2d(5.563808)
+F:   404089----T:   406694 	 St: 8036b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   406694----T:   409299 	 St: 8036c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   409299----T:   411904 	 St: 8036d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   411904----T:   414509 	 St: 8036e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   414509----T:   417114 	 St: 8036f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   417114----T:   419719 	 St: 80370000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   419719----T:   422324 	 St: 80372000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   422324----T:   424929 	 St: 80373000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   424929----T:   427534 	 St: 80371000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   427534----T:   430139 	 St: 80374000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   430139----T:   432744 	 St: 80375000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   432744----T:   435349 	 St: 80376000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   435349----T:   437954 	 St: 80378000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   437954----T:   440559 	 St: 80377000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   440559----T:   443164 	 St: 80379000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   443164----T:   445769 	 St: 8037a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   445769----T:   448374 	 St: 80380000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   448374----T:   450979 	 St: 80385000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   450979----T:   453584 	 St: 80381000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   453584----T:   456189 	 St: 80382000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   456189----T:   458794 	 St: 8037e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   458794----T:   461399 	 St: 8037c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   461399----T:   464004 	 St: 8037f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   464004----T:   466609 	 St: 80383000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   466609----T:   469214 	 St: 80386000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   469214----T:   471819 	 St: 80384000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   471819----T:   474424 	 St: 8037b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   474424----T:   477029 	 St: 8037d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   477029----T:   479634 	 St: 80388000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   479634----T:   482239 	 St: 8038a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   482239----T:   484844 	 St: 8038b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   484844----T:   487449 	 St: 80389000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   487449----T:   490054 	 St: 80387000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   490054----T:   492659 	 St: 80391000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   492659----T:   495264 	 St: 80392000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   495264----T:   497869 	 St: 80393000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   497869----T:   500474 	 St: 80395000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   500474----T:   503079 	 St: 80394000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   503079----T:   505684 	 St: 80390000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   505684----T:   508289 	 St: 8038e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   508289----T:   510894 	 St: 8038f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   510894----T:   513499 	 St: 8038c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   513499----T:   516104 	 St: 8038d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   516104----T:   518709 	 St: 808ab000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   518709----T:   521314 	 St: 808ac000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   521616----T:   524221 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:   521616----T:   529856 	 St: 0 Sz: 61440 	 Sm: 0 	 T: device_sync(5.563808)
+F:   532461----T:   535066 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:   532461----T:   540701 	 St: 0 Sz: 61440 	 Sm: 0 	 T: device_sync(5.563808)
+F:   543306----T:   545911 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:   543306----T:   559001 	 St: 0 Sz: 126976 	 Sm: 0 	 T: device_sync(10.597569)
+F:   561606----T:   564211 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:   561606----T:   592329 	 St: 0 Sz: 258048 	 Sm: 0 	 T: device_sync(20.744766)
+F:   594934----T:   597539 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:   594934----T:   655770 	 St: 0 Sz: 520192 	 Sm: 0 	 T: device_sync(41.077652)
+F:   658375----T:   660980 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:   658375----T:   687687 	 St: 0 Sz: 245760 	 Sm: 0 	 T: device_sync(19.792032)
+F:   912442----T:  2490860 	 	 	 Kl: 2 	 Sm: 0 	 T: kernel_launch(1065.778564)
+F:   913215----T:   915820 	 St: 8023b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   924245----T:   926850 	 St: 80680000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   926850----T:   929455 	 St: 80681000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   929455----T:   932060 	 St: 80688000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   932060----T:   934665 	 St: 80682000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   934665----T:   937270 	 St: 8067b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   937270----T:   939875 	 St: 80689000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   939875----T:   942480 	 St: 8068f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   942480----T:   945085 	 St: 80690000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   945085----T:   947690 	 St: 80683000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   947690----T:   950295 	 St: 8067c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   950295----T:   952900 	 St: 80691000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   952900----T:   955505 	 St: 80697000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   955505----T:   958110 	 St: 8068a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   958110----T:   960715 	 St: 80684000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   960715----T:   963320 	 St: 8067d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   963320----T:   965925 	 St: 8068b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   965925----T:   968530 	 St: 806a2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   968530----T:   971135 	 St: 8067e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   971135----T:   973740 	 St: 806a3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   973740----T:   976345 	 St: 80698000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   976345----T:   978950 	 St: 8069e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   978950----T:   981555 	 St: 80685000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   981555----T:   984160 	 St: 8069b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   984160----T:   986765 	 St: 80692000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   986765----T:   989370 	 St: 806a6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   989370----T:   991975 	 St: 8069c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   991975----T:   994580 	 St: 8068c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   994580----T:   997185 	 St: 8069f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   997185----T:   999790 	 St: 80686000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:   999790----T:  1002395 	 St: 806a0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1002395----T:  1005000 	 St: 8068d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1005000----T:  1007605 	 St: 806a4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1007605----T:  1010210 	 St: 8067f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1010210----T:  1012815 	 St: 80699000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1012815----T:  1015420 	 St: 80693000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1015420----T:  1018025 	 St: 806a7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1018025----T:  1020630 	 St: 806ae000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1020630----T:  1023235 	 St: 8069a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1023235----T:  1025840 	 St: 80694000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1025840----T:  1028445 	 St: 806ad000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1028445----T:  1031050 	 St: 806b4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1031050----T:  1033655 	 St: 80687000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1033655----T:  1036260 	 St: 806b5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1036260----T:  1038865 	 St: 806a1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1038865----T:  1041470 	 St: 806a5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1041470----T:  1044075 	 St: 8068e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1044075----T:  1046680 	 St: 806a8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1046680----T:  1049285 	 St: 806af000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1049285----T:  1051890 	 St: 80695000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1051890----T:  1054495 	 St: 806b6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1054495----T:  1057100 	 St: 806b0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1057100----T:  1059705 	 St: 8069d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1059705----T:  1062310 	 St: 806b2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1062310----T:  1064915 	 St: 80696000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1064915----T:  1067520 	 St: 806b1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1067520----T:  1070125 	 St: 806aa000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1070125----T:  1072730 	 St: 806ab000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1072730----T:  1075335 	 St: 806ac000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1075335----T:  1077940 	 St: 806a9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1077940----T:  1080545 	 St: 806b3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1080545----T:  1083150 	 St: 80470000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1083150----T:  1085755 	 St: 80471000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1085755----T:  1088360 	 St: 80478000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1088360----T:  1090965 	 St: 80472000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1090965----T:  1093570 	 St: 8046b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1093570----T:  1096175 	 St: 80479000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1096175----T:  1098780 	 St: 8047f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1098780----T:  1101385 	 St: 80480000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1101385----T:  1103990 	 St: 80473000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1103990----T:  1106595 	 St: 8046c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1106595----T:  1109200 	 St: 80481000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1109200----T:  1111805 	 St: 80487000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1111805----T:  1114410 	 St: 8047a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1114410----T:  1117015 	 St: 80474000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1117015----T:  1119620 	 St: 8046d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1119620----T:  1122225 	 St: 8047b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1122225----T:  1124830 	 St: 80492000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1124830----T:  1127435 	 St: 8046e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1127435----T:  1130040 	 St: 80493000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1130040----T:  1132645 	 St: 80488000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1132645----T:  1135250 	 St: 8048e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1135250----T:  1137855 	 St: 80475000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1137855----T:  1140460 	 St: 8048b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1140460----T:  1143065 	 St: 80482000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1143065----T:  1145670 	 St: 80496000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1145670----T:  1148275 	 St: 8048c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1148275----T:  1150880 	 St: 8047c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1150880----T:  1153485 	 St: 8048f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1153485----T:  1156090 	 St: 80476000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1156090----T:  1158695 	 St: 80490000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1158695----T:  1161300 	 St: 8047d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1161300----T:  1163905 	 St: 80494000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1163905----T:  1166510 	 St: 8046f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1166510----T:  1169115 	 St: 80489000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1169115----T:  1171720 	 St: 80483000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1171720----T:  1174325 	 St: 80497000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1174325----T:  1176930 	 St: 8049e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1176930----T:  1179535 	 St: 8048a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1179535----T:  1182140 	 St: 80484000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1182140----T:  1184745 	 St: 8049d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1184745----T:  1187350 	 St: 804a4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1187350----T:  1189955 	 St: 80477000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1189955----T:  1192560 	 St: 804a5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1192560----T:  1195165 	 St: 80491000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1195165----T:  1197770 	 St: 80495000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1197770----T:  1200375 	 St: 8047e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1200375----T:  1202980 	 St: 80498000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1202980----T:  1205585 	 St: 8049f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1205585----T:  1208190 	 St: 80485000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1208190----T:  1210795 	 St: 804a6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1210795----T:  1213400 	 St: 804a0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1213400----T:  1216005 	 St: 8048d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1216005----T:  1218610 	 St: 804a2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1218610----T:  1221215 	 St: 80486000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1221215----T:  1223820 	 St: 804a1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1223820----T:  1226425 	 St: 8049a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1226425----T:  1229030 	 St: 8049b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1229030----T:  1231635 	 St: 8049c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1231635----T:  1234240 	 St: 80499000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1234240----T:  1236845 	 St: 804a3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1236845----T:  1239450 	 St: 806b7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1239450----T:  1242055 	 St: 806b8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1242055----T:  1244660 	 St: 806b9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1244660----T:  1247265 	 St: 806ba000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1247265----T:  1249870 	 St: 806bb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1249870----T:  1252475 	 St: 806bc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1252475----T:  1255080 	 St: 806bd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1255080----T:  1257685 	 St: 806be000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1257685----T:  1260290 	 St: 806bf000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1260290----T:  1262895 	 St: 806c0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1262895----T:  1265500 	 St: 806c1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1265500----T:  1268105 	 St: 806c2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1268105----T:  1270710 	 St: 806c3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1270710----T:  1273315 	 St: 806c4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1273315----T:  1275920 	 St: 806c5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1275920----T:  1278525 	 St: 806c6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1278525----T:  1281130 	 St: 806c7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1281130----T:  1283735 	 St: 806c8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1283735----T:  1286340 	 St: 806c9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1286340----T:  1288945 	 St: 806ca000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1288945----T:  1291550 	 St: 806cb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1291550----T:  1294155 	 St: 806cc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1294155----T:  1296760 	 St: 806cd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1296760----T:  1299365 	 St: 806ce000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1299365----T:  1301970 	 St: 806cf000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1301970----T:  1304575 	 St: 806d0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1304575----T:  1307180 	 St: 806d1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1307180----T:  1309785 	 St: 806d2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1309785----T:  1312390 	 St: 806d3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1312390----T:  1314995 	 St: 806d4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1314995----T:  1317600 	 St: 806d5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1317600----T:  1320205 	 St: 806d6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1320205----T:  1322810 	 St: 806d7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1322810----T:  1325415 	 St: 806d8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1325415----T:  1328020 	 St: 806d9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1328020----T:  1330625 	 St: 806da000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1330625----T:  1333230 	 St: 806db000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1333230----T:  1335835 	 St: 806dc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1335835----T:  1338440 	 St: 806dd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1338440----T:  1341045 	 St: 806de000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1341045----T:  1343650 	 St: 806df000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1343650----T:  1346255 	 St: 806e0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1346255----T:  1348860 	 St: 806e1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1348860----T:  1351465 	 St: 806e2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1351465----T:  1354070 	 St: 806e3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1354070----T:  1356675 	 St: 806e4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1356675----T:  1359280 	 St: 806e5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1359280----T:  1361885 	 St: 806e6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1361885----T:  1364490 	 St: 806e7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1364490----T:  1367095 	 St: 806e8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1367095----T:  1369700 	 St: 806e9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1369700----T:  1372305 	 St: 806ea000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1372305----T:  1374910 	 St: 806eb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1374910----T:  1377515 	 St: 806ec000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1377515----T:  1380120 	 St: 806ed000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1380120----T:  1382725 	 St: 806ee000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1382725----T:  1385330 	 St: 806ef000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1385330----T:  1387935 	 St: 806f0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1387935----T:  1390540 	 St: 806f1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1390540----T:  1393145 	 St: 806f2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1393145----T:  1395750 	 St: 804a7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1395750----T:  1398355 	 St: 804a8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1398355----T:  1400960 	 St: 804a9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1400960----T:  1403565 	 St: 804aa000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1403565----T:  1406170 	 St: 804ab000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1406170----T:  1408775 	 St: 804ac000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1408775----T:  1411380 	 St: 804ad000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1411380----T:  1413985 	 St: 804ae000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1413985----T:  1416590 	 St: 804af000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1416590----T:  1419195 	 St: 804b0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1419195----T:  1421800 	 St: 804b1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1421800----T:  1424405 	 St: 804b2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1424405----T:  1427010 	 St: 804b3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1427010----T:  1429615 	 St: 804b4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1429615----T:  1432220 	 St: 804b5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1432220----T:  1434825 	 St: 804b6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1434825----T:  1437430 	 St: 804b7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1437430----T:  1440035 	 St: 804b8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1440035----T:  1442640 	 St: 804b9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1442640----T:  1445245 	 St: 804ba000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1445245----T:  1447850 	 St: 804bb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1447850----T:  1450455 	 St: 804bc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1450455----T:  1453060 	 St: 804bd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1453060----T:  1455665 	 St: 804be000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1455665----T:  1458270 	 St: 804bf000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1458270----T:  1460875 	 St: 804c0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1460875----T:  1463480 	 St: 804c1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1463480----T:  1466085 	 St: 804c2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1466085----T:  1468690 	 St: 804c3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1468690----T:  1471295 	 St: 804c4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1471295----T:  1473900 	 St: 804c5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1473900----T:  1476505 	 St: 804c6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1476505----T:  1479110 	 St: 804c7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1479110----T:  1481715 	 St: 804c8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1481715----T:  1484320 	 St: 804c9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1484320----T:  1486925 	 St: 804ca000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1486925----T:  1489530 	 St: 804cb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1489530----T:  1492135 	 St: 804cc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1492135----T:  1494740 	 St: 804cd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1494740----T:  1497345 	 St: 804ce000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1497345----T:  1499950 	 St: 804cf000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1499950----T:  1502555 	 St: 804d0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1502555----T:  1505160 	 St: 804d1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1505160----T:  1507765 	 St: 804d2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1507765----T:  1510370 	 St: 804d3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1510370----T:  1512975 	 St: 804d4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1512975----T:  1515580 	 St: 804d5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1515580----T:  1518185 	 St: 804d6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1518185----T:  1520790 	 St: 804d7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1520790----T:  1523395 	 St: 804d8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1523395----T:  1526000 	 St: 804d9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1526000----T:  1528605 	 St: 804da000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1528605----T:  1531210 	 St: 804db000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1531210----T:  1533815 	 St: 804dc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1533815----T:  1536420 	 St: 804dd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1536420----T:  1539025 	 St: 804de000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1539025----T:  1541630 	 St: 804df000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1541630----T:  1544235 	 St: 804e0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1544235----T:  1546840 	 St: 804e1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1546840----T:  1549445 	 St: 804e2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1549445----T:  1552050 	 St: 806f3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1552050----T:  1554655 	 St: 806f4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1554655----T:  1557260 	 St: 806f5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1557260----T:  1559865 	 St: 806f6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1559865----T:  1562470 	 St: 806f7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1562470----T:  1565075 	 St: 806f8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1565075----T:  1567680 	 St: 806f9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1567680----T:  1570285 	 St: 806fa000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1570285----T:  1572890 	 St: 806fb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1572890----T:  1575495 	 St: 806fc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1575495----T:  1578100 	 St: 806fd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1578100----T:  1580705 	 St: 806fe000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1580705----T:  1583310 	 St: 806ff000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1583310----T:  1585915 	 St: 80700000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1585915----T:  1588520 	 St: 80701000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1588520----T:  1591125 	 St: 80702000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1591125----T:  1593730 	 St: 80703000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1593730----T:  1596335 	 St: 80704000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1596335----T:  1598940 	 St: 80705000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1598940----T:  1601545 	 St: 80706000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1601545----T:  1604150 	 St: 80707000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1604150----T:  1606755 	 St: 80708000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1606755----T:  1609360 	 St: 80709000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1609360----T:  1611965 	 St: 8070a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1611965----T:  1614570 	 St: 8070b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1614570----T:  1617175 	 St: 8070c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1617175----T:  1619780 	 St: 8070d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1619780----T:  1622385 	 St: 8070e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1622385----T:  1624990 	 St: 8070f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1624990----T:  1627595 	 St: 80710000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1627595----T:  1630200 	 St: 80711000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1630200----T:  1632805 	 St: 80712000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1632805----T:  1635410 	 St: 80713000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1635410----T:  1638015 	 St: 80714000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1638015----T:  1640620 	 St: 80715000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1640620----T:  1643225 	 St: 80716000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1643225----T:  1645830 	 St: 80717000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1645830----T:  1648435 	 St: 80718000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1648435----T:  1651040 	 St: 80719000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1651040----T:  1653645 	 St: 8071a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1653645----T:  1656250 	 St: 8071b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1656250----T:  1658855 	 St: 8071c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1658855----T:  1661460 	 St: 8071d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1661460----T:  1664065 	 St: 8071e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1664065----T:  1666670 	 St: 8071f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1666670----T:  1669275 	 St: 80720000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1669275----T:  1671880 	 St: 80721000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1671880----T:  1674485 	 St: 80722000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1674485----T:  1677090 	 St: 80723000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1677090----T:  1679695 	 St: 80724000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1679695----T:  1682300 	 St: 80725000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1682300----T:  1684905 	 St: 80726000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1684905----T:  1687510 	 St: 80727000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1687510----T:  1690115 	 St: 80728000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1690115----T:  1692720 	 St: 80729000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1692720----T:  1695325 	 St: 8072a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1695325----T:  1697930 	 St: 8072b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1697930----T:  1700535 	 St: 8072c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1700535----T:  1703140 	 St: 8072d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1703140----T:  1705745 	 St: 8072e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1705745----T:  1708350 	 St: 804e3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1708350----T:  1710955 	 St: 804e4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1710955----T:  1713560 	 St: 804e5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1713560----T:  1716165 	 St: 804e6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1716165----T:  1718770 	 St: 804e7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1718770----T:  1721375 	 St: 804e8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1721375----T:  1723980 	 St: 804e9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1723980----T:  1726585 	 St: 804ea000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1726585----T:  1729190 	 St: 804eb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1729190----T:  1731795 	 St: 804ec000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1731795----T:  1734400 	 St: 804ed000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1734400----T:  1737005 	 St: 804ee000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1737005----T:  1739610 	 St: 804ef000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1739610----T:  1742215 	 St: 804f0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1742215----T:  1744820 	 St: 804f1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1744820----T:  1747425 	 St: 804f2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1747425----T:  1750030 	 St: 804f3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1750030----T:  1752635 	 St: 804f4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1752635----T:  1755240 	 St: 804f5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1755240----T:  1757845 	 St: 804f6000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1757845----T:  1760450 	 St: 804f7000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1760450----T:  1763055 	 St: 804f8000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1763055----T:  1765660 	 St: 804f9000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1765660----T:  1768265 	 St: 804fa000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1768265----T:  1770870 	 St: 804fb000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1770870----T:  1773475 	 St: 804fc000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1773475----T:  1776080 	 St: 804fd000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1776080----T:  1778685 	 St: 804fe000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1778685----T:  1781290 	 St: 804ff000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1781290----T:  1783895 	 St: 80500000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1783895----T:  1786500 	 St: 80501000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1786500----T:  1789105 	 St: 80502000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1789105----T:  1791710 	 St: 80503000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1791710----T:  1794315 	 St: 80504000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1794315----T:  1796920 	 St: 80505000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1796920----T:  1799525 	 St: 80506000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1799525----T:  1802130 	 St: 80507000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1802130----T:  1804735 	 St: 80508000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1804735----T:  1807340 	 St: 80509000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1807340----T:  1809945 	 St: 8050a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1809945----T:  1812550 	 St: 8050b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1812550----T:  1815155 	 St: 8050c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1815155----T:  1817760 	 St: 8050d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1817760----T:  1820365 	 St: 8050e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1820365----T:  1822970 	 St: 8050f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1822970----T:  1825575 	 St: 80510000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1825575----T:  1828180 	 St: 80511000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1828180----T:  1830785 	 St: 80512000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1830785----T:  1833390 	 St: 80513000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1833390----T:  1835995 	 St: 80514000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1835995----T:  1838600 	 St: 80515000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1838600----T:  1841205 	 St: 80516000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1841205----T:  1843810 	 St: 80517000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1843810----T:  1846415 	 St: 80518000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1846415----T:  1849020 	 St: 80519000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1849020----T:  1851625 	 St: 8051a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1851625----T:  1854230 	 St: 8051b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1854230----T:  1856835 	 St: 8051c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1856835----T:  1859440 	 St: 8051d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1859440----T:  1862045 	 St: 8051e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1862045----T:  1864650 	 St: 8072f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1864650----T:  1867255 	 St: 80730000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1867255----T:  1869860 	 St: 80731000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1869860----T:  1872465 	 St: 80732000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1872465----T:  1875070 	 St: 80733000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1875070----T:  1877675 	 St: 80734000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1877675----T:  1880280 	 St: 80735000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1880280----T:  1882885 	 St: 80736000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1882885----T:  1885490 	 St: 80737000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1885490----T:  1888095 	 St: 80738000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1888095----T:  1890700 	 St: 80739000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1890700----T:  1893305 	 St: 8073a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1893305----T:  1895910 	 St: 8073b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1895910----T:  1898515 	 St: 8073c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1898515----T:  1901120 	 St: 8073d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1901120----T:  1903725 	 St: 8073e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1903725----T:  1906330 	 St: 8073f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1906330----T:  1908935 	 St: 80740000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1908935----T:  1911540 	 St: 80741000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1911540----T:  1914145 	 St: 80742000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1914145----T:  1916750 	 St: 80743000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1916750----T:  1919355 	 St: 80744000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1919355----T:  1921960 	 St: 80745000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1921960----T:  1924565 	 St: 80746000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1924565----T:  1927170 	 St: 80747000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1927170----T:  1929775 	 St: 80748000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1929775----T:  1932380 	 St: 80749000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1932380----T:  1934985 	 St: 8074a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1934985----T:  1937590 	 St: 8074b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1937590----T:  1940195 	 St: 8074c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1940195----T:  1942800 	 St: 8074d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1942800----T:  1945405 	 St: 8074e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1945405----T:  1948010 	 St: 8074f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1948010----T:  1950615 	 St: 80750000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1950615----T:  1953220 	 St: 80751000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1953220----T:  1955825 	 St: 80752000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1955825----T:  1958430 	 St: 80753000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1958430----T:  1961035 	 St: 80754000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1961035----T:  1963640 	 St: 80755000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1963640----T:  1966245 	 St: 80756000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1966245----T:  1968850 	 St: 80757000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1968850----T:  1971455 	 St: 80758000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1971455----T:  1974060 	 St: 80759000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1974060----T:  1976665 	 St: 8075a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1976665----T:  1979270 	 St: 8075b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1979270----T:  1981875 	 St: 8075c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1981875----T:  1984480 	 St: 8075d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1984480----T:  1987085 	 St: 8075e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1987085----T:  1989690 	 St: 8075f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1989690----T:  1992295 	 St: 80760000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1992295----T:  1994900 	 St: 80761000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1994900----T:  1997505 	 St: 80762000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  1997505----T:  2000110 	 St: 80763000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2000110----T:  2002715 	 St: 80764000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2002715----T:  2005320 	 St: 80765000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2005320----T:  2007925 	 St: 80766000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2007925----T:  2010530 	 St: 80767000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2010530----T:  2013135 	 St: 80768000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2013135----T:  2015740 	 St: 80769000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2013527----T:  2016132 	 St: 80471000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2015740----T:  2018345 	 St: 8076a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2016143----T:  2018748 	 St: 80681000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2018345----T:  2020950 	 St: 8051f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2018752----T:  2021357 	 St: 80478000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2020950----T:  2023555 	 St: 80520000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2022478----T:  2025083 	 St: 80688000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2023555----T:  2026160 	 St: 80521000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2025089----T:  2027694 	 St: 80472000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2026160----T:  2028765 	 St: 80522000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2027694----T:  2030299 	 St: 80682000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2028765----T:  2031370 	 St: 80523000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2030303----T:  2032908 	 St: 8046b000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2031370----T:  2033975 	 St: 80524000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2032908----T:  2035513 	 St: 8067b000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2033975----T:  2036580 	 St: 80525000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2035531----T:  2038136 	 St: 80480000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2036580----T:  2039185 	 St: 80526000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2038136----T:  2040741 	 St: 80690000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2039185----T:  2041790 	 St: 80527000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2040741----T:  2043346 	 St: 80479000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2041790----T:  2044395 	 St: 80528000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2043346----T:  2045951 	 St: 80689000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2044395----T:  2047000 	 St: 80529000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2045951----T:  2048556 	 St: 80473000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2047000----T:  2049605 	 St: 8052a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2048556----T:  2051161 	 St: 80683000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2049605----T:  2052210 	 St: 8052b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2051169----T:  2053774 	 St: 8046c000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2052210----T:  2054815 	 St: 8052c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2053774----T:  2056379 	 St: 8067c000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2054815----T:  2057420 	 St: 8052d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2056379----T:  2058984 	 St: 8047a000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2057420----T:  2060025 	 St: 8052e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2058984----T:  2061589 	 St: 8068a000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2060025----T:  2062630 	 St: 8052f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2061589----T:  2064194 	 St: 8046d000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2062630----T:  2065235 	 St: 80530000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2065235----T:  2067840 	 St: 80531000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2067840----T:  2070445 	 St: 80532000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2070445----T:  2073050 	 St: 80533000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2073050----T:  2075655 	 St: 80534000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2075655----T:  2078260 	 St: 80535000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2078260----T:  2080865 	 St: 80536000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2080865----T:  2083470 	 St: 80537000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2083470----T:  2086075 	 St: 80538000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2086075----T:  2088680 	 St: 80539000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2088680----T:  2091285 	 St: 8053a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2091285----T:  2093890 	 St: 8053b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2093890----T:  2096495 	 St: 8053c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2096495----T:  2099100 	 St: 8053d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2099100----T:  2101705 	 St: 8053e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2101705----T:  2104310 	 St: 8053f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2104310----T:  2106915 	 St: 80540000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2105688----T:  2108293 	 St: 8067d000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2106915----T:  2109520 	 St: 80541000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2109520----T:  2112125 	 St: 80542000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2112125----T:  2114730 	 St: 80543000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2114730----T:  2117335 	 St: 80544000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2117335----T:  2119940 	 St: 80545000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2119940----T:  2122545 	 St: 80546000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2122545----T:  2125150 	 St: 80547000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2125150----T:  2127755 	 St: 80548000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2127755----T:  2130360 	 St: 80549000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2130360----T:  2132965 	 St: 8054a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2132965----T:  2135570 	 St: 8054b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2135570----T:  2138175 	 St: 8054c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2138175----T:  2140780 	 St: 8054d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2140780----T:  2143385 	 St: 8054e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2143385----T:  2145990 	 St: 8054f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2145990----T:  2148595 	 St: 80550000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2148595----T:  2151200 	 St: 80551000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2149968----T:  2152573 	 St: 80488000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2151200----T:  2153805 	 St: 80552000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2153805----T:  2156410 	 St: 80553000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2156410----T:  2159015 	 St: 80554000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2159015----T:  2161620 	 St: 80555000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2161620----T:  2164225 	 St: 80556000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2164225----T:  2166830 	 St: 80557000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2166830----T:  2169435 	 St: 80558000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2169435----T:  2172040 	 St: 80559000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2172040----T:  2174645 	 St: 8055a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2174645----T:  2177250 	 St: 8076b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2177250----T:  2179855 	 St: 8076c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2177653----T:  2180258 	 St: 80698000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2179855----T:  2182460 	 St: 8076d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2180258----T:  2182863 	 St: 80474000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2182460----T:  2185065 	 St: 8076e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2182863----T:  2185468 	 St: 80684000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2185065----T:  2187670 	 St: 8076f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2185468----T:  2188073 	 St: 80481000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2187670----T:  2190275 	 St: 80770000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2188073----T:  2190678 	 St: 80691000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2190275----T:  2192880 	 St: 80771000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2190678----T:  2193283 	 St: 8047b000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2192880----T:  2195485 	 St: 80772000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2193283----T:  2195888 	 St: 8068b000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2195485----T:  2198090 	 St: 80773000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2195888----T:  2198493 	 St: 80475000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2198090----T:  2200695 	 St: 80774000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2198493----T:  2201098 	 St: 80685000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2200695----T:  2203300 	 St: 80775000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2201098----T:  2203703 	 St: 8048f000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2203300----T:  2205905 	 St: 80776000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2203703----T:  2206308 	 St: 8069f000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2205905----T:  2208510 	 St: 80777000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2206308----T:  2208913 	 St: 8047c000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2208510----T:  2211115 	 St: 80778000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2208913----T:  2211518 	 St: 8068c000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2211115----T:  2213720 	 St: 80779000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2211518----T:  2214123 	 St: 80493000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2213720----T:  2216325 	 St: 8020a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2214123----T:  2216728 	 St: 806a3000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2216325----T:  2218930 	 St: 8020b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2216728----T:  2219333 	 St: 8046e000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2218930----T:  2221535 	 St: 8020c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2219333----T:  2221938 	 St: 80470000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2221535----T:  2224140 	 St: 8055b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2221938----T:  2224543 	 St: 8046f000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2224140----T:  2226745 	 St: 8055c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2224543----T:  2227148 	 St: 8067e000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2226745----T:  2229350 	 St: 8055d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2227148----T:  2229753 	 St: 80680000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2229350----T:  2231955 	 St: 8055e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2229753----T:  2232358 	 St: 8067f000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2231955----T:  2234560 	 St: 8055f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2232358----T:  2234963 	 St: 80482000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2234560----T:  2237165 	 St: 80560000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2234963----T:  2237568 	 St: 80692000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2237165----T:  2239770 	 St: 80561000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2237568----T:  2240173 	 St: 80489000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2239770----T:  2242375 	 St: 80562000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2240173----T:  2242778 	 St: 8048b000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2242375----T:  2244980 	 St: 80563000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2242778----T:  2245383 	 St: 8048a000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2244980----T:  2247585 	 St: 80564000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2245383----T:  2247988 	 St: 80699000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2247585----T:  2250190 	 St: 80565000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2247988----T:  2250593 	 St: 8069b000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2250190----T:  2252795 	 St: 80566000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2250593----T:  2253198 	 St: 8069a000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2252795----T:  2255400 	 St: 80567000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2253198----T:  2255803 	 St: 80483000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2255400----T:  2258005 	 St: 80568000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2255803----T:  2258408 	 St: 80693000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2258005----T:  2260610 	 St: 80569000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2258408----T:  2261013 	 St: 80476000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2260610----T:  2263215 	 St: 8077a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2261013----T:  2263618 	 St: 80477000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2263215----T:  2265820 	 St: 80783000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2263618----T:  2266223 	 St: 80686000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2265820----T:  2268425 	 St: 80784000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2266223----T:  2268828 	 St: 80687000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2268425----T:  2271030 	 St: 80788000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2268828----T:  2271433 	 St: 80490000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2271030----T:  2273635 	 St: 8077b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2271433----T:  2274038 	 St: 80492000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2273635----T:  2276240 	 St: 80782000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2274038----T:  2276643 	 St: 80491000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2276240----T:  2278845 	 St: 8077d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2276643----T:  2279248 	 St: 806a0000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2278845----T:  2281450 	 St: 8077e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2279248----T:  2281853 	 St: 806a2000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2281450----T:  2284055 	 St: 80781000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2281853----T:  2284458 	 St: 806a1000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2284055----T:  2286660 	 St: 80780000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2284458----T:  2287063 	 St: 80494000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2286660----T:  2289265 	 St: 8077f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2287063----T:  2289668 	 St: 80496000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2289265----T:  2291870 	 St: 80786000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2289668----T:  2292273 	 St: 80495000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2291870----T:  2294475 	 St: 8077c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2292273----T:  2294878 	 St: 806a4000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2294475----T:  2297080 	 St: 80789000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2294878----T:  2297483 	 St: 806a6000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2297080----T:  2299685 	 St: 8078a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2297483----T:  2300088 	 St: 806a5000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2299685----T:  2302290 	 St: 80787000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2300088----T:  2302693 	 St: 8047d000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2302290----T:  2304895 	 St: 80785000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2302693----T:  2305298 	 St: 8047f000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2304895----T:  2307500 	 St: 80797000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2305298----T:  2307903 	 St: 8047e000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2307500----T:  2310105 	 St: 80793000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2307903----T:  2310508 	 St: 8068d000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2310105----T:  2312710 	 St: 80790000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2310508----T:  2313113 	 St: 8068f000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2312710----T:  2315315 	 St: 8078b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2313113----T:  2315718 	 St: 8068e000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2315315----T:  2317920 	 St: 80796000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2315718----T:  2318323 	 St: 80497000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2317920----T:  2320525 	 St: 80792000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2318323----T:  2320928 	 St: 806a7000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2320525----T:  2323130 	 St: 8078c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2320928----T:  2323533 	 St: 8049e000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2323130----T:  2325735 	 St: 8078d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2323533----T:  2326138 	 St: 806ae000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2325735----T:  2328340 	 St: 80795000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2326138----T:  2328743 	 St: 80484000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2328340----T:  2330945 	 St: 8078f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2328743----T:  2331348 	 St: 80694000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2330945----T:  2333550 	 St: 8078e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2331348----T:  2333953 	 St: 804a5000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2333550----T:  2336155 	 St: 80798000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2333953----T:  2336558 	 St: 806b5000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2336155----T:  2338760 	 St: 80791000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2336558----T:  2339163 	 St: 8049f000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2338760----T:  2341365 	 St: 80794000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2339163----T:  2341768 	 St: 806af000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2341365----T:  2343970 	 St: 80799000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2341768----T:  2344373 	 St: 8048c000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2343970----T:  2346575 	 St: 8079b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2344373----T:  2346978 	 St: 8048e000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2346575----T:  2349180 	 St: 8079a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2346978----T:  2349583 	 St: 8048d000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2349180----T:  2351785 	 St: 8079f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2349583----T:  2352188 	 St: 8069c000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2351785----T:  2354390 	 St: 807a1000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2352188----T:  2354793 	 St: 8069e000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2354390----T:  2356995 	 St: 807a0000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2354793----T:  2357398 	 St: 8069d000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2356995----T:  2359600 	 St: 807a4000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2357398----T:  2360003 	 St: 80485000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2359600----T:  2362205 	 St: 807a5000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2360003----T:  2362608 	 St: 80487000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2362205----T:  2364810 	 St: 807a3000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2362608----T:  2365213 	 St: 80486000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2364810----T:  2367415 	 St: 8079e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2365213----T:  2367818 	 St: 80695000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2367415----T:  2370020 	 St: 8079c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2367818----T:  2370423 	 St: 80697000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2370020----T:  2372625 	 St: 8079d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2370423----T:  2373028 	 St: 80696000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2372625----T:  2375230 	 St: 807a2000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2373028----T:  2375633 	 St: 804a0000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2375230----T:  2377835 	 St: 8056a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2375633----T:  2378238 	 St: 804a1000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2377835----T:  2380440 	 St: 80573000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2378238----T:  2380843 	 St: 806b0000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2380440----T:  2383045 	 St: 80574000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2380843----T:  2383448 	 St: 806b1000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2383045----T:  2385650 	 St: 80578000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2383448----T:  2386053 	 St: 8049a000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2385650----T:  2388255 	 St: 8056b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2386053----T:  2388658 	 St: 806aa000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2388255----T:  2390860 	 St: 80572000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2388658----T:  2391263 	 St: 8049b000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2390860----T:  2393465 	 St: 8056d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2391263----T:  2393868 	 St: 8049d000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2393465----T:  2396070 	 St: 8056e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2393868----T:  2396473 	 St: 8049c000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2396070----T:  2398675 	 St: 80571000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2396473----T:  2399078 	 St: 806ab000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2398675----T:  2401280 	 St: 80570000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2399078----T:  2401683 	 St: 806ad000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2401280----T:  2403885 	 St: 8056f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2401683----T:  2404288 	 St: 806ac000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2403885----T:  2406490 	 St: 80576000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2404288----T:  2406893 	 St: 80498000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2406490----T:  2409095 	 St: 8056c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2406893----T:  2409498 	 St: 80499000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2409095----T:  2411700 	 St: 80579000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2409498----T:  2412103 	 St: 806a8000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2411700----T:  2414305 	 St: 8057a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2412103----T:  2414708 	 St: 806a9000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2414305----T:  2416910 	 St: 80577000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2414708----T:  2417313 	 St: 804a2000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2416910----T:  2419515 	 St: 80575000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2417313----T:  2419918 	 St: 804a4000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2419515----T:  2422120 	 St: 80587000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2419918----T:  2422523 	 St: 804a3000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2422120----T:  2424725 	 St: 80583000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2422523----T:  2425128 	 St: 806b2000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2424725----T:  2427330 	 St: 80580000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2425128----T:  2427733 	 St: 806b4000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2427330----T:  2429935 	 St: 8057b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2427733----T:  2430338 	 St: 806b3000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2429935----T:  2432540 	 St: 80586000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2430338----T:  2432943 	 St: 804a6000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2432540----T:  2435145 	 St: 80582000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2432943----T:  2435548 	 St: 806b6000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2435145----T:  2437750 	 St: 8057c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2435548----T:  2438153 	 St: 804a7000 Sz: 4096 	 Sm: 0 	 T: write_back(1.758947)
+F:  2437750----T:  2440355 	 St: 8057d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2440355----T:  2442960 	 St: 80585000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2442960----T:  2445565 	 St: 8057f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2445565----T:  2448170 	 St: 8057e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2448170----T:  2450775 	 St: 80588000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2450775----T:  2453380 	 St: 80581000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2453380----T:  2455985 	 St: 80584000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2455985----T:  2458590 	 St: 80589000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2458590----T:  2461195 	 St: 8058b000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2461195----T:  2463800 	 St: 8058a000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2463800----T:  2466405 	 St: 8058f000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2466405----T:  2469010 	 St: 80591000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2469010----T:  2471615 	 St: 80590000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2471615----T:  2474220 	 St: 80594000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2474220----T:  2476825 	 St: 80595000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2476825----T:  2479430 	 St: 80593000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2479430----T:  2482035 	 St: 8058e000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2482035----T:  2484640 	 St: 8058c000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2484640----T:  2487245 	 St: 8058d000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2487245----T:  2489850 	 St: 80592000 Sz: 4096 	 Sm: 0 	 T: memcpy_h2d(1.758947)
+F:  2490860----T:  2493465 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:  2490860----T:  2499100 	 St: 0 Sz: 61440 	 Sm: 0 	 T: device_sync(5.563808)
+F:  2501705----T:  2504310 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:  2501705----T:  2509945 	 St: 0 Sz: 61440 	 Sm: 0 	 T: device_sync(5.563808)
+F:  2512550----T:  2515155 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:  2512550----T:  2528245 	 St: 0 Sz: 126976 	 Sm: 0 	 T: device_sync(10.597569)
+F:  2530850----T:  2533455 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:  2530850----T:  2561573 	 St: 0 Sz: 258048 	 Sm: 0 	 T: device_sync(20.744766)
+F:  2564178----T:  2566783 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:  2564178----T:  2625014 	 St: 0 Sz: 520192 	 Sm: 0 	 T: device_sync(41.077652)
+F:  2627619----T:  2630224 	 St: 0 Sz: 4096 	 Sm: 0 	 T: device_sync(1.758947)
+F:  2627619----T:  2732232 	 St: 0 Sz: 901120 	 Sm: 0 	 T: device_sync(70.636734)
+Tot_prefetch_time: 0(cycle), 0.000000(us)
+Tot_kernel_exec_time: 1877884(cycle), 1267.983765(us)
+Tot_kernel_exec_time_and_fault_time: 45530359(cycle), 30742.984375(us)
+Tot_memcpy_h2d_time: 1853834(cycle), 1251.744751(us)
+Tot_memcpy_d2h_time: 0(cycle), 0.000000(us)
+Tot_memcpy_time: 1853834(cycle), 1251.744751(us)
+Tot_devicesync_time: 412653(cycle), 278.631317(us)
+Tot_writeback_time: 315205(cycle), 212.832550(us)
+Tot_memcpy_d2h_sync_wb_time: 727858(cycle), 491.463867(us)
+GPGPU-Sim: *** exit detected ***
