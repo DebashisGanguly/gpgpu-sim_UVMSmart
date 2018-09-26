@@ -375,6 +375,9 @@ private:
     float curve_a;
     float curve_b;
 
+    bool enable_nvlink;
+    bool enable_rdma;
+    unsigned migrate_threshold;
 public:
     bool hardware_prefetch;
 
@@ -389,6 +392,7 @@ extern unsigned long long memory_copy_time_d2h;
 extern unsigned long long prefetch_time;
 extern unsigned long long devicesync_time;
 extern unsigned long long writeback_time;
+extern unsigned long long rdma_time;
 
 enum stats_type {
    prefetch=0,
@@ -399,7 +403,8 @@ enum stats_type {
    kernel_launch,
    page_fault,
    device_sync,
-   write_back
+   write_back,
+   rdma
 };
 
 
@@ -441,8 +446,10 @@ public:
 		fprintf(fout, "T: prefetch_breakdown");
 	else if(type == device_sync) 
 		fprintf(fout, "T: device_sync");
-	else
+	else if(type == write_back)
 		fprintf(fout, "T: write_back");
+	else if(type == rdma)
+		fprintf(fout, "T: rdma");
 
 	fprintf(fout, "(%f)\n",((float)(end_time-start_time))/freq);
     }
@@ -457,6 +464,8 @@ public:
 		devicesync_time += end_time - start_time; 
 	} else if(type == write_back) {
 		writeback_time += end_time - start_time;
+	} else if(type == rdma){
+		rdma_time += end_time - start_time;
 	}
     }
 };
@@ -580,7 +589,10 @@ public:
     std::map<mem_addr_t, std::list<unsigned long long> > pf_page_fault_latency;
 
     const gpgpu_sim_config &m_config;
-    
+
+    unsigned long long num_rdma;
+    unsigned long long rdma_page_transfer_read;
+    unsigned long long rdma_page_transfer_write;
 };
 
 // this class simulate the gmmu unit on chip
@@ -615,6 +627,7 @@ public:
    void initialize_large_page(mem_addr_t start_addr, size_t size);
 
    unsigned long long get_ready_cycle(unsigned num_pages);
+   unsigned long long get_ready_cycle_rdma(unsigned size);
 
    float get_pcie_utilization(unsigned num_pages);
 private:
@@ -627,7 +640,7 @@ private:
    //page table walk delay queue
    std::list<page_table_walk_latency_t> page_table_walk_queue;  
 
-   enum class latency_type { PCIE_READ, PCIE_WRITE, PAGE_FAULT };
+   enum class latency_type { PCIE_READ, PCIE_WRITE, PAGE_FAULT, RDMA };
 
    // data structure to wrap a memory page and delay to transfer over PCI-E
    struct pcie_latency_t {
@@ -636,6 +649,7 @@ private:
          std::list<mem_addr_t> page_list;
          unsigned long long ready_cycle;
 
+	 mem_fetch* mf;
 	 latency_type type;
    }; 
  

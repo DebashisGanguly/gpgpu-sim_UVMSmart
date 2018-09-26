@@ -102,6 +102,7 @@ unsigned long long memory_copy_time_d2h = 0;
 unsigned long long prefetch_time = 0;
 unsigned long long devicesync_time = 0;
 unsigned long long writeback_time = 0;
+unsigned long long rdma_time = 0;
 
 void calculate_sim_prof(FILE *fout, gpgpu_sim *gpu)
 {
@@ -134,6 +135,7 @@ void calculate_sim_prof(FILE *fout, gpgpu_sim *gpu)
     fprintf(fout, "Tot_memcpy_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d+ memory_copy_time_d2h, ((float)(memory_copy_time_h2d+ memory_copy_time_d2h))/freq);
     fprintf(fout, "Tot_devicesync_time: %llu(cycle), %f(us)\n", devicesync_time, ((float)devicesync_time)/freq);
     fprintf(fout, "Tot_writeback_time: %llu(cycle), %f(us)\n", writeback_time, ((float)writeback_time)/freq);
+    fprintf(fout, "Tot_rdma_time: %llu(cycle), %f(us)\n", rdma_time, ((float)rdma_time)/freq);
     fprintf(fout, "Tot_memcpy_d2h_sync_wb_time: %llu(cycle), %f(us)\n", writeback_time+devicesync_time+memory_copy_time_d2h, 
 	    ((float)(writeback_time+devicesync_time+memory_copy_time_d2h)/freq));
 }
@@ -575,6 +577,16 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "PCI-e bandwith per direction, in GB/s.",
                "16.0GB/s");
 
+    option_parser_register(opp, "-enable_nvlink", OPT_BOOL, &enable_nvlink,
+                "Enable nvlink 2.0, 150.0GB/s",
+                "0");
+    option_parser_register(opp, "-enable_rdma", OPT_BOOL, &enable_rdma,
+                "Enable remote direct memory access",
+                "0");   
+    option_parser_register(opp, "-migrate_threshold", OPT_INT32, &migrate_threshold,
+                "Access counter threshold for migrating the page from cpu to gpu",
+                "10");
+
     option_parser_register(opp, "-sim_prof_enable", OPT_BOOL, &sim_prof_enable,
                 "Enable gpgpu-sim profiler",
                 "0");
@@ -617,6 +629,10 @@ void gpgpu_sim_config::convert_byte_string()
 	  curve_a = 48.0;
        } else {
 	  printf("-pcie_bandwith should be 16.0GB/s, 32.0GB/s or 64.0GB/s\n");
+       }
+
+       if(enable_nvlink) {
+	  curve_a = 120.0;
        }
        curve_b = 0.07292;
        
@@ -1604,6 +1620,10 @@ gpgpu_new_stats::gpgpu_new_stats(const gpgpu_sim_config &config)
     page_evict_not_dirty = 0;
     page_evict_dirty = 0;
 
+    num_rdma = 0;
+    rdma_page_transfer_read = 0;
+    rdma_page_transfer_write = 0;
+
     tlb_threshing = new std::map<mem_addr_t, std::vector<bool> >[m_config.num_cluster()];
 
     ma_latency = new std::map<unsigned, std::pair<bool, unsigned long long> >[m_config.num_cluster()];
@@ -1841,9 +1861,14 @@ void gpgpu_new_stats::print(FILE *fout) const
 	avg_pref_latency = ((float)tot_pref_fault) / ((float)(tot_pref_fault+1)) * avg_pref_latency + ((float)(iter->second)) / ((float)(tot_pref_fault+1));
 	tot_pref_fault++;
    }
-     
+
    avg_pref_size /= ((float)pf_fault_latency.size()); 
    fprintf(fout, "Avg_page_latency: %f, Avg_prefetch_size: %f, Avg_prefetch_latency: %f\n", avg_pf_latency, avg_pref_size, avg_pref_latency); 
+
+   fprintf(fout, "========================================Rdma statistics==============================\n");
+   fprintf(fout, "Rdma_read: %llu\n", num_rdma);
+   fprintf(fout, "Rdma_migration_read %llu\n", rdma_page_transfer_read);
+   fprintf(fout, "Rdma_migration_write %llu\n", rdma_page_transfer_write);
 
    fprintf(fout, "========================================PCI-e statistics==============================\n");
    float avg_r = 0;
@@ -1929,9 +1954,11 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
 unsigned long long gmmu_t::calculate_transfer_time(size_t data_size)
 {
    float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(data_size) / (float)(1024)) );
+
    if( data_size>= 2*1024*1024) {
        speed /= 2;
    }
+  
    return  (unsigned long long) ( (float)(data_size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
 }
 
@@ -2078,6 +2105,8 @@ void gmmu_t::page_eviction_procedure()
 	m_gpu->get_global_memory()->invalidate_page( page_num );
         m_gpu->get_global_memory()->clear_page_access( page_num ); 
 
+	m_gpu->get_global_memory()->clear_access_counter( page_num );
+
         m_gpu->get_global_memory()->free_pages(1);
 
 	m_new_stats->page_threshing[page_num].push_back(false);
@@ -2116,7 +2145,14 @@ void gmmu_t::page_refresh(mem_access_t ma)
 unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
 {
     float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*m_config.page_size)/1024.0) );
+    
     return  gpu_tot_sim_cycle + gpu_sim_cycle + (unsigned long long) ( (float)(m_config.page_size * num_pages) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
+}
+
+unsigned long long gmmu_t::get_ready_cycle_rdma(unsigned size)
+{
+   float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(size)/1024.0) );
+   return  gpu_tot_sim_cycle + gpu_sim_cycle + (unsigned long long) ( (float)(size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
 }
 
 float gmmu_t::get_pcie_utilization(unsigned num_pages)
@@ -2158,6 +2194,9 @@ void gmmu_t::initialize_large_page(mem_addr_t start_addr, size_t size)
 
 }
 
+#define ENABLE_RDMA 1
+#define THRESHOLD 10
+#define RDMA_LATENCY 200
 
 void gmmu_t::cycle()
 {
@@ -2207,6 +2246,7 @@ void gmmu_t::cycle()
             m_gpu->get_global_memory()->invalidate_page( *iter );
 	    m_gpu->get_global_memory()->clear_page_dirty( *iter );
 	    m_gpu->get_global_memory()->clear_page_access( *iter );
+	    m_gpu->get_global_memory()->clear_access_counter( *iter );
 
             m_gpu->get_global_memory()->free_pages(1);
         
@@ -2286,7 +2326,7 @@ void gmmu_t::cycle()
                     m_new_stats->mf_page_fault_latency[*iter].back() = gpu_sim_cycle+gpu_tot_sim_cycle - m_new_stats->pf_page_fault_latency[*iter].back(); 
 	        }
             }
-	} else {
+	} else if (pcie_read_latency_queue->type == latency_type::PAGE_FAULT) { // processed far-fault is returned to upward queue
 
 	    if(sim_prof_enable) {
                for(std::list<event_stats*>::iterator iter = fault_stats.begin(); iter != fault_stats.end(); iter++) {
@@ -2299,6 +2339,14 @@ void gmmu_t::cycle()
 		   } 
                }
 	    }
+	} else if (pcie_read_latency_queue->type == latency_type::RDMA) { // processed RDMA request is returned to upward queue
+	   mem_fetch* mf = pcie_read_latency_queue->mf;
+
+           simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
+
+           // push the memory fetch into the gmmu to cu queue
+           (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
+  
 	}
         pcie_read_latency_queue = NULL;
     }
@@ -2306,7 +2354,20 @@ void gmmu_t::cycle()
     // schedule a transfer if there is a pending item in staging queue and 
     // nothing is being served at the read latency queue and we have available free pages
     if ( !pcie_read_stage_queue.empty() && pcie_read_latency_queue == NULL  && m_gpu->get_global_memory()->get_free_pages() >= pcie_read_stage_queue.front()->page_list.size()) {
-        pcie_read_latency_queue = pcie_read_stage_queue.front();
+
+	std::list<pcie_latency_t*>::const_iterator iter = pcie_read_stage_queue.begin();
+	for( ; iter != pcie_read_stage_queue.end(); iter++){
+	    if((*iter)->type == latency_type::RDMA) {
+		break;
+            }
+	}
+
+        // prioritize rdma before page migration
+	if( iter == pcie_read_stage_queue.end() ) {
+            pcie_read_latency_queue = pcie_read_stage_queue.front();
+	} else {
+	    pcie_read_latency_queue = *iter;
+	}
 
 	if( pcie_read_latency_queue->type == latency_type::PCIE_READ ) {
             pcie_read_latency_queue->ready_cycle = get_ready_cycle( pcie_read_latency_queue->page_list.size() );
@@ -2321,10 +2382,8 @@ void gmmu_t::cycle()
                 m_new_stats->pcie_read_utilization.push_back( std::make_pair(read_period, get_pcie_utilization(pcie_read_latency_queue->page_list.size())) );
 
 	    m_gpu->get_global_memory()->alloc_pages(pcie_read_latency_queue->page_list.size());
-	} else {
+	} else if (pcie_read_latency_queue->type == latency_type::PAGE_FAULT) { // schedule far-fault for transfer
 
-
-	    assert(pcie_read_latency_queue->type == latency_type::PAGE_FAULT);
 	    pcie_read_latency_queue->ready_cycle = gpu_tot_sim_cycle+gpu_sim_cycle + m_config.page_fault_latency * pcie_read_latency_queue->page_list.size();
 
 	    if(sim_prof_enable) {
@@ -2332,9 +2391,21 @@ void gmmu_t::cycle()
                                                             pcie_read_latency_queue->page_list.size() * m_config.page_size);
               fault_stats.push_back(mf_fault);
             }
+	} else if (pcie_read_latency_queue->type == latency_type::RDMA) { // schedule RDMA request for transfer
+	    pcie_read_latency_queue->ready_cycle = get_ready_cycle_rdma( pcie_read_latency_queue->mf->get_access_size() );
+	    if(sim_prof_enable) {
+               event_stats* ma_rdma = new memory_stats(rdma, gpu_tot_sim_cycle+gpu_sim_cycle, pcie_read_latency_queue->ready_cycle,
+                                                      pcie_read_latency_queue->mf->get_addr(), pcie_read_latency_queue->mf->get_access_size(), 0);
+               sim_prof[gpu_tot_sim_cycle+gpu_sim_cycle].push_back(ma_rdma);
+            }
 	}
-	
-	pcie_read_stage_queue.pop_front();
+
+        // remove the scheduled transfer from read stage queue
+	if( iter == pcie_read_stage_queue.end() ) {
+	    pcie_read_stage_queue.pop_front();
+	} else {
+	    pcie_read_stage_queue.erase(iter);
+	}
     }
 
     list<mem_addr_t> page_fault_by_mf;
@@ -2389,56 +2460,109 @@ void gmmu_t::cycle()
 	         if ( iter == prefetch_req_buffer.end()) {
 
 		     
-                     // if the hardware prefetcher is not enable
+                     // if the hardware prefetcher is not enabled
                      // directly add the faulty page request to the read stage queue
 		     if( !m_config.hardware_prefetch ) {
 
-			 m_new_stats->mf_page_fault_outstanding[simt_cluster_id]++; 
-                         // one memory fetch request should only have one page fault
-                         // because they are always coalesced
- 	                 // if there is already a page in the staging queue, don't need to add it again
-		         assert( req_info.find( *(page_list.begin()) ) == req_info.end() );
+			 if( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_R &&
+                             m_gpu->get_global_memory()->get_access_counter(page_list.front()) + 1 < m_config.migrate_threshold ){
+
+			     
+			     m_new_stats->num_rdma++;
+                             pcie_latency_t *p_t = new pcie_latency_t();
+
+                             mf->set_rdma();
+
+                             p_t->mf = mf;
+                             p_t->type = latency_type::RDMA;
+
+                             pcie_read_stage_queue.push_back(p_t);
+
+                             m_gpu->get_global_memory()->inc_access_counter(page_list.front());
+
+                         } else {
+
+			     
+			     if( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_W) {
+				m_new_stats->rdma_page_transfer_write++;
+			     } else if( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_R) {
+				m_new_stats->rdma_page_transfer_read++;
+			     }
+
+                	     m_new_stats->mf_page_fault_outstanding[simt_cluster_id]++; 
+                             // one memory fetch request should only have one page fault
+                             // because they are always coalesced
+ 	                     // if there is already a page in the staging queue, don't need to add it again
+		             assert( req_info.find( *(page_list.begin()) ) == req_info.end() );
 			
-			 if( m_config.enable_accurate_simulation ) {
-			    pcie_latency_t* f_t = new pcie_latency_t();
-                            f_t->page_list.push_back( page_list.front() );
-                            f_t->type = latency_type::PAGE_FAULT;
-                            pcie_read_stage_queue.push_back(f_t);
-			 }
+			     if( m_config.enable_accurate_simulation ) {
+			         pcie_latency_t* f_t = new pcie_latency_t();
+                                 f_t->page_list.push_back( page_list.front() );
+                                 f_t->type = latency_type::PAGE_FAULT;
+                                 pcie_read_stage_queue.push_back(f_t);
+			     }
 
-                         // for each page fault, the possible eviction procudure will only be called once here
-                         // if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
-                         // the number of staged read requests, then call the eviction
-                         unsigned long long num_pages_read_stage_queue = 0;
+                             // for each page fault, the possible eviction procudure will only be called once here
+                             // if the number of free pages (subtracted when popped from read stage and pushed into read latency) is smaller than 
+                             // the number of staged read requests, then call the eviction
+                             unsigned long long num_pages_read_stage_queue = 0;
 
-                         for ( std::list<pcie_latency_t*>::iterator iter = pcie_read_stage_queue.begin();
-                               iter != pcie_read_stage_queue.end(); iter++) {
-                               num_pages_read_stage_queue += (*iter)->page_list.size();
-                         }
+                             for ( std::list<pcie_latency_t*>::iterator iter = pcie_read_stage_queue.begin();
+                                   iter != pcie_read_stage_queue.end(); iter++) {
+                                   num_pages_read_stage_queue += (*iter)->page_list.size();
+                             }
  
 
-                         if ( m_gpu->get_global_memory()->should_evict_page(num_pages_read_stage_queue, m_config.free_page_buffer_percentage) ) {
-                              page_eviction_procedure();
-                         }    
+                             if ( m_gpu->get_global_memory()->should_evict_page(num_pages_read_stage_queue, m_config.free_page_buffer_percentage) ) {
+                                  page_eviction_procedure();
+                             }    
 
-                         pcie_latency_t *p_t = new pcie_latency_t();
+                             pcie_latency_t *p_t = new pcie_latency_t();
 
-                         p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_list.front());
-                         p_t->size = m_gpu->get_global_memory()->get_page_size();
-                         p_t->page_list.push_back(page_list.front());
-			 p_t->type = latency_type::PCIE_READ;
+                             p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(page_list.front());
+                             p_t->size = m_gpu->get_global_memory()->get_page_size();
+                             p_t->page_list.push_back(page_list.front());
+			     p_t->type = latency_type::PCIE_READ;
                  
-                         pcie_read_stage_queue.push_back(p_t);
+                             pcie_read_stage_queue.push_back(p_t);
 
 
-                         req_info[*(page_list.begin())].push_back(mf);
+                             req_info[*(page_list.begin())].push_back(mf);
 
-			 page_fault_by_mf.push_back(page_list.front());
+			     page_fault_by_mf.push_back(page_list.front());
 
-			 m_new_stats->mf_page_fault_latency[page_list.front()].push_back(gpu_sim_cycle+gpu_tot_sim_cycle);
+			     m_new_stats->mf_page_fault_latency[page_list.front()].push_back(gpu_sim_cycle+gpu_tot_sim_cycle);
+
+			 }
 		     } else {
 
-			 page_fault_this_turn[page_list.front()].push_back(mf);
+                         // if rdma is not enabled/it is a write access/read access counter reached thresold
+                         // we need to migrate the page
+			 if( !m_config.enable_rdma || mf->get_mem_access().get_type() == GLOBAL_ACC_W ||
+			     m_gpu->get_global_memory()->get_access_counter(page_list.front()) + 1 >= m_config.migrate_threshold ){
+			     page_fault_this_turn[page_list.front()].push_back(mf);
+
+			     if( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_W) {
+				m_new_stats->rdma_page_transfer_write++;
+                             } else if( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_R){
+				m_new_stats->rdma_page_transfer_read++;
+                             }
+
+			 } else { // else we do rdma read
+			     pcie_latency_t *p_t = new pcie_latency_t();
+
+			     mf->set_rdma();
+
+                             p_t->mf = mf;
+                             p_t->type = latency_type::RDMA;
+
+                             pcie_read_stage_queue.push_back(p_t);
+			    
+			     m_gpu->get_global_memory()->inc_access_counter(page_list.front());
+
+			     m_new_stats->num_rdma++;
+ 
+			 }
 			 
 		     }
 	         }

@@ -64,6 +64,8 @@ public:
       valid = false;
       dirty = false;
       access = false;
+
+      counter = 0;
    }
    mem_storage()
    {
@@ -76,6 +78,7 @@ public:
       valid = false;
       dirty = false;
       access = false;
+      counter = 0;
    }
    ~mem_storage()
    {
@@ -111,6 +114,10 @@ public:
    void set_managed() { managed = true; }
    bool is_managed()  { return managed; }
 
+   unsigned get_counter() { return counter; }
+   void inc_counter() { counter++; }
+   void clear_counter() { counter = 0; }
+
    // methods to query and modify page table flags
    bool is_valid	()	{ return valid;  }
    void validate_page	()	{ valid = true;  }
@@ -140,6 +147,8 @@ private:
    bool dirty;
 
    bool access; 
+
+   unsigned counter; 
 };
 
 class ptx_thread_info;
@@ -164,7 +173,11 @@ public:
    virtual void alloc_pages(size_t num) = 0;
    virtual void free_pages(size_t num) = 0;                                               
    virtual size_t get_free_pages() = 0;
-   
+  
+   virtual unsigned get_access_counter(mem_addr_t pg_index) = 0;
+   virtual void inc_access_counter(mem_addr_t pg_index) = 0;
+   virtual void clear_access_counter(mem_addr_t pg_index) = 0;
+ 
    virtual void set_page_dirty(mem_addr_t pg_index) = 0;
    virtual bool is_page_dirty(mem_addr_t pg_index) = 0;
    virtual void clear_page_dirty(mem_addr_t pg_index) = 0;
@@ -194,6 +207,11 @@ public:
    virtual void read( mem_addr_t addr, size_t length, void *data ) const;
    virtual void print( const char *format, FILE *fout ) const;
    virtual void set_watch( addr_t addr, unsigned watchpoint ); 
+
+   virtual unsigned get_access_counter(mem_addr_t pg_index);
+   virtual void inc_access_counter(mem_addr_t pg_index);
+   virtual void clear_access_counter(mem_addr_t pg_index);
+ 
 
    // method to find out whether or not to follow the managed time simulation
    virtual bool is_page_managed(mem_addr_t addr, size_t length);
