@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 parent_folder = '../output_logs'
 experiment_folder = 'Validation'
 sub_folders = ['CRC_Managed', 'Sim_Managed']
-benchmarks = ['bfs', 'backprop', 'hotspot', 'needle', 'pathfinder', 'stencil']
+benchmarks = ['bfs', 'backprop', 'hotspot', 'needle', 'pathfinder', 'stencil', 'srad']
 
 k_s_m = []
 m_s_m = []
@@ -104,7 +104,7 @@ ax.yaxis.grid(b=True, which='major', color='grey', linestyle='-')
 ax.yaxis.grid(b=True, which='minor', color='grey', linestyle='--') 
 plt.minorticks_on()
 
-ax.axes.set_xlim([0,6.25])
+ax.axes.set_xlim([0,7.25])
 
 
 plt.ylabel('Runtime (us)')
