@@ -318,8 +318,6 @@ public:
     unsigned num_core_per_cluster() const { return m_shader_config.n_simt_cores_per_cluster;}
     unsigned get_max_concurrent_kernel() const { return max_concurrent_kernel; }
 
-    void disable_hardware_prefetch() { hardware_prefetch = false; }
-
     void convert_byte_string();
 private:
     void init_clock_domains(void ); 
@@ -634,6 +632,8 @@ public:
 
    float get_pcie_utilization(unsigned num_pages);
 
+   void do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > &page_fault_this_turn);
+
    std::pair<mem_addr_t, mem_addr_t> get_large_and_basic_block(mem_addr_t page_addr);
 
    void reserve_pages_insert(mem_addr_t addr, unsigned mem_access_uid);
@@ -641,6 +641,8 @@ public:
    bool reserve_pages_check(mem_addr_t addr);
 
    std::map<mem_addr_t, std::list<unsigned> > reserve_pages;
+
+   void update_hardware_prefetcher_oversubscribed();
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -700,7 +702,7 @@ private:
     enum class hwardware_prefetcher { DISBALED, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM }; 
 
     // types of hardware prefetcher under over-subscription
-    enum class hwardware_prefetcher_oversub { DISBALED, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL };
+    enum class hwardware_prefetcher_oversub { DISBALED, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM };
 
     eviction_policy evict_policy;    
     hwardware_prefetcher prefetcher;
