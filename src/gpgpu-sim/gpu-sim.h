@@ -365,8 +365,9 @@ private:
 
     unsigned long long liveness_message_freq; 
     unsigned long long page_table_walk_latency;
-    char* eviction_policy;
 
+    int   eviction_policy;
+    float reserve_accessed_page_percent;
     float free_page_buffer_percentage;
 
     char* pcie_bandwith_string;
@@ -379,7 +380,8 @@ private:
     bool enable_rdma;
     unsigned migrate_threshold;
 public:
-    bool hardware_prefetch;
+    int  hardware_prefetch;
+    int  hwprefetch_oversub;
 
     friend class gpgpu_sim;
     friend class gmmu_t;
@@ -606,6 +608,7 @@ public:
    void register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb);
    void tlb_flush(mem_addr_t page_num);
    void page_eviction_procedure();
+   bool is_basic_block_evictable(mem_addr_t bb_addr, size_t size);
 
    // add a new accessed page or refresh the position of the page in the LRU page list
    // being called on detecting tlb hit or when memory fetch comes back from the upward (gmmu to cu) queue
@@ -615,11 +618,11 @@ public:
    // being called on tlb hit or on tlb miss but no page fault
    void check_write_stage_queue(mem_addr_t page_num);
 
-   // get list of accessed pages 
+   // get list of valid pages 
    // used by Load/Store Unit for LRU TLB replacement
-   const std::list<mem_addr_t>& get_accessed_pages() { return accessed_pages; }
+   const std::list<mem_addr_t>& get_valid_pages() { return valid_pages; }
 
-   void accessed_pages_erase(mem_addr_t pagenum);
+   void valid_pages_erase(mem_addr_t pagenum);
 
    void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
    void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
@@ -630,6 +633,14 @@ public:
    unsigned long long get_ready_cycle_rdma(unsigned size);
 
    float get_pcie_utilization(unsigned num_pages);
+
+   std::pair<mem_addr_t, mem_addr_t> get_large_and_basic_block(mem_addr_t page_addr);
+
+   void reserve_pages_insert(mem_addr_t addr, unsigned mem_access_uid);
+   void reserve_pages_remove(mem_addr_t addr, unsigned mem_access_uid);
+   bool reserve_pages_check(mem_addr_t addr);
+
+   std::map<mem_addr_t, std::list<unsigned> > reserve_pages;
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -679,13 +690,21 @@ private:
     // callback functions to invalidate the tlb in ldst unit
     std::list<std::function<void(mem_addr_t)> > callback_tlb_flush;
 
-    // list of accessed pages (valid = 1, accessed = 1, dirty = 1/0) ordered as LRU
-    std::list<mem_addr_t> accessed_pages;
+    // list of valid pages (valid = 1, accessed = 1/0, dirty = 1/0) ordered as LRU
+    std::list<mem_addr_t> valid_pages;
 
-    // page eviction policy lru or random
-    enum class eviction_policy { LRU, RANDOM }; 
+    // page eviction policy
+    enum class eviction_policy { LRU, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM }; 
 
-    eviction_policy policy;    
+    // types of hardware prefetcher
+    enum class hwardware_prefetcher { DISBALED, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM }; 
+
+    // types of hardware prefetcher under over-subscription
+    enum class hwardware_prefetcher_oversub { DISBALED, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL };
+
+    eviction_policy evict_policy;    
+    hwardware_prefetcher prefetcher;
+    hwardware_prefetcher_oversub oversub_prefetcher;
 
     struct prefetch_req {
         // starting address (rolled up and down for page alignment) for the prefetch
@@ -725,7 +744,8 @@ private:
 
     struct large_page_req {
 	size_t size;
-	unsigned page_fault_counter;	
+	unsigned prefetch_counter;
+        unsigned eviction_counter;	
     };
 
     std::map<mem_addr_t, struct large_page_req*> large_page_info;
