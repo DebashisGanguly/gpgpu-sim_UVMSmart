@@ -548,9 +548,9 @@ public:
     unsigned long long* mf_page_miss;
 
     // in tlb miss, page miss, the first create fault
-    unsigned long long* mf_page_fault_outstanding;
+    unsigned long long mf_page_fault_outstanding;
     // in tlb miss, page miss, the following that appends to mshr
-    unsigned long long* mf_page_fault_pending;
+    unsigned long long mf_page_fault_pending;
 
     unsigned long long page_evict_dirty;
 
@@ -751,7 +751,10 @@ private:
     };
 
     std::map<mem_addr_t, struct large_page_req*> large_page_info;
-    
+    size_t total_allocation_size;
+
+    bool over_sub;
+
     class gpgpu_new_stats *m_new_stats;
 };
 
