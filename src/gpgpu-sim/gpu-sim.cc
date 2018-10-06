@@ -2266,9 +2266,9 @@ void gmmu_t::page_eviction_procedure()
                 valid_pages.erase ( find( valid_pages.begin(), valid_pages.end(), page_num ) );
             }
         } else {
-            for (int i = 0; i < iter->second / m_config.page_size; i++) {
-                mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num((iter->first + (i * m_config.page_size)));
+            mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num(iter->first);
 
+            for (int i = 0; i < iter->second / m_config.page_size; i++) {
                 p_t->page_list.push_back( page_num + i );
 
                 if ( find( valid_pages.begin(), valid_pages.end(), (page_num + i) ) != valid_pages.end() ) {
