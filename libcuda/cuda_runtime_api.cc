@@ -2072,6 +2072,8 @@ cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
 			context->get_device()->get_gpgpu()->getGmmu()->valid_pages_erase( *iter ); 	
 	}
 
+	context->get_device()->get_gpgpu()->getGmmu()->reset_large_page_info();
+
 	unsigned transfer_size = context->get_device()->get_gpgpu()->get_global_memory()->get_page_size() * evicted_page_list.size();
 	if( transfer_size != 0)	
 	    context->get_device()->get_gpgpu()->getGmmu()->calculate_devicesync_time(transfer_size);

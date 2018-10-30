@@ -643,6 +643,8 @@ public:
    std::map<mem_addr_t, std::list<unsigned> > reserve_pages;
 
    void update_hardware_prefetcher_oversubscribed();
+
+   void reset_large_page_info();
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -746,6 +748,8 @@ private:
 
     struct large_page_req {
 	size_t size;
+	size_t valid_size;
+	size_t invalid_size;
 	unsigned prefetch_counter;
         unsigned eviction_counter;	
     };
