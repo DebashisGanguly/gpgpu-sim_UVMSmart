@@ -2165,14 +2165,14 @@ void gmmu_t::page_eviction_procedure()
         // we evict sixteen 4KB pages in the 2 MB allocation where this evictable belong to
         list<mem_addr_t>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
-        std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair = get_large_and_basic_block(*iter);
-    
-        mem_addr_t bb_addr = large_and_basic_block_pair.second;
+        std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair;
 
-        while ( iter != valid_pages.end() && !is_basic_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
-            iter++;
+        for ( ; iter != valid_pages.end(); iter++ ) {
             large_and_basic_block_pair = get_large_and_basic_block(*iter);
-            bb_addr = large_and_basic_block_pair.second;
+
+            if ( is_basic_block_evictable(large_and_basic_block_pair.second, MIN_PREFETCH_SIZE) ) {
+                break;
+            }
         }
 
         if ( iter != valid_pages.end() ) {
