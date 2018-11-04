@@ -2100,6 +2100,12 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num)
         if ( std::find((*iter)->page_list.begin(), (*iter)->page_list.end(), page_num ) != (*iter)->page_list.end() ) {
 	    std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair = get_large_and_basic_block(page_num);
             large_page_info[large_and_basic_block_pair.first]->valid_size += (*iter)->page_list.size() * m_config.page_size;
+
+            // on tlb hit refresh position of pages in the valid page list
+            for ( std::list<mem_addr_t>::iterator pg_iter = (*iter)->page_list.begin(); pg_iter != (*iter)->page_list.end(); pg_iter++ ) {
+                page_refresh( *pg_iter, write );
+            }
+
 	    pcie_write_stage_queue.erase( iter );
 	    break;
         } 
@@ -2109,8 +2115,10 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num)
 // check if the block is already scheduled for eviction or is not valid at all
 bool gmmu_t::is_basic_block_evictable(mem_addr_t bb_addr, size_t size)
 {
-    if ( !m_gpu->get_global_memory()->is_valid( m_gpu->get_global_memory()->get_page_num(bb_addr)) ) {
-        return false;
+    for ( mem_addr_t start = bb_addr; start != bb_addr + size; start += m_config.page_size ) {
+	if( !m_gpu->get_global_memory()->is_valid( m_gpu->get_global_memory()->get_page_num(start)) ) {
+	    return false;
+	}
     }
 
     for ( std::list<pcie_latency_t*>::iterator iter = pcie_write_stage_queue.begin();
@@ -2296,14 +2304,12 @@ void gmmu_t::page_eviction_procedure()
     }
 }
 
-void gmmu_t::page_refresh(mem_access_t ma)
+void gmmu_t::page_refresh(mem_addr_t page_num, bool write)
 {
-    mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num( ma.get_addr() );
-
     m_gpu->get_global_memory()->set_page_access(page_num);
 
     // on write (store) set the dirty flag
-    if ( ma.get_type() == GLOBAL_ACC_W) {
+    if ( write ) {
 	m_gpu->get_global_memory()->set_page_dirty(page_num);
     } 
    

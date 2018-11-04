@@ -1613,9 +1613,6 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
       // on tlb hit, check whether the page is in pci-e write stage queue
       // if so, then evict another page instead
       m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()) );
-	  
-      // on tlb hit, refresh the LRU page list
-      m_gpu->getGmmu()->page_refresh( inst.accessq_front() );
 
       return true;
   } else {
@@ -1746,7 +1743,7 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
 
        if (stall_cond == NO_RC_FAIL) {
            // the page is coming out of upward queue and so ready to be accessed, refresh the LRU page list
-           m_gpu->getGmmu()->page_refresh( mf->get_mem_access() );
+           m_gpu->getGmmu()->page_refresh( m_gpu->get_global_memory()->get_page_num(mf->get_addr()), mf->get_mem_access().get_type() == GLOBAL_ACC_W ? true : false );
 
            insert_into_tlb(m_gpu->get_global_memory()->get_page_num(mf->get_mem_access().get_addr()));
        } else {
@@ -2193,6 +2190,10 @@ void ldst_unit::cycle()
 	       assert(m_new_stats->ma_latency[m_sid].find(mf->get_mem_access().get_uid()) != m_new_stats->ma_latency[m_sid].end());
                m_new_stats->ma_latency[m_sid][mf->get_mem_access().get_uid()].first = true; 
                m_new_stats->ma_latency[m_sid][mf->get_mem_access().get_uid()].second = gpu_tot_sim_cycle + gpu_sim_cycle - m_new_stats->ma_latency[m_sid][mf->get_mem_access().get_uid()].second;
+
+               if ( m_gpu->get_global_memory()->is_page_managed(mf->get_mem_access().get_addr(), mf->get_mem_access().get_size()) ) {
+                    m_gpu->getGmmu()->reserve_pages_remove(mf->get_mem_access().get_addr(), mf->get_mem_access().get_uid());
+               }
 
                delete mf;
            } else {
