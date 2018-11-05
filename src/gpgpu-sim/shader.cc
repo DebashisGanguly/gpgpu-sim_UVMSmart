@@ -1612,7 +1612,7 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
   if ( tlb.find(page_no) != tlb.end() ) {
       // on tlb hit, check whether the page is in pci-e write stage queue
       // if so, then evict another page instead
-      m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()) );
+      m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()), true );
 
       return true;
   } else {

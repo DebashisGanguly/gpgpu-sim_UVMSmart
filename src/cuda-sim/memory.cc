@@ -90,6 +90,11 @@ template<unsigned BSIZE> void memory_space_impl<BSIZE>::write( mem_addr_t addr, 
    }
 }
 
+template<unsigned BSIZE> void memory_space_impl<BSIZE>::reset()
+{
+  num_free_pages = num_gddr_pages;
+}
+
 template<unsigned BSIZE> bool memory_space_impl<BSIZE>::is_page_managed(mem_addr_t addr, size_t length)
 {
   mem_addr_t page_index   = get_page_num (addr+length-1);

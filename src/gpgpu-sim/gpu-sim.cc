@@ -2077,6 +2077,11 @@ void gmmu_t::valid_pages_erase(mem_addr_t page_num)
     valid_pages.erase( find( valid_pages.begin(), valid_pages.end(), page_num ) );
 }
 
+void gmmu_t::valid_pages_clear()
+{
+    valid_pages.clear();
+}
+
 void gmmu_t::register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb)
 {
     callback_tlb_flush.push_back(cb_tlb);
@@ -2090,7 +2095,7 @@ void gmmu_t::tlb_flush(mem_addr_t page_num)
     }
 }
 
-void gmmu_t::check_write_stage_queue(mem_addr_t page_num)
+void gmmu_t::check_write_stage_queue(mem_addr_t page_num, bool refresh)
 {
     // the page, about to be accessed, was selected for eviction earlier 
     // so don't evict that page
@@ -2102,8 +2107,10 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num)
             large_page_info[large_and_basic_block_pair.first]->valid_size += (*iter)->page_list.size() * m_config.page_size;
 
             // on tlb hit refresh position of pages in the valid page list
-            for ( std::list<mem_addr_t>::iterator pg_iter = (*iter)->page_list.begin(); pg_iter != (*iter)->page_list.end(); pg_iter++ ) {
-                page_refresh( *pg_iter, write );
+            if ( refresh ) {
+                for ( std::list<mem_addr_t>::iterator pg_iter = (*iter)->page_list.begin(); pg_iter != (*iter)->page_list.end(); pg_iter++ ) {
+                    page_refresh( *pg_iter, write );
+                }
             }
 
 	    pcie_write_stage_queue.erase( iter );
@@ -2719,7 +2726,7 @@ void gmmu_t::cycle()
         // if there is no page fault, directly return to the upward queue of cluster
         if ( page_list.empty() ) {
 	    mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num( mf->get_mem_access().get_addr());
-	    check_write_stage_queue(page_num);
+	    check_write_stage_queue(page_num, false);
 
             (m_gpu->getSIMTCluster(simt_cluster_id))->push_gmmu_cu_queue(mf);
 
@@ -2879,7 +2886,7 @@ void gmmu_t::cycle()
 			 m_new_stats->pf_page_hit++;
 
 			 // check if this page is currently written back
-			 check_write_stage_queue(page_num);
+			 check_write_stage_queue(page_num, false);
 
 			 // break out of loop only when we have already scheduled some pages for transfer
                          // if not we will continue skipping valid pages if any until we find some invalid pages to transfer

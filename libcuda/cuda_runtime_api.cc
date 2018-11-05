@@ -2069,9 +2069,10 @@ cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
 			context->get_device()->get_gpgpu()->get_global_memory()->clear_access_counter( *iter );
                         context->get_device()->get_gpgpu()->get_global_memory()->free_pages(1);
 			context->get_device()->get_gpgpu()->getGmmu()->tlb_flush( *iter );
-			context->get_device()->get_gpgpu()->getGmmu()->valid_pages_erase( *iter ); 	
 	}
 
+        context->get_device()->get_gpgpu()->get_global_memory()->reset();
+        context->get_device()->get_gpgpu()->getGmmu()->valid_pages_clear();
 	context->get_device()->get_gpgpu()->getGmmu()->reset_large_page_info();
 
 	unsigned transfer_size = context->get_device()->get_gpgpu()->get_global_memory()->get_page_size() * evicted_page_list.size();

@@ -614,13 +614,14 @@ public:
 
    // check whether the page to be accessed is already in pci-e write stage queue
    // being called on tlb hit or on tlb miss but no page fault
-   void check_write_stage_queue(mem_addr_t page_num);
+   void check_write_stage_queue(mem_addr_t page_num, bool refresh);
 
    // get list of valid pages 
    // used by Load/Store Unit for LRU TLB replacement
    const std::list<mem_addr_t>& get_valid_pages() { return valid_pages; }
 
    void valid_pages_erase(mem_addr_t pagenum);
+   void valid_pages_clear();
 
    void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
    void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
