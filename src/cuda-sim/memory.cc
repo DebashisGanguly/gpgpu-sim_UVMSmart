@@ -258,7 +258,7 @@ template<unsigned BSIZE> size_t memory_space_impl<BSIZE>::get_free_pages()
 // reaches the buffer size in gddr, then it should start eviction procedure
 template<unsigned BSIZE> bool memory_space_impl<BSIZE>::should_evict_page(size_t read_stage_queue_size, size_t write_stage_queue_size, float eviction_buffer_percentage)
 {
-  return ((float) (write_stage_queue_size + num_gddr_pages)) < ( (((float) num_gddr_pages) * eviction_buffer_percentage) + ((float) (num_gddr_pages - num_free_pages + read_stage_queue_size)) );
+  return ((float) (write_stage_queue_size + num_gddr_pages)) < ( (((float) num_gddr_pages) * eviction_buffer_percentage / 100) + ((float) (num_gddr_pages - num_free_pages + read_stage_queue_size)) );
 }
 
 
