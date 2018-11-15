@@ -635,7 +635,7 @@ void shader_core_ctx::fetch()
                 unsigned warp_id = (m_last_warp_fetched+1+i) % m_config->max_warps_per_shader;
 
                 // this code checks if this warp has finished executing and can be reclaimed
-                if( m_warp[warp_id].hardware_done() && !m_scoreboard->pendingWrites(warp_id) && !m_warp[warp_id].done_exit() ) {
+                if( m_warp[warp_id].hardware_done() && !m_scoreboard->pendingWrites(warp_id) && !m_warp[warp_id].done_exit() && m_gpu->getGmmu()->pcie_transfers_completed() ) {
                     bool did_exit=false;
                     for( unsigned t=0; t<m_config->warp_size;t++) {
                         unsigned tid=warp_id*m_config->warp_size+t;

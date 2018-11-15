@@ -2071,6 +2071,12 @@ void gmmu_t::calculate_devicesync_time(size_t data_size)
    }
    return;
 }
+
+bool gmmu_t::pcie_transfers_completed()
+{
+    return pcie_write_stage_queue.empty() && pcie_write_latency_queue == NULL && pcie_read_stage_queue.empty() && pcie_read_latency_queue == NULL;
+}
+
 void gmmu_t::valid_pages_erase(mem_addr_t page_num)
 {
     assert( find( valid_pages.begin(), valid_pages.end(), page_num ) != valid_pages.end());

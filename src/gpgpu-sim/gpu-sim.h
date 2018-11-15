@@ -625,6 +625,7 @@ public:
 
    void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
    void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
+   bool pcie_transfers_completed();
 
    void initialize_large_page(mem_addr_t start_addr, size_t size);
 
