@@ -557,7 +557,7 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "Average page table walk latency (in core cycle).",
                "100");
 
-    option_parser_register(opp, "-eviction_policy", OPT_INT64, &eviction_policy,                 
+    option_parser_register(opp, "-eviction_policy", OPT_INT32, &eviction_policy,                 
                "Select page eviction policy",
                "0");
 
@@ -591,11 +591,11 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                 "Enable gpgpu-sim profiler",
                 "0");
 
-    option_parser_register(opp, "-hardware_prefetch", OPT_INT64, &hardware_prefetch,
+    option_parser_register(opp, "-hardware_prefetch", OPT_INT32, &hardware_prefetch,
                 "Select gpgpu-sim hardware prefetcher",
 		"1");
 
-    option_parser_register(opp, "-hwprefetch_oversub", OPT_INT64, &hwprefetch_oversub,
+    option_parser_register(opp, "-hwprefetch_oversub", OPT_INT32, &hwprefetch_oversub,
                 "Select gpgpu-sim hardware prefetcher under over-subscription",
                 "1");
 
@@ -1627,7 +1627,7 @@ gpgpu_new_stats::gpgpu_new_stats(const gpgpu_sim_config &config)
     rdma_page_transfer_read = 0;
     rdma_page_transfer_write = 0;
 
-    tlb_threshing = new std::map<mem_addr_t, std::vector<bool> >[m_config.num_cluster()];
+    tlb_thrashing = new std::map<mem_addr_t, std::vector<bool> >[m_config.num_cluster()];
 
     ma_latency = new std::map<unsigned, std::pair<bool, unsigned long long> >[m_config.num_cluster()];
 
@@ -1651,7 +1651,7 @@ void gpgpu_new_stats::print_access_pattern_detail(FILE *fout) const
    for(unsigned i = 0; i < m_config.num_cluster(); i++) {
 	fprintf(fout, "Shader %u\n",i);
 	for(std::map<mem_addr_t, unsigned >::const_iterator iter = page_access_times[i].begin(); iter != page_access_times[i].end(); iter++) {
-		fprintf(fout, "%llu %u\n", iter->first, iter->second);
+		fprintf(fout, "%u %u\n", iter->first, iter->second);
 	}
    }
 }
@@ -1666,7 +1666,7 @@ void gpgpu_new_stats::print_access_pattern(FILE *fout) const
        }    
    }
    for(std::map<mem_addr_t, unsigned >::const_iterator iter = tot_access.begin(); iter != tot_access.end(); iter++) {
-       fprintf(fout, "%llu %u\n", iter->first, iter->second);                         
+       fprintf(fout, "%u %u\n", iter->first, iter->second);                         
    }
 }
 
@@ -1674,7 +1674,7 @@ void gpgpu_new_stats::print_time_and_access(FILE *fout) const
 {
    for(std::map<unsigned long long, std::list<mem_addr_t> >::const_iterator iter =  time_and_page_access.begin(); iter != time_and_page_access.end(); iter++) {
        for(std::list<mem_addr_t>::const_iterator iter2 = iter->second.begin(); iter2 != iter->second.end(); iter2++) {
-           fprintf(fout, "%llu %llu\n", iter->first, *iter2);
+           fprintf(fout, "%llu %u\n", iter->first, *iter2);
        }
    }
 
@@ -1719,31 +1719,31 @@ void gpgpu_new_stats::print(FILE *fout) const
    fprintf(fout, "Tlb_tot_valiate: %llu Tlb_invalidate: %llu, Tlb_tot_evict: %llu, Tlb_tot_evict page: %llu\n", tot_tlb_val, tot_tlb_inval_te+tot_tlb_inval_pe, tot_tlb_inval_te, tot_tlb_inval_pe); 
     
 
-   fprintf(fout, "========================================TLB statistics(threshing)==============================\n");
-   std::map<mem_addr_t, unsigned> tlb_thresh[m_config.num_cluster()];
+   fprintf(fout, "========================================TLB statistics(thrashing)==============================\n");
+   std::map<mem_addr_t, unsigned> tlb_thrash[m_config.num_cluster()];
    for(unsigned i = 0; i < m_config.num_cluster(); i++) {
-       for(std::map<mem_addr_t, std::vector<bool> >::const_iterator iter = tlb_threshing[i].begin(); iter != tlb_threshing[i].end(); iter++ ) {
+       for(std::map<mem_addr_t, std::vector<bool> >::const_iterator iter = tlb_thrashing[i].begin(); iter != tlb_thrashing[i].end(); iter++ ) {
            for(unsigned j = 0; j != iter->second.size(); j++) {
                if(j+2 >= iter->second.size()) 
                   break;
                if(iter->second[j] == true && iter->second[j+1] == false && iter->second[j+2] == true)
-                  tlb_thresh[i][iter->first]++;
+                  tlb_thrash[i][iter->first]++;
            }
        }               
    }
 
-   unsigned tot_tlb_thresh = 0;
+   unsigned tot_tlb_thrash = 0;
    for(unsigned i = 0; i < m_config.num_cluster(); i++) {
-	unsigned s_thresh = 0;
+	unsigned s_thrash = 0;
         fprintf(fout, "Shader%u: ", i);
-	for(std::map<mem_addr_t, unsigned>::iterator iter = tlb_thresh[i].begin(); iter != tlb_thresh[i].end(); iter++){
-		fprintf(fout, "Page: %lu Treshed: %u | ", iter->first, iter->second);
-		s_thresh += iter->second;
+	for(std::map<mem_addr_t, unsigned>::iterator iter = tlb_thrash[i].begin(); iter != tlb_thrash[i].end(); iter++){
+		fprintf(fout, "Page: %u Trashed: %u | ", iter->first, iter->second);
+		s_thrash += iter->second;
 	}
-	fprintf(fout,"Total %u\n", s_thresh);
-	tot_tlb_thresh += s_thresh;
+	fprintf(fout,"Total %u\n", s_thrash);
+	tot_tlb_thrash += s_thrash;
    }
-   fprintf(fout,"Tlb_tot_thresh: %u\n", tot_tlb_thresh);
+   fprintf(fout,"Tlb_tot_thrash: %u\n", tot_tlb_thrash);
 
    
    fprintf(fout, "========================================Page fault statistics==============================\n");
@@ -1757,7 +1757,7 @@ void gpgpu_new_stats::print(FILE *fout) const
         tot_page_miss += mf_page_miss[i];
    }
  
-   fprintf(fout, "Page_talbe_tot_access: %llu Page_tot_hit: %llu, Page_tot_miss %llu, Page_tot_hit_rate: %f Page_tot_fault: %llu Page_tot_pending: %llu\n", 
+   fprintf(fout, "Page_table_tot_access: %llu Page_tot_hit: %llu, Page_tot_miss %llu, Page_tot_hit_rate: %f Page_tot_fault: %llu Page_tot_pending: %llu\n", 
 		tot_page_hit+tot_page_miss, tot_page_hit, tot_page_miss, ((float)tot_page_hit)/((float)(tot_page_hit+tot_page_miss)),
 		mf_page_fault_outstanding, mf_page_fault_pending);
 
@@ -1775,34 +1775,34 @@ void gpgpu_new_stats::print(FILE *fout) const
    fprintf(fout, "Total_memory_access_page_fault: %llu, Average_latency: %f\n", tot_mf_fault, avg_mf_latency);
 
    
-   fprintf(fout, "========================================Page threshing statistics==============================\n");
+   fprintf(fout, "========================================Page thrashing statistics==============================\n");
 
    unsigned long long tot_validate = 0; 
-   for(std::map<mem_addr_t, std::vector<bool> >::const_iterator iter = page_threshing.begin(); iter != page_threshing.end(); iter++ ) {
+   for(std::map<mem_addr_t, std::vector<bool> >::const_iterator iter = page_thrashing.begin(); iter != page_thrashing.end(); iter++ ) {
        for(std::vector<bool>::const_iterator iter2 = iter->second.begin(); iter2 != iter->second.end(); iter2++) {
            if(*iter2 == true)
               tot_validate++;
        }    
    }
 
-   fprintf(fout, "Page_validate: %llu Page_evict_diry: %llu Page_evict_not_diry: %llu\n", tot_validate, page_evict_dirty, page_evict_not_dirty);
+   fprintf(fout, "Page_validate: %llu Page_evict_dirty: %llu Page_evict_not_dirty: %llu\n", tot_validate, page_evict_dirty, page_evict_not_dirty);
   
-   std::map<mem_addr_t, unsigned> page_thresh;
-   for(std::map<mem_addr_t, std::vector<bool> >::const_iterator iter = page_threshing.begin(); iter != page_threshing.end(); iter++ ) {
+   std::map<mem_addr_t, unsigned> page_thrash;
+   for(std::map<mem_addr_t, std::vector<bool> >::const_iterator iter = page_thrashing.begin(); iter != page_thrashing.end(); iter++ ) {
        for(unsigned j = 0; j != iter->second.size(); j++) {
            if(j+2 >= iter->second.size()) 
               break;
            if(iter->second[j] == true && iter->second[j+1] == false && iter->second[j+2] == true)
-              page_thresh[iter->first]++;
+              page_thrash[iter->first]++;
        }
    }               
 
-   unsigned tot_page_thresh = 0;
-   for(std::map<mem_addr_t, unsigned>::iterator iter = page_thresh.begin(); iter != page_thresh.end(); iter++){
-       fprintf(fout, "Page: %lu Treshed: %u\n", iter->first, iter->second);
-       tot_page_thresh += iter->second;
+   unsigned tot_page_thrash = 0;
+   for(std::map<mem_addr_t, unsigned>::iterator iter = page_thrash.begin(); iter != page_thrash.end(); iter++){
+       fprintf(fout, "Page: %u Thrashed: %u\n", iter->first, iter->second);
+       tot_page_thrash += iter->second;
    }
-   fprintf(fout, "Page_tot_thresh: %u\n", tot_page_thresh);
+   fprintf(fout, "Page_tot_thrash: %u\n", tot_page_thrash);
 
    fprintf(fout, "========================================Memory access statistics==============================\n");
   
@@ -1837,7 +1837,7 @@ void gpgpu_new_stats::print(FILE *fout) const
    fprintf(fout, "========================================Prefetch statistics==============================\n");
   
     
-   fprintf(fout, "Tot_page_hit: %llu, Tot_page_miss: %llu, Tot_page_fault: %llu\n", pf_page_hit, pf_page_miss, pf_fault_latency.size());
+   fprintf(fout, "Tot_page_hit: %llu, Tot_page_miss: %llu, Tot_page_fault: %lu\n", pf_page_hit, pf_page_miss, pf_fault_latency.size());
 
    float avg_pf_latency = 0;
    float avg_pref_size = 0;
@@ -1925,7 +1925,7 @@ gpgpu_new_stats::~gpgpu_new_stats()
    delete[] mf_page_hit;
    delete[] mf_page_miss;
    delete[] page_access_times;
-   delete[] tlb_threshing;
+   delete[] tlb_thrashing;
    delete[] ma_latency;
 }
 
@@ -2298,7 +2298,7 @@ void gmmu_t::page_eviction_procedure()
         } else {
             mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num(iter->first);
 
-            for (int i = 0; i < iter->second / m_config.page_size; i++) {
+            for (int i = 0; i < (int)(iter->second / m_config.page_size); i++) {
                 p_t->page_list.push_back( page_num + i );
 
                 if ( find( valid_pages.begin(), valid_pages.end(), (page_num + i) ) != valid_pages.end() ) {
@@ -2533,7 +2533,7 @@ void gmmu_t::cycle()
 
         for (std::list<mem_addr_t>::iterator iter = pcie_write_latency_queue->page_list.begin();
               iter != pcie_write_latency_queue->page_list.end(); iter++) {
-            m_new_stats->page_threshing[*iter].push_back(false);
+            m_new_stats->page_thrashing[*iter].push_back(false);
 
             if ( m_gpu->get_global_memory()->is_page_dirty(*iter) ) { 
 	        m_new_stats->page_evict_dirty++;
@@ -2579,7 +2579,7 @@ void gmmu_t::cycle()
                 // add to the valid pages list
                 valid_pages.push_back(*iter);
 
-                m_new_stats->page_threshing[*iter].push_back(true);
+                m_new_stats->page_thrashing[*iter].push_back(true);
 
 	        assert(req_info.find(*iter) != req_info.end());
 

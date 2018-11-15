@@ -1543,14 +1543,14 @@ void ldst_unit::insert_into_tlb(mem_addr_t page_num)
    
     if( tlb.find(page_num) == tlb.end() ) {
 	m_new_stats->tlb_val[m_sid]++;
-	m_new_stats->tlb_threshing[m_sid][page_num].push_back(true);
+	m_new_stats->tlb_thrashing[m_sid][page_num].push_back(true);
     } 
     
     if ( tlb.find(page_num) == tlb.end() && tlb.size() == m_core_config->tlb_size ) {
         for (std::list<mem_addr_t>::const_iterator iter = valid_pages.begin(); iter != valid_pages.end(); iter++ ) {
              if ( tlb.erase(*iter) == 1 ) {
 		 m_new_stats->tlb_evict[m_sid]++;
-		 m_new_stats->tlb_threshing[m_sid][*iter].push_back(false); 
+		 m_new_stats->tlb_thrashing[m_sid][*iter].push_back(false); 
                  break;
              } 
         }
@@ -2004,7 +2004,7 @@ void ldst_unit::invalidate_tlb(mem_addr_t addr)
 {
     if ( tlb.erase(addr) == 1 ) {                                  
          m_new_stats->tlb_page_evict[m_sid]++;
-	 m_new_stats->tlb_threshing[m_sid][addr].push_back(false);
+	 m_new_stats->tlb_thrashing[m_sid][addr].push_back(false);
     }                                                                                                                                         
 } 
 

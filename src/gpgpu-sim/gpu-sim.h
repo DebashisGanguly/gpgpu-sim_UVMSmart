@@ -433,7 +433,7 @@ public:
     unsigned stream_id;
 
     virtual void print(FILE * fout, float freq) {
-	fprintf(fout, "F: %8llu----T: %8llu \t St: %llx Sz: %lu \t Sm: %u \t ", start_time, end_time, start_addr, size, stream_id);
+	fprintf(fout, "F: %8llu----T: %8llu \t St: %x Sz: %lu \t Sm: %u \t ", start_time, end_time, start_addr, size, stream_id);
 	if(type == memcpy_h2d)
 		fprintf(fout, "T: memcpy_h2d");
 	else if(type == memcpy_d2h)
@@ -496,7 +496,7 @@ public:
    size_t size;
 
    virtual void print(FILE * fout, float freq) {
-	fprintf(fout, "F: %8llu----T: %8llu \t Sz: %u \t T: page_fault", start_time, end_time, size);
+	fprintf(fout, "F: %8llu----T: %8llu \t Sz: %lu \t T: page_fault", start_time, end_time, size);
 	fprintf(fout, "(%f)\n",((float)(end_time-start_time))/freq);
    }
 
@@ -575,9 +575,9 @@ public:
     std::list<std::pair<unsigned long long, float> > pcie_write_utilization;
 
     // page and its partern
-    std::map<mem_addr_t, std::vector<bool> > page_threshing;
+    std::map<mem_addr_t, std::vector<bool> > page_thrashing;
     // tlb and its partern
-    std::map<mem_addr_t, std::vector<bool> >* tlb_threshing;
+    std::map<mem_addr_t, std::vector<bool> >* tlb_thrashing;
 
     // for each shader, the memory access latency
     std::map<unsigned, std::pair<bool, unsigned long long> >* ma_latency;
