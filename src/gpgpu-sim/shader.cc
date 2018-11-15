@@ -1614,6 +1614,9 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
       // if so, then evict another page instead
       m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()), true );
 
+      // on tlb hit, refresh the LRU page list
+      m_gpu->getGmmu()->page_refresh( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()), inst.accessq_front().get_type() == GLOBAL_ACC_W ? true : false );
+
       return true;
   } else {
       mem_fetch *mf = m_mf_allocator->alloc(inst, inst.accessq_front());

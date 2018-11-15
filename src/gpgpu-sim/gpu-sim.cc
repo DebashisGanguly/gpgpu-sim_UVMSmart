@@ -2105,18 +2105,25 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num, bool refresh)
 {
     // the page, about to be accessed, was selected for eviction earlier 
     // so don't evict that page
-    // choose another page instead to make balance of free list
-    for ( std::list<pcie_latency_t*>::iterator iter = pcie_write_stage_queue.begin();
-          iter != pcie_write_stage_queue.end(); iter++ ) {
+    for ( std::list<pcie_latency_t*>::iterator iter = pcie_write_stage_queue.begin(); iter != pcie_write_stage_queue.end(); iter++ ) {
         if ( std::find((*iter)->page_list.begin(), (*iter)->page_list.end(), page_num ) != (*iter)->page_list.end() ) {
-	    std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair = get_large_and_basic_block(page_num);
-            large_page_info[large_and_basic_block_pair.first]->valid_size += (*iter)->page_list.size() * m_config.page_size;
-
+            std::set<mem_addr_t> basic_blocks;
+ 
             // on tlb hit refresh position of pages in the valid page list
-            if ( refresh ) {
-                for ( std::list<mem_addr_t>::iterator pg_iter = (*iter)->page_list.begin(); pg_iter != (*iter)->page_list.end(); pg_iter++ ) {
-                    page_refresh( *pg_iter, write );
+            for ( std::list<mem_addr_t>::iterator pg_iter = (*iter)->page_list.begin(); pg_iter != (*iter)->page_list.end(); pg_iter++ ) {
+                if ( refresh ) {
+                    page_refresh( *pg_iter, true );
                 }
+
+                mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(*pg_iter);
+                struct lp_tree_node* root = get_lp_node(page_addr);
+                basic_blocks.insert(get_basic_block(root, page_addr));
+            }
+
+            // reclaim valid size in large page tree for unique basic blocks corresponding to all pages
+            for (std::set<mem_addr_t>::iterator bb = basic_blocks.begin(); bb != basic_blocks.end(); bb++) {
+                struct lp_tree_node* root = get_lp_node(*bb);
+                update_basic_block(root, *bb, true);
             }
 
 	    pcie_write_stage_queue.erase( iter );
@@ -2186,102 +2193,72 @@ void gmmu_t::page_eviction_procedure()
         // we evict sixteen 4KB pages in the 2 MB allocation where this evictable belong to
         list<mem_addr_t>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
-        std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair;
+
+        struct lp_tree_node *root;
+        mem_addr_t page_addr;
+        mem_addr_t bb_addr;
 
         for ( ; iter != valid_pages.end(); iter++ ) {
-            large_and_basic_block_pair = get_large_and_basic_block(*iter);
+            page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
 
-            if ( is_basic_block_evictable(large_and_basic_block_pair.second, MIN_PREFETCH_SIZE) ) {
+            root = get_lp_node(page_addr);
+
+            bb_addr = get_basic_block(root, page_addr);
+
+            if ( is_basic_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
+                update_basic_block(root, page_addr, false);
                 break;
             }
         }
 
         if ( iter != valid_pages.end() ) {
-            evicted_pages.push_back( std::make_pair( large_and_basic_block_pair.second, MIN_PREFETCH_SIZE ) );
+            evicted_pages.push_back( std::make_pair( bb_addr, MIN_PREFETCH_SIZE ) );
         }
     } else if ( evict_policy == eviction_policy::SPATIO_TEMPORAL ) {
         // we evict multiple 64KB pages in the 2 MB allocation where this evictable belong
         list<mem_addr_t>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
-        std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair; 
+        // find all basic blocks which are not staged/scheduled for write back or not invalid or not in ld/st unit
+        std::set<mem_addr_t> all_basic_blocks;
 
-        mem_addr_t lp_addr; // starting address of 2 MB large page
-        mem_addr_t bb_addr;// starting address of 64 KB basic block
- 
-        while ( iter != valid_pages.end() && evicted_pages.empty() ) {
-            large_and_basic_block_pair = get_large_and_basic_block(*iter);
+        struct lp_tree_node *root;
+        mem_addr_t page_addr;
+        mem_addr_t bb_addr;
 
-            lp_addr = large_and_basic_block_pair.first;
-            bb_addr = large_and_basic_block_pair.second;
+        for ( ; iter != valid_pages.end(); iter++ ) {
+            page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
 
-	    if( large_page_info[lp_addr]->valid_size < MIN_PREFETCH_SIZE ) {
-	        iter++;
-		continue;
-	    }
-            // determine current transfer size based on eviction counter on this 2MB large page
-            // block size can vary in multiples of 64 KB exponentially 
-            // pattern: 64K, 64K, 128K, 256K, 512K, 1024K
-            size_t cur_size;
+            root = get_lp_node(page_addr);
 
-	    if( large_page_info[lp_addr]->eviction_counter == ((int)(log2(large_page_info[lp_addr]->size/MIN_PREFETCH_SIZE))) + 1){                                                   
-		large_page_info[lp_addr]->eviction_counter = 0;                                                                                                                              
-	    }
+            bb_addr = get_basic_block(root, page_addr);
 
-            if ( large_page_info[lp_addr]->eviction_counter == 0 ) {
-                cur_size = MIN_PREFETCH_SIZE;
-            } else {
-                cur_size = MIN_PREFETCH_SIZE * pow(2, large_page_info[lp_addr]->eviction_counter - 1);
-            }        
-
-	    if( large_page_info[lp_addr]->valid_size < cur_size ){
-		assert( large_page_info[lp_addr]->valid_size != 0 );
-		cur_size = MIN_PREFETCH_SIZE;
-		large_page_info[lp_addr]->eviction_counter = 0;
-	    }
-
-            size_t num_basic_blocks = cur_size / MIN_PREFETCH_SIZE;
-         
-            // find all basic blocks which are not staged/scheduled for write back or not invalid or not in ld/st unit
-            std::set<mem_addr_t> all_basic_blocks;
-      
-            for ( mem_addr_t start = lp_addr; start < lp_addr + large_page_info[lp_addr]->size ; start += MIN_PREFETCH_SIZE) {
-                  if ( is_basic_block_evictable(start, MIN_PREFETCH_SIZE) ) {
-                       all_basic_blocks.insert(start);
-                  }
-            }
-
-            if ( (all_basic_blocks.size() >= num_basic_blocks) && (all_basic_blocks.find(bb_addr) != all_basic_blocks.end()) ) {
-                large_page_info[lp_addr]->eviction_counter++;
-
-                // group all contiguous basic blocks if possible
-                std::set<mem_addr_t>::iterator cur_iter = all_basic_blocks.find(bb_addr);
-                std::set<mem_addr_t>::iterator next_iter = cur_iter;
-
-                while ( num_basic_blocks != 0 ) {
-                    size_t cur_num = 0;
-
-                    do {
-
-                       next_iter++;
-                       cur_num++;
-                       num_basic_blocks--;
-                    } while ( num_basic_blocks!= 0 && next_iter != all_basic_blocks.end() && ((*next_iter) == ((*cur_iter) + (cur_num * MIN_PREFETCH_SIZE))) );
-
-		    large_page_info[lp_addr]->valid_size -= cur_num * MIN_PREFETCH_SIZE ;
-                    evicted_pages.push_back( std::make_pair( (*cur_iter), (cur_num * MIN_PREFETCH_SIZE) ) );
-
-                    if ( next_iter == all_basic_blocks.end() ) {
-                        next_iter = all_basic_blocks.begin();
-                    }
-
-                    cur_iter = next_iter;
-                } 
-
+            if ( is_basic_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
+                update_basic_block(root, page_addr, false);
                 break;
             }
+        }
 
-            iter++;
+        if ( iter != valid_pages.end() ) {
+            all_basic_blocks.insert( bb_addr );
+            traverse_and_remove_lp_tree(root, all_basic_blocks);
+        }
+
+        // group all contiguous basic blocks if possible
+        std::set<mem_addr_t>::iterator bb = all_basic_blocks.begin();
+
+        while ( bb != all_basic_blocks.end() ) {
+            std::set<mem_addr_t>::iterator next_bb = bb;
+            size_t cur_num = 0;
+
+            do {
+                next_bb++;
+                cur_num++;
+            } while ( next_bb != all_basic_blocks.end() && ((*next_bb) == ((*bb) + cur_num * MIN_PREFETCH_SIZE)) );
+
+            evicted_pages.push_back( std::make_pair( (*bb), (cur_num * MIN_PREFETCH_SIZE) ) );
+
+            bb = next_bb;
         }
     }
 
@@ -2377,47 +2354,136 @@ void gmmu_t::register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_all
     prefetch_req_buffer.push_back(pre_q);
 }
 
+struct lp_tree_node* gmmu_t::build_lp_tree(mem_addr_t addr, size_t size)
+{
+	struct lp_tree_node *node = new lp_tree_node();
+	node->addr = addr;
+	node->size = size;
+	node->valid_size = 0;
+	
+	if (size == MIN_PREFETCH_SIZE) {
+		node->left = NULL;
+		node->right = NULL;
+	} else {
+		node->left = build_lp_tree(addr, size/2);
+		node->right = build_lp_tree(addr + size/2, size/2);
+	}
+	return node;
+}
+
 void gmmu_t::initialize_large_page(mem_addr_t start_addr, size_t size)
 {
-    struct large_page_req * l_i = new large_page_req();
-    l_i->prefetch_counter = 0;
-    l_i->eviction_counter = 0;
-    l_i->size = size;
-    l_i->valid_size = 0;
-    l_i->invalid_size = size;
-    large_page_info[start_addr] = l_i;
+    struct lp_tree_node * root = build_lp_tree(start_addr, size);
+
+    large_page_info.push_back(root);
 
     total_allocation_size += size;
 }
 
-std::pair<mem_addr_t, mem_addr_t> gmmu_t::get_large_and_basic_block(mem_addr_t page_num)
+struct lp_tree_node* gmmu_t::get_lp_node(mem_addr_t addr) 
 {
-    // get start address for page num
-    mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr( page_num );
-
-    // get starting address of the 2MB large page to which this page belongs
-    mem_addr_t start_large_page = 0;
-
-    for (std::map<mem_addr_t, struct large_page_req*>::iterator iter = large_page_info.begin(); iter != large_page_info.end(); iter++) {
-        if ( page_addr >= iter->first && page_addr < iter->first + (iter->second)->size ) {
-            start_large_page = iter->first;
-            break;
+    for (std::list<struct lp_tree_node*>::iterator iter = large_page_info.begin(); iter != large_page_info.end(); iter++) {
+        if ((*iter)->addr <= addr && addr < (*iter)->addr + (*iter)->size) {
+           return *iter;
         }
     }
+    return NULL;
+}
 
-    assert(start_large_page != 0);
+mem_addr_t gmmu_t::get_basic_block(struct lp_tree_node *node, mem_addr_t addr)
+{
+   while (node->size != MIN_PREFETCH_SIZE) {
+       if (node->left->addr <= addr && addr < node->left->addr + node->left->size) {
+           node = node->left;
+       } else {
+           node = node->right;
+       }
+   }
 
-    // get the starting address of 64KB block from starting address of 2MB large page to which this page belongs
-    // we break the logical 2MB large page into multiple of 64 KB as transfers are in multiples of 64KB
-    size_t new_size =  page_addr - start_large_page ;
+   return node->addr;
+}
 
-    new_size = (new_size / MIN_PREFETCH_SIZE) * MIN_PREFETCH_SIZE;
+mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr, bool prefetch) 
+{
+   while (node->size != MIN_PREFETCH_SIZE) {
+       if (prefetch) {
+           node->valid_size += MIN_PREFETCH_SIZE;
+       } else {
+           if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE) ) {
+               node->valid_size -= MIN_PREFETCH_SIZE;
+           }
+       }
 
-    mem_addr_t aligned_addr = start_large_page + new_size;
+       if (node->left->addr <= addr && addr < node->left->addr + node->left->size) {
+           node = node->left;
+       } else {
+           node = node->right;
+       }
+   }
 
-    assert( aligned_addr < start_large_page + large_page_info[start_large_page]->size);
+   if (prefetch) {
+       node->valid_size += MIN_PREFETCH_SIZE;
+   } else {
+       if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE) ) {
+           node->valid_size -= MIN_PREFETCH_SIZE;
+       }
+   }
 
-    return std::make_pair(start_large_page, aligned_addr);
+   return node->addr;
+}
+
+void gmmu_t::fill_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks) 
+{
+	if (node->size == MIN_PREFETCH_SIZE) {
+		if (node->valid_size == 0) {
+			node->valid_size = MIN_PREFETCH_SIZE;
+			scheduled_basic_blocks.insert(node->addr);
+		}
+	} else {
+		fill_lp_tree(node->left, scheduled_basic_blocks);
+		fill_lp_tree(node->right, scheduled_basic_blocks);
+		node->valid_size = node->left->valid_size + node->right->valid_size;
+	}
+}
+
+void gmmu_t::remove_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks) 
+{
+	if (node->size == MIN_PREFETCH_SIZE) {
+		if (node->valid_size == MIN_PREFETCH_SIZE && is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE)) {
+			node->valid_size = 0;
+			scheduled_basic_blocks.insert(node->addr);
+		}
+	} else {
+		remove_lp_tree(node->left, scheduled_basic_blocks);
+		remove_lp_tree(node->right, scheduled_basic_blocks);
+		node->valid_size = node->left->valid_size + node->right->valid_size;
+	}
+}
+
+void gmmu_t::traverse_and_fill_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks) 
+{
+	if (node->size != MIN_PREFETCH_SIZE) {
+		traverse_and_fill_lp_tree(node->left, scheduled_basic_blocks);
+		traverse_and_fill_lp_tree(node->right, scheduled_basic_blocks);
+		node->valid_size = node->left->valid_size + node->right->valid_size;
+	
+		if (node->valid_size != node->size && node->valid_size > node->size / 2) {
+			fill_lp_tree(node, scheduled_basic_blocks);
+		}
+	}
+}
+
+void gmmu_t::traverse_and_remove_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks) 
+{
+	if (node->size != MIN_PREFETCH_SIZE) {
+		traverse_and_remove_lp_tree(node->left, scheduled_basic_blocks);
+		traverse_and_remove_lp_tree(node->right, scheduled_basic_blocks);
+		node->valid_size = node->left->valid_size + node->right->valid_size;
+	
+		if (node->valid_size != 0 && node->valid_size < node->size / 2) {
+			remove_lp_tree(node, scheduled_basic_blocks);
+		}
+	}
 }
 
 void gmmu_t::reserve_pages_insert(mem_addr_t addr, unsigned ma_uid)
@@ -2466,14 +2532,20 @@ void gmmu_t::update_hardware_prefetcher_oversubscribed()
     }
 }
 
+void gmmu_t::reset_lp_tree_node(struct lp_tree_node* node)
+{
+    node->valid_size = 0;
+    
+    if (node->size != MIN_PREFETCH_SIZE) {
+        reset_lp_tree_node(node->left);
+        reset_lp_tree_node(node->right);
+    }
+}
+
 void gmmu_t::reset_large_page_info()
 {
-     for(std::map<mem_addr_t, struct large_page_req*>::iterator iter =  large_page_info.begin();                                                             
-         iter != large_page_info.end(); iter++) {
-	 iter->second->valid_size = 0; 
-	 iter->second->invalid_size = iter->second->size;
-	 iter->second->prefetch_counter = 0; 
-	 iter->second->eviction_counter = 0; 
+     for ( std::list<struct lp_tree_node*>::iterator iter = large_page_info.begin(); iter != large_page_info.end(); iter++ ) {
+        reset_lp_tree_node(*iter);
      }    
 
      over_sub = false;
@@ -2531,9 +2603,6 @@ void gmmu_t::cycle()
         pcie_write_latency_queue = pcie_write_stage_queue.front();
         pcie_write_latency_queue->ready_cycle = get_ready_cycle( pcie_write_latency_queue->page_list.size() );
 	 
-	std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair = get_large_and_basic_block(pcie_write_latency_queue->page_list.front());
-	large_page_info[large_and_basic_block_pair.first]->invalid_size += pcie_write_latency_queue->page_list.size() * m_config.page_size;
-
 	for(unsigned long long write_period = gpu_tot_sim_cycle + gpu_sim_cycle; write_period != pcie_write_latency_queue->ready_cycle; write_period++ )
 		m_new_stats->pcie_write_utilization.push_back( std::make_pair(write_period, get_pcie_utilization(pcie_write_latency_queue->page_list.size())) );
 
@@ -2574,9 +2643,6 @@ void gmmu_t::cycle()
 
 	if(pcie_read_latency_queue->type == latency_type::PCIE_READ) {
            
-	   std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair = get_large_and_basic_block(pcie_read_latency_queue->page_list.front());
-	   large_page_info[large_and_basic_block_pair.first]->valid_size += pcie_read_latency_queue->page_list.size() * m_config.page_size;
-	   	
            for (std::list<mem_addr_t>::iterator iter = pcie_read_latency_queue->page_list.begin();
                 iter != pcie_read_latency_queue->page_list.end(); iter++) {
                 // validate the page in page table
@@ -2978,17 +3044,13 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
 		if( prefetcher == hwardware_prefetcher::RANDOM ) {
 		    size_t random_size = ( rand() % (total_allocation_size / m_config.page_size) ) * m_config.page_size;
 
-		    std::map<mem_addr_t, struct large_page_req*>::iterator iter = large_page_info.begin();
+                    struct lp_tree_node* root = get_lp_node(m_gpu->get_global_memory()->get_mem_addr(it->first));
 
-		    for( ; iter != large_page_info.end(); iter++) {
-		        if( random_size > iter->second->size ) {
-			    random_size -= iter->second->size;
-			} else {
-			    break;
-			}
-		    }
+		    if ( random_size > root->size ) {
+                        random_size -= root->size;
+                    }
 
-		    mem_addr_t prefetch_addr = iter->first + random_size;
+		    mem_addr_t prefetch_addr = root->addr + random_size;
 
 		    mem_addr_t prefetch_page_num = m_gpu->get_global_memory()->get_page_num(prefetch_addr);
 		     
@@ -3004,221 +3066,157 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
 		}
             }
         } else {
+            std::map<mem_addr_t, std::set<mem_addr_t> > lp_pf_groups;
 
             for ( std::map<mem_addr_t, std::list<mem_fetch*> >::iterator it = page_fault_this_turn.begin(); it != page_fault_this_turn.end(); it++) {
-                std::pair<mem_addr_t, mem_addr_t> large_and_basic_block_pair = get_large_and_basic_block(it->first);
+                mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(it->first);
+                
+                struct lp_tree_node* root = get_lp_node(page_addr);
 
-                block_tree[large_and_basic_block_pair.first][large_and_basic_block_pair.second].push_back(it->first);
+                lp_pf_groups[root->addr].insert(page_addr);
             }
 
-            for ( std::map<mem_addr_t, std::map<mem_addr_t, std::list<mem_addr_t> > >::iterator lp_iter = block_tree.begin();
-                  lp_iter != block_tree.end(); lp_iter++ ) {
+            for ( std::map<mem_addr_t, std::set<mem_addr_t> >::iterator lp_pf_iter = lp_pf_groups.begin(); lp_pf_iter != lp_pf_groups.end(); lp_pf_iter++ ) {
+                std::set<mem_addr_t> schedulable_basic_blocks;
 
-                 while ( !lp_iter->second.empty() ) {
-                     // determine current fetchable block size based on access counter on this 2MB large page
-                     // block size can vary in multiples of 64 KB exponentially 
-                     // pattern: 64K, 64K, 128K, 256K, 512K, 1024K
-                     size_t cur_size;
+                // list of all invalid pages and pages with fault from all basic blocks to satisfy current transfer size
+                std::list<mem_addr_t> cur_transfer_all_pages;
+                std::list<mem_addr_t> cur_transfer_faulty_pages;
 
-		     if( large_page_info[lp_iter->first]->prefetch_counter == ((int)(log2(large_page_info[lp_iter->first]->size/MIN_PREFETCH_SIZE))) + 1){                                                   
-		         large_page_info[lp_iter->first]->prefetch_counter = 0;                                                                                                        		
-		     } 
+                for ( std::set<mem_addr_t>::iterator pf_iter = lp_pf_iter->second.begin(); pf_iter != lp_pf_iter->second.end(); pf_iter++) {
+                    mem_addr_t page_addr = *pf_iter;
 
-                     if ( prefetcher == hwardware_prefetcher::SEQUENTIAL_LOCAL || large_page_info[lp_iter->first]->prefetch_counter == 0 ) {
-                         cur_size = MIN_PREFETCH_SIZE;
-                     } else {
-                         cur_size = MIN_PREFETCH_SIZE * pow(2, large_page_info[lp_iter->first]->prefetch_counter-1);
-                     }
+                    struct lp_tree_node* root = get_lp_node(page_addr);
 
-		      if( cur_size > large_page_info[lp_iter->first]->invalid_size ) {
-	                 assert ( large_page_info[lp_iter->first]->invalid_size != 0 ); 
-			 cur_size = MIN_PREFETCH_SIZE;
-			 large_page_info[lp_iter->first]->prefetch_counter = 0;
-		     }
-                     // increment the access counter
-                     large_page_info[lp_iter->first]->prefetch_counter++;
+                    mem_addr_t bb_addr = update_basic_block(root, page_addr, true);
 
-                     // list of all invalid pages and pages with fault from all basic blocks to satisfy current transfer size
-                     std::list<mem_addr_t> cur_transfer_all_pages;
-                     std::list<mem_addr_t> cur_transfer_faulty_pages;
+                    schedulable_basic_blocks.insert(bb_addr);
 
-                     // loop until we find all blocks of 64K to satisfy the current transfer size
-                     std::map<mem_addr_t, std::list<mem_addr_t> >::iterator bb_iter = lp_iter->second.begin();
+                    cur_transfer_faulty_pages.push_back(m_gpu->get_global_memory()->get_page_num(page_addr));
+                }
 
-                     mem_addr_t aligned_addr = bb_iter->first; 
+                if ( prefetcher == hwardware_prefetcher::SPATIO_TEMPORAL ) {
+                    for (std::list<struct lp_tree_node*>::iterator root = large_page_info.begin(); root != large_page_info.end(); root++) {
+                        traverse_and_fill_lp_tree(*root, schedulable_basic_blocks);
+                    }
+                }
 
-		     large_page_info[lp_iter->first]->invalid_size -= cur_size;
-                     while (cur_size != 0) {  
+                for (std::set<mem_addr_t>::iterator bb = schedulable_basic_blocks.begin(); bb != schedulable_basic_blocks.end(); bb++) {
+                    // all the invalid pages in the current 64 K basic block of transfer
+                    std::list<mem_addr_t> all_block_pages = m_gpu->get_global_memory()->get_faulty_pages( *bb, MIN_PREFETCH_SIZE );
+                    
+                    for ( std::list<mem_addr_t>::iterator pg_iter = all_block_pages.begin(); pg_iter != all_block_pages.end(); pg_iter++ ) {
+                        // mark entry into mshr for all pages in the current basic block
+                        temp_req_info[*pg_iter];
+                    } 
+                    cur_transfer_all_pages.merge(all_block_pages);
+                }
 
-                         // all the invalid pages in the current 64 K basic block of transfer
-                         std::list<mem_addr_t> all_block_pages = m_gpu->get_global_memory()->get_faulty_pages( aligned_addr, MIN_PREFETCH_SIZE );
-
-                         for ( std::list<mem_addr_t>::iterator pg_iter = all_block_pages.begin();
-                               pg_iter != all_block_pages.end(); pg_iter++ ) {
-                             // mark entry into mshr for all pages in the current basic block
-                             temp_req_info[*pg_iter];
-                         } 
-
-                         // if the newly found basic block is already part of faulty page block tree
-                         // add it to the all basic blocks list for current transfer and remove ot from the tree
-                         if ( lp_iter->second.find(aligned_addr) != lp_iter->second.end() ) {
-                             bb_iter = lp_iter->second.find(aligned_addr);
-
-                             cur_transfer_faulty_pages.merge(bb_iter->second);
-
-                             lp_iter->second.erase(bb_iter);
-                         } 
-
-                         cur_transfer_all_pages.merge(all_block_pages);
-
-                         cur_size -= MIN_PREFETCH_SIZE;
-
-                         mem_addr_t aligned_page;
-
-                         if (cur_size != 0) {
-                             do {
-                                 // move to the next 64K block
-                                 aligned_addr += MIN_PREFETCH_SIZE; 
-
-                                 // we may need to roll back to the start of 2MB logical large block
-                                 if ( aligned_addr == lp_iter->first + large_page_info[lp_iter->first]->size ) {
-                                     aligned_addr = lp_iter->first;
-                                 }
-
-                                 aligned_page = m_gpu->get_global_memory()->get_page_num(aligned_addr);
-                             } while (temp_req_info.find(aligned_page) != temp_req_info.end() || req_info.find(aligned_page) != req_info.end()|| m_gpu->get_global_memory()->is_valid(aligned_page));
-                         }
-                     }
-
-		     all_transfer_all_page.push_back(cur_transfer_all_pages);
-                     all_transfer_faulty_pages.push_back(cur_transfer_faulty_pages); 
-                 }
+                all_transfer_all_page.push_back(cur_transfer_all_pages);
+                all_transfer_faulty_pages.push_back(cur_transfer_faulty_pages);
             }
         }
 
+	for(std::map<mem_addr_t, std::list<mem_fetch*> >::iterator iter = temp_req_info.begin(); iter != temp_req_info.end(); iter++)  {
+	    req_info[iter->first];
+	    req_info[iter->first].merge(iter->second);
+        }
+
+	std::list< std::list<mem_addr_t> >::iterator all_pg_iter = all_transfer_all_page.begin();
+	std::list< std::list<mem_addr_t> >::iterator all_pf_iter = all_transfer_faulty_pages.begin();
+
+	for(; all_pg_iter != all_transfer_all_page.end(); all_pg_iter++, all_pf_iter++){
+	    // now we found all the basic blocks for the current transfer size
+            // we now decide on the splits based on page faults
+            std::list<mem_addr_t>::iterator pf_iter =  all_pf_iter->begin();
+            std::list<mem_addr_t>::iterator pg_iter =  all_pg_iter->begin();
+
+            std::list<mem_addr_t>::iterator prev_pg_iter;
+
+            while ( pg_iter != all_pg_iter->end() ) {
+
+                // if there is a gap between current and last page
+                // it can be if two basic blocks selected for current transfer size
+                // is separated by other basic blocks
+                // then we send this basic block (or remaining of so) for transfer
+                if ( pg_iter != all_pg_iter->begin() ) {
+                    prev_pg_iter = pg_iter;
+		    --prev_pg_iter;
+
+                    if ((*pg_iter) != ((*prev_pg_iter) + 1) ) {
+
+                        // add the current split for transfer
+                        pcie_latency_t* p_t = new pcie_latency_t();
+                        p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(all_pg_iter->front());
+                        p_t->page_list = std::list<mem_addr_t> ( all_pg_iter->begin(), pg_iter);
+                        p_t->size = p_t->page_list.size() * m_config.page_size;
+			p_t->type = latency_type::PCIE_READ;
+ 
+			pcie_read_stage_queue.push_back(p_t);
+
+                        // remove the scheduled pages from all pages and move the pointer
+                        pg_iter = all_pg_iter->erase(all_pg_iter->begin(), pg_iter);
+                    }
+                }
+
+                // we found a page on which a page fault request is pending
+                // now we split upto this and create a memory transfer 
+                if ( (pf_iter != all_pf_iter->end()) && ((*pf_iter) == (*pg_iter)) ) {
+
+	            if( m_config.enable_accurate_simulation ) {
+			pcie_latency_t* f_t = new pcie_latency_t();
+                        f_t->page_list.push_back(*pf_iter);
+                        f_t->type = latency_type::PAGE_FAULT;
+                        pcie_read_stage_queue.push_back(f_t);
+	            }
+
+                    // add the current split for transfer
+                    pcie_latency_t* p_t = new pcie_latency_t();
+                    p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(all_pg_iter->front());
+                    p_t->page_list = std::list<mem_addr_t> (all_pg_iter->begin(), ++pg_iter);
+                    p_t->size = p_t->page_list.size() * m_config.page_size;
+	            p_t->type = latency_type::PCIE_READ;			
+ 
+	            pcie_read_stage_queue.push_back(p_t);
+
+                    // remove the scheduled pages from all pages and move the pointer
+                    pg_iter = all_pg_iter->erase(all_pg_iter->begin(), pg_iter);
+                    pf_iter++;
+                } else {
+                    pg_iter++;
+                }
+            }
+
+            // prefetch the remaining from the 64K basic block
+            if ( !all_pg_iter->empty() ) {
+                pcie_latency_t* p_t = new pcie_latency_t();
+                p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(all_pg_iter->front()); 
+                p_t->page_list = *all_pg_iter;
+                p_t->size = p_t->page_list.size() * m_config.page_size;
+		p_t->type = latency_type::PCIE_READ;
+
+                pcie_read_stage_queue.push_back(p_t);
+            }
+	}
+
+        // adding statistics for prefetch
+	for( std::map<mem_addr_t, std::list<mem_fetch*> >::iterator iter2 = page_fault_this_turn.begin(); iter2 != page_fault_this_turn.end(); iter2++) {
+	    assert( req_info[iter2->first].size() == 0);
+                 
+            // add the pending prefecthes to the MSHR entry
+            req_info[iter2->first] = iter2->second;
+            
+	    m_new_stats->mf_page_fault_outstanding++;
+            m_new_stats->mf_page_fault_pending += req_info[iter2->first].size() - 1;
+
+            m_new_stats->mf_page_fault_latency[iter2->first].push_back(gpu_sim_cycle+gpu_tot_sim_cycle); 
+	}
 
 	if ( !over_sub && m_gpu->get_global_memory()->should_evict_page(num_pages_read_stage_queue + temp_req_info.size(), 0, m_config.free_page_buffer_percentage) ) {
 
 	     update_hardware_prefetcher_oversubscribed();
 
 	     over_sub = true;
-
-	     for ( std::map<mem_addr_t, std::map<mem_addr_t, std::list<mem_addr_t> > >::iterator lp_iter = block_tree.begin(); lp_iter != block_tree.end(); lp_iter++ ) {
-		   large_page_info[lp_iter->first]->prefetch_counter--;
-		   size_t temp_size;
-		   if ( large_page_info[lp_iter->first]->prefetch_counter == 0 ) {
-		        temp_size = MIN_PREFETCH_SIZE;
-		   } else {
-		        temp_size = MIN_PREFETCH_SIZE * pow(2, large_page_info[lp_iter->first]->prefetch_counter-1);
-		   }
-		   large_page_info[lp_iter->first]->invalid_size += temp_size;
-	     }
-
-	     for(std::map<mem_addr_t, std::list<mem_fetch*> >::iterator iter = page_fault_this_turn.begin(); iter != page_fault_this_turn.end(); iter++)  {
-		 for(std::list<mem_fetch*>::iterator iter2= iter->second.begin(); iter2 != iter->second.end(); iter2++){
-
-		     struct page_table_walk_latency_t pt_t;
-            	     pt_t.mf = *iter2;
-                     pt_t.ready_cycle = gpu_sim_cycle+gpu_tot_sim_cycle;                                                                                                   
-            	     page_table_walk_queue.push_front(pt_t); 
-		 }
-
-	     }
-	} else {
-
-	    for(std::map<mem_addr_t, std::list<mem_fetch*> >::iterator iter = temp_req_info.begin(); iter != temp_req_info.end(); iter++)  {
-		req_info[iter->first];
-		req_info[iter->first].merge(iter->second);
-             }
-
-	    std::list< std::list<mem_addr_t> >::iterator all_pg_iter = all_transfer_all_page.begin();
-	    std::list< std::list<mem_addr_t> >::iterator all_pf_iter = all_transfer_faulty_pages.begin();
-
-	    for(; all_pg_iter != all_transfer_all_page.end(); all_pg_iter++, all_pf_iter++){
-	         // now we found all the basic blocks for the current transfer size
-                 // we now decide on the splits based on page faults
-                 std::list<mem_addr_t>::iterator pf_iter =  all_pf_iter->begin();
-                 std::list<mem_addr_t>::iterator pg_iter =  all_pg_iter->begin();
-
-                 std::list<mem_addr_t>::iterator prev_pg_iter;
-
-                 while ( pg_iter != all_pg_iter->end() ) {
-
-                     // if there is a gap between current and last page
-                     // it can be if two basic blocks selected for current transfer size
-                     // is separated by other basic blocks
-                     // then we send this basic block (or remaining of so) for transfer
-                     if ( pg_iter != all_pg_iter->begin() ) {
-                         prev_pg_iter = pg_iter;
-			 --prev_pg_iter;
-
-                         if ((*pg_iter) != ((*prev_pg_iter) + 1) ) {
-
-                             // add the current split for transfer
-                             pcie_latency_t* p_t = new pcie_latency_t();
-                             p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(all_pg_iter->front());
-                             p_t->page_list = std::list<mem_addr_t> ( all_pg_iter->begin(), pg_iter);
-                             p_t->size = p_t->page_list.size() * m_config.page_size;
-			     p_t->type = latency_type::PCIE_READ;
- 
-			     pcie_read_stage_queue.push_back(p_t);
-
-                             // remove the scheduled pages from all pages and move the pointer
-                             pg_iter = all_pg_iter->erase(all_pg_iter->begin(), pg_iter);
-                         }
-                     }
-
-                     // we found a page on which a page fault request is pending
-                     // now we split upto this and create a memory transfer 
-                     if ( (pf_iter != all_pf_iter->end()) && ((*pf_iter) == (*pg_iter)) ) {
-
-			 if( m_config.enable_accurate_simulation ) {
-			     pcie_latency_t* f_t = new pcie_latency_t();
-                             f_t->page_list.push_back(*pf_iter);
-                             f_t->type = latency_type::PAGE_FAULT;
-                             pcie_read_stage_queue.push_back(f_t);
-			 }
-
-                         // add the current split for transfer
-                         pcie_latency_t* p_t = new pcie_latency_t();
-                         p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(all_pg_iter->front());
-                         p_t->page_list = std::list<mem_addr_t> (all_pg_iter->begin(), ++pg_iter);
-                         p_t->size = p_t->page_list.size() * m_config.page_size;
-			 p_t->type = latency_type::PCIE_READ;			
- 
-			 pcie_read_stage_queue.push_back(p_t);
-
-                         // remove the scheduled pages from all pages and move the pointer
-                         pg_iter = all_pg_iter->erase(all_pg_iter->begin(), pg_iter);
-                         pf_iter++;
-                     } else {
-                         pg_iter++;
-                     }
-                 }
-
-                 // prefetch the remaining from the 64K basic block
-                 if ( !all_pg_iter->empty() ) {
-                     pcie_latency_t* p_t = new pcie_latency_t();
-                     p_t->start_addr = m_gpu->get_global_memory()->get_mem_addr(all_pg_iter->front()); 
-                     p_t->page_list = *all_pg_iter;
-                     p_t->size = p_t->page_list.size() * m_config.page_size;
-		     p_t->type = latency_type::PCIE_READ;
-
-                     pcie_read_stage_queue.push_back(p_t);
-                 }
-	    }
-            // adding statistics for prefetch
-	    for( std::map<mem_addr_t, std::list<mem_fetch*> >::iterator iter2 = page_fault_this_turn.begin(); iter2 != page_fault_this_turn.end(); iter2++) {
-	         assert( req_info[iter2->first].size() == 0);
-                 
-                 // add the pending prefecthes to the MSHR entry
-                 req_info[iter2->first] = iter2->second;
-            
-		 m_new_stats->mf_page_fault_outstanding++;
-		 m_new_stats->mf_page_fault_pending += req_info[iter2->first].size() - 1;
-
-                 m_new_stats->mf_page_fault_latency[iter2->first].push_back(gpu_sim_cycle+gpu_tot_sim_cycle); 
-	    }
 	}
     }
 }

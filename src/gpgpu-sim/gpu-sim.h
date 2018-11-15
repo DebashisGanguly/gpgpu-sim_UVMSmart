@@ -625,6 +625,19 @@ public:
 
    void register_prefetch(mem_addr_t m_device_addr, mem_addr_t m_device_allocation_ptr, size_t m_cnt, struct CUstream_st *m_stream);
    void activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream);
+   
+   struct lp_tree_node* build_lp_tree(mem_addr_t addr, size_t size);
+   void reset_large_page_info(struct lp_tree_node* node);
+   void reset_lp_tree_node(struct lp_tree_node* node);
+   struct lp_tree_node* get_lp_node(mem_addr_t addr);
+   mem_addr_t update_basic_block(struct lp_tree_node *root, mem_addr_t addr, bool prefetch);
+   mem_addr_t get_basic_block(struct lp_tree_node *root, mem_addr_t addr);
+
+   void fill_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks);
+   void remove_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks);
+   void traverse_and_fill_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks);
+   void traverse_and_remove_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks);
+
    bool pcie_transfers_completed();
 
    void initialize_large_page(mem_addr_t start_addr, size_t size);
@@ -635,8 +648,6 @@ public:
    float get_pcie_utilization(unsigned num_pages);
 
    void do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > &page_fault_this_turn);
-
-   std::pair<mem_addr_t, mem_addr_t> get_large_and_basic_block(mem_addr_t page_addr);
 
    void reserve_pages_insert(mem_addr_t addr, unsigned mem_access_uid);
    void reserve_pages_remove(mem_addr_t addr, unsigned mem_access_uid);
@@ -748,15 +759,7 @@ private:
     std::list<event_stats*> fault_stats;
     std::list<event_stats*> writeback_stats;
 
-    struct large_page_req {
-	size_t size;
-	size_t valid_size;
-	size_t invalid_size;
-	unsigned prefetch_counter;
-        unsigned eviction_counter;	
-    };
-
-    std::map<mem_addr_t, struct large_page_req*> large_page_info;
+    std::list<struct lp_tree_node*> large_page_info;
     size_t total_allocation_size;
 
     bool over_sub;
@@ -764,6 +767,13 @@ private:
     class gpgpu_new_stats *m_new_stats;
 };
 
+struct lp_tree_node {
+    mem_addr_t addr;
+    size_t size;
+    size_t valid_size;
+    struct lp_tree_node *left;
+    struct lp_tree_node *right;
+};
 
 class gpgpu_sim : public gpgpu_t {
 public:
