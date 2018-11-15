@@ -573,8 +573,8 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "GDDR page size, only 4KB/2MB avaliable.",
                "4KB");
  
-    option_parser_register(opp, "-pcie_bandwith", OPT_CSTR, &pcie_bandwith_string,          
-               "PCI-e bandwith per direction, in GB/s.",
+    option_parser_register(opp, "-pcie_bandwidth", OPT_CSTR, &pcie_bandwidth_string,          
+               "PCI-e bandwidth per direction, in GB/s.",
                "16.0GB/s");
 
     option_parser_register(opp, "-enable_nvlink", OPT_BOOL, &enable_nvlink,
@@ -623,16 +623,16 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
 void gpgpu_sim_config::convert_byte_string()
 {
    gpgpu_functional_sim_config::convert_byte_string();
-   if(strstr(pcie_bandwith_string, "GB/s")) {
-       pcie_bandwith = strtof(pcie_bandwith_string, NULL);
-       if(pcie_bandwith == 16.0) {
+   if(strstr(pcie_bandwidth_string, "GB/s")) {
+       pcie_bandwidth = strtof(pcie_bandwidth_string, NULL);
+       if(pcie_bandwidth == 16.0) {
 	  curve_a = 12.0;
-       } else if (pcie_bandwith == 32.0) {
+       } else if (pcie_bandwidth == 32.0) {
 	  curve_a = 24.0;
-       } else if (pcie_bandwith == 64.0) {
+       } else if (pcie_bandwidth == 64.0) {
 	  curve_a = 48.0;
        } else {
-	  printf("-pcie_bandwith should be 16.0GB/s, 32.0GB/s or 64.0GB/s\n");
+	  printf("-pcie_bandwidth should be 16.0GB/s, 32.0GB/s or 64.0GB/s\n");
        }
 
        if(enable_nvlink) {
@@ -641,7 +641,7 @@ void gpgpu_sim_config::convert_byte_string()
        curve_b = 0.07292;
        
    } else { 
-       printf("-pcie_bandwith should be in GB/s\n");
+       printf("-pcie_bandwidth should be in GB/s\n");
        exit(1);
    }     
  
@@ -2326,7 +2326,7 @@ unsigned long long gmmu_t::get_ready_cycle_rdma(unsigned size)
 
 float gmmu_t::get_pcie_utilization(unsigned num_pages)
 {
-    return 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*m_config.page_size)/1024.0) ) / m_config.pcie_bandwith;
+    return 3.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*m_config.page_size)/1024.0) ) / m_config.pcie_bandwidth;
 }
 
 void gmmu_t::activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream)

@@ -368,8 +368,8 @@ private:
     float reserve_accessed_page_percent;
     float free_page_buffer_percentage;
 
-    char* pcie_bandwith_string;
-    float pcie_bandwith; 
+    char* pcie_bandwidth_string;
+    float pcie_bandwidth; 
 
     float curve_a;
     float curve_b;
