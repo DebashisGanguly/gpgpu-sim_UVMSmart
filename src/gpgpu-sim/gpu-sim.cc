@@ -2407,9 +2407,11 @@ mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr
 {
    while (node->size != MIN_PREFETCH_SIZE) {
        if (prefetch) {
-           node->valid_size += MIN_PREFETCH_SIZE;
+           if (node->valid_size != node->size) {
+               node->valid_size += MIN_PREFETCH_SIZE;
+           }
        } else {
-           if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE) ) {
+           if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE) && node->valid_size != 0 ) {
                node->valid_size -= MIN_PREFETCH_SIZE;
            }
        }
@@ -2422,9 +2424,11 @@ mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr
    }
 
    if (prefetch) {
-       node->valid_size += MIN_PREFETCH_SIZE;
+       if (node->valid_size != node->size) {
+           node->valid_size += MIN_PREFETCH_SIZE;
+       }
    } else {
-       if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE) ) {
+       if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE && node->valid_size != 0) ) {
            node->valid_size -= MIN_PREFETCH_SIZE;
        }
    }
@@ -3069,11 +3073,13 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
             std::map<mem_addr_t, std::set<mem_addr_t> > lp_pf_groups;
 
             for ( std::map<mem_addr_t, std::list<mem_fetch*> >::iterator it = page_fault_this_turn.begin(); it != page_fault_this_turn.end(); it++) {
-                mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(it->first);
+                if ( req_info.find(it->first) == req_info.end() ) {
+                    mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(it->first);
                 
-                struct lp_tree_node* root = get_lp_node(page_addr);
+                    struct lp_tree_node* root = get_lp_node(page_addr);
 
-                lp_pf_groups[root->addr].insert(page_addr);
+                    lp_pf_groups[root->addr].insert(page_addr);
+                }
             }
 
             for ( std::map<mem_addr_t, std::set<mem_addr_t> >::iterator lp_pf_iter = lp_pf_groups.begin(); lp_pf_iter != lp_pf_groups.end(); lp_pf_iter++ ) {
