@@ -3073,13 +3073,11 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
             std::map<mem_addr_t, std::set<mem_addr_t> > lp_pf_groups;
 
             for ( std::map<mem_addr_t, std::list<mem_fetch*> >::iterator it = page_fault_this_turn.begin(); it != page_fault_this_turn.end(); it++) {
-                if ( req_info.find(it->first) == req_info.end() ) {
-                    mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(it->first);
+                mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(it->first);
                 
-                    struct lp_tree_node* root = get_lp_node(page_addr);
+                struct lp_tree_node* root = get_lp_node(page_addr);
 
-                    lp_pf_groups[root->addr].insert(page_addr);
-                }
+                lp_pf_groups[root->addr].insert(page_addr);
             }
 
             for ( std::map<mem_addr_t, std::set<mem_addr_t> >::iterator lp_pf_iter = lp_pf_groups.begin(); lp_pf_iter != lp_pf_groups.end(); lp_pf_iter++ ) {
@@ -3112,10 +3110,12 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
                     std::list<mem_addr_t> all_block_pages = m_gpu->get_global_memory()->get_faulty_pages( *bb, MIN_PREFETCH_SIZE );
                     
                     for ( std::list<mem_addr_t>::iterator pg_iter = all_block_pages.begin(); pg_iter != all_block_pages.end(); pg_iter++ ) {
-                        // mark entry into mshr for all pages in the current basic block
-                        temp_req_info[*pg_iter];
+                        if (temp_req_info.find(*pg_iter) == temp_req_info.end()) {
+                            // mark entry into mshr for all pages in the current basic block
+                            temp_req_info[*pg_iter];
+                            cur_transfer_all_pages.push_back(*pg_iter);
+                        }
                     } 
-                    cur_transfer_all_pages.merge(all_block_pages);
                 }
 
                 all_transfer_all_page.push_back(cur_transfer_all_pages);
