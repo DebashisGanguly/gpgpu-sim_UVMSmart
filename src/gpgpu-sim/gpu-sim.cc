@@ -2411,7 +2411,7 @@ mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr
                node->valid_size += MIN_PREFETCH_SIZE;
            }
        } else {
-           if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE) && node->valid_size != 0 ) {
+           if ( node->valid_size != 0 ) {
                node->valid_size -= MIN_PREFETCH_SIZE;
            }
        }
@@ -2428,7 +2428,7 @@ mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr
            node->valid_size += MIN_PREFETCH_SIZE;
        }
    } else {
-       if ( is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE) && node->valid_size != 0 ) {
+       if ( node->valid_size != 0 ) {
            node->valid_size -= MIN_PREFETCH_SIZE;
        }
    }
