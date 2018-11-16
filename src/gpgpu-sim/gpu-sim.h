@@ -630,7 +630,7 @@ public:
    void reset_large_page_info(struct lp_tree_node* node);
    void reset_lp_tree_node(struct lp_tree_node* node);
    struct lp_tree_node* get_lp_node(mem_addr_t addr);
-   mem_addr_t update_basic_block(struct lp_tree_node *root, mem_addr_t addr, bool prefetch);
+   mem_addr_t update_basic_block(struct lp_tree_node *root, mem_addr_t addr, size_t size, bool prefetch);
    mem_addr_t get_basic_block(struct lp_tree_node *root, mem_addr_t addr);
 
    void fill_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks);

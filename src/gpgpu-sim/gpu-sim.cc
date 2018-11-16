@@ -2107,23 +2107,16 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num, bool refresh)
     // so don't evict that page
     for ( std::list<pcie_latency_t*>::iterator iter = pcie_write_stage_queue.begin(); iter != pcie_write_stage_queue.end(); iter++ ) {
         if ( std::find((*iter)->page_list.begin(), (*iter)->page_list.end(), page_num ) != (*iter)->page_list.end() ) {
-            std::set<mem_addr_t> basic_blocks;
- 
             // on tlb hit refresh position of pages in the valid page list
             for ( std::list<mem_addr_t>::iterator pg_iter = (*iter)->page_list.begin(); pg_iter != (*iter)->page_list.end(); pg_iter++ ) {
                 if ( refresh ) {
                     page_refresh( *pg_iter, true );
                 }
 
+                // reclaim valid size in large page tree for unique basic blocks corresponding to all pages
                 mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(*pg_iter);
                 struct lp_tree_node* root = get_lp_node(page_addr);
-                basic_blocks.insert(get_basic_block(root, page_addr));
-            }
-
-            // reclaim valid size in large page tree for unique basic blocks corresponding to all pages
-            for (std::set<mem_addr_t>::iterator bb = basic_blocks.begin(); bb != basic_blocks.end(); bb++) {
-                struct lp_tree_node* root = get_lp_node(*bb);
-                update_basic_block(root, *bb, true);
+                update_basic_block(root, page_addr, m_config.page_size, true);
             }
 
 	    pcie_write_stage_queue.erase( iter );
@@ -2175,7 +2168,11 @@ void gmmu_t::page_eviction_procedure()
         }
 
         if ( iter != valid_pages.end() ) {
-            evicted_pages.push_back( std::make_pair( m_gpu->get_global_memory()->get_mem_addr(*iter), m_gpu->get_global_memory()->get_page_size()) );
+            mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
+            struct lp_tree_node *root = get_lp_node(page_addr);
+            update_basic_block(root, page_addr, m_config.page_size, false);
+
+            evicted_pages.push_back( std::make_pair( page_addr, m_config.page_size) );
         }
     } else if ( evict_policy == eviction_policy::RANDOM ) {
         // in random eviction, select a random page
@@ -2187,7 +2184,11 @@ void gmmu_t::page_eviction_procedure()
         }
 
         if ( iter != valid_pages.end() ) {
-            evicted_pages.push_back( std::make_pair( m_gpu->get_global_memory()->get_mem_addr(*iter), m_gpu->get_global_memory()->get_page_size()) );
+            mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
+            struct lp_tree_node *root = get_lp_node(page_addr);
+            update_basic_block(root, page_addr, m_config.page_size, false);
+
+            evicted_pages.push_back( std::make_pair( page_addr, m_config.page_size) );
         }
     } else if ( evict_policy == eviction_policy::SEQUENTIAL_LOCAL ) {
         // we evict sixteen 4KB pages in the 2 MB allocation where this evictable belong to
@@ -2206,7 +2207,7 @@ void gmmu_t::page_eviction_procedure()
             bb_addr = get_basic_block(root, page_addr);
 
             if ( is_basic_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
-                update_basic_block(root, page_addr, false);
+                update_basic_block(root, page_addr, MIN_PREFETCH_SIZE, false);
                 break;
             }
         }
@@ -2234,7 +2235,7 @@ void gmmu_t::page_eviction_procedure()
             bb_addr = get_basic_block(root, page_addr);
 
             if ( is_basic_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
-                update_basic_block(root, page_addr, false);
+                update_basic_block(root, page_addr, MIN_PREFETCH_SIZE, false);
                 break;
             }
         }
@@ -2403,16 +2404,16 @@ mem_addr_t gmmu_t::get_basic_block(struct lp_tree_node *node, mem_addr_t addr)
    return node->addr;
 }
 
-mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr, bool prefetch) 
+mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr, size_t size,  bool prefetch) 
 {
    while (node->size != MIN_PREFETCH_SIZE) {
        if (prefetch) {
            if (node->valid_size != node->size) {
-               node->valid_size += MIN_PREFETCH_SIZE;
+               node->valid_size += size;
            }
        } else {
            if ( node->valid_size != 0 ) {
-               node->valid_size -= MIN_PREFETCH_SIZE;
+               node->valid_size -= size;
            }
        }
 
@@ -2425,11 +2426,11 @@ mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr
 
    if (prefetch) {
        if (node->valid_size != node->size) {
-           node->valid_size += MIN_PREFETCH_SIZE;
+           node->valid_size += size;
        }
    } else {
        if ( node->valid_size != 0 ) {
-           node->valid_size -= MIN_PREFETCH_SIZE;
+           node->valid_size -= size;
        }
    }
 
@@ -3040,6 +3041,10 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
                 std::list<mem_addr_t> temp_pages;
                 temp_pages.push_back(it->first);
 
+                mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(it->first);
+                struct lp_tree_node* root = get_lp_node(page_addr);
+                update_basic_block(root, page_addr, m_config.page_size, true);
+
                 all_transfer_all_page.push_back(temp_pages);
                 all_transfer_faulty_pages.push_back(temp_pages);
 
@@ -3062,6 +3067,10 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
 			page_fault_this_turn.find(prefetch_addr) == page_fault_this_turn.end() &&
 			temp_req_info.find(prefetch_page_num) == temp_req_info.end() &&
 			req_info.find(prefetch_page_num) == req_info.end() ) {
+
+                        mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(prefetch_page_num);
+                        struct lp_tree_node* root = get_lp_node(page_addr);
+                        update_basic_block(root, page_addr, m_config.page_size, true);
 
 			all_transfer_all_page.back().push_back( prefetch_page_num );
 
@@ -3092,7 +3101,7 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
 
                     struct lp_tree_node* root = get_lp_node(page_addr);
 
-                    mem_addr_t bb_addr = update_basic_block(root, page_addr, true);
+                    mem_addr_t bb_addr = update_basic_block(root, page_addr, MIN_PREFETCH_SIZE, true);
 
                     schedulable_basic_blocks.insert(bb_addr);
 
