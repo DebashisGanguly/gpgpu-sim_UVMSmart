@@ -3051,9 +3051,9 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
                 temp_req_info[it->first];
 
 		if( prefetcher == hwardware_prefetcher::RANDOM ) {
-		    size_t random_size = ( rand() % (total_allocation_size / m_config.page_size) ) * m_config.page_size;
-
                     struct lp_tree_node* root = get_lp_node(m_gpu->get_global_memory()->get_mem_addr(it->first));
+
+		    size_t random_size = ( rand() % (root->size / m_config.page_size) ) * m_config.page_size;
 
 		    if ( random_size > root->size ) {
                         random_size -= root->size;
