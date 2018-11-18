@@ -479,23 +479,20 @@ __host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, uns
 
         CUctx_st* context = GPGPUSim_Context();
 
-        if ( context->get_device()->get_gpgpu()->get_config().hardware_prefetch ) {
+        size_t num_large_pages = (size_t)(size / MAX_PREFETCH_SIZE);
 
-            size_t num_large_pages = (size_t)(size / MAX_PREFETCH_SIZE);
+        size_t remainder = size - (num_large_pages * MAX_PREFETCH_SIZE);
 
-            size_t remainder = size - (num_large_pages * MAX_PREFETCH_SIZE);
+        size_t corrected_remainder;
 
-            size_t corrected_remainder;
+	if( remainder==0 )
+	    corrected_remainder = 0;
+	else {
+            for (corrected_remainder = MIN_PREFETCH_SIZE; corrected_remainder < remainder; corrected_remainder *= 2)
+		 ;
+	}
 
-	    if( remainder==0 )
-	        corrected_remainder = 0;
-	    else {
-                for (corrected_remainder = MIN_PREFETCH_SIZE; corrected_remainder < remainder; corrected_remainder *= 2)
-		     ;
-	    }
-
-            size = (num_large_pages * MAX_PREFETCH_SIZE) + corrected_remainder;
-        }
+        size = (num_large_pages * MAX_PREFETCH_SIZE) + corrected_remainder;
 	
 	//create a piece of memory for cpu side so that cpu side initialization code doesn't get SIGSEGV
 	void *cpuMemPtr = (void *)malloc(size);
