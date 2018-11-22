@@ -2156,7 +2156,7 @@ void gmmu_t::page_eviction_procedure()
 
     std::list<std::pair<mem_addr_t, size_t> > evicted_pages;
 
-    int eviction_start = (int) (valid_pages.size() * m_config.reserve_accessed_page_percent);
+    int eviction_start = (int) (valid_pages.size() * m_config.reserve_accessed_page_percent / 100);
 
     if ( evict_policy == eviction_policy::LRU || m_config.page_size == MAX_PREFETCH_SIZE ) {
         // in lru, only evict the least recently used pages at the front of accessed pages queue
@@ -2177,7 +2177,7 @@ void gmmu_t::page_eviction_procedure()
     } else if ( evict_policy == eviction_policy::RANDOM ) {
         // in random eviction, select a random page
 	list<mem_addr_t>::iterator iter = valid_pages.begin();
-        std::advance( iter, eviction_start + (rand() % (int)(valid_pages.size() * (1 - m_config.reserve_accessed_page_percent))) );
+        std::advance( iter, eviction_start + (rand() % (int)(valid_pages.size() * (1 - m_config.reserve_accessed_page_percent / 100))) );
 
         while ( iter != valid_pages.end() && !is_basic_block_evictable( m_gpu->get_global_memory()->get_mem_addr(*iter), m_config.page_size) && !m_gpu->get_global_memory()->is_page_access(*iter) ) {
             iter++;
