@@ -1535,28 +1535,40 @@ bool ldst_unit::texture_cycle( warp_inst_t &inst, mem_stage_stall_type &rc_fail,
    return inst.accessq_empty(); //done if empty.
 }
 
-
-void ldst_unit::insert_into_tlb(mem_addr_t page_num) 
+bool ldst_unit::is_in_tlb (mem_addr_t page_num)
 {
-    const std::list<mem_addr_t> &valid_pages = m_gpu->getGmmu()->get_valid_pages();
+    return std::find(tlb.begin(), tlb.end(), page_num) != tlb.end();
+}
 
-   
-    if( tlb.find(page_num) == tlb.end() ) {
-	m_new_stats->tlb_val[m_sid]++;
-	m_new_stats->tlb_thrashing[m_sid][page_num].push_back(true);
-    } 
-    
-    if ( tlb.find(page_num) == tlb.end() && tlb.size() == m_core_config->tlb_size ) {
-        for (std::list<mem_addr_t>::const_iterator iter = valid_pages.begin(); iter != valid_pages.end(); iter++ ) {
-             if ( tlb.erase(*iter) == 1 ) {
-		 m_new_stats->tlb_evict[m_sid]++;
-		 m_new_stats->tlb_thrashing[m_sid][*iter].push_back(false); 
-                 break;
-             } 
-        }
+bool ldst_unit::remove_tlb_entry (mem_addr_t page_num)
+{
+    if ( is_in_tlb(page_num) ) {
+        tlb.remove(page_num);
+        return true;
     }
 
-    tlb.insert(page_num);
+    return false;
+}
+
+void ldst_unit::refresh_tlb(mem_addr_t page_num) 
+{
+    if( !is_in_tlb(page_num) ) {
+	m_new_stats->tlb_val[m_sid]++;
+	m_new_stats->tlb_thrashing[m_sid][page_num].push_back(true);
+    
+        if ( tlb.size() == m_core_config->tlb_size ) {
+            mem_addr_t oldest = tlb.front();
+
+            m_new_stats->tlb_evict[m_sid]++;
+            m_new_stats->tlb_thrashing[m_sid][oldest].push_back(false); 
+
+            tlb.pop_front();
+        }
+    } else {
+        remove_tlb_entry(page_num);
+    }
+
+    tlb.push_back(page_num);
 }
 
 bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_reason, mem_stage_access_type &access_type)                                                
@@ -1582,7 +1594,7 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
                                                    inst.accessq_front().get_size() 
                                                   ) ) {
 
-           if(tlb.find(page_no) != tlb.end()) {
+           if(is_in_tlb(page_no)) {
               m_new_stats->tlb_hit[m_sid]++;
            } else {
              m_new_stats->tlb_miss[m_sid]++;                                                                                                                                                         
@@ -1609,13 +1621,22 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
   m_gpu->getGmmu()->reserve_pages_insert(inst.accessq_front().get_addr(), inst.accessq_front().get_uid());
 
   // check if the page corresponding to memory access is there in TLB or not
-  if ( tlb.find(page_no) != tlb.end() ) {
+  if ( is_in_tlb( page_no ) ) {
       // on tlb hit, check whether the page is in pci-e write stage queue
       // if so, then evict another page instead
       m_gpu->getGmmu()->check_write_stage_queue( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()), true );
 
       // on tlb hit, refresh the LRU page list
-      m_gpu->getGmmu()->page_refresh( m_gpu->get_global_memory()->get_page_num(inst.accessq_front().get_addr()), inst.accessq_front().get_type() == GLOBAL_ACC_W ? true : false );
+      m_gpu->get_global_memory()->set_page_access(page_no); 
+
+      // on write (store) set the dirty flag 
+      if ( inst.accessq_front().get_type() == GLOBAL_ACC_W ) { 
+          m_gpu->get_global_memory()->set_page_dirty(page_no); 
+      }
+
+      refresh_tlb(page_no);
+
+      m_gpu->getGmmu()->refresh_lru_list(inst.accessq_front().get_addr());
 
       return true;
   } else {
@@ -1746,9 +1767,17 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
 
        if (stall_cond == NO_RC_FAIL) {
            // the page is coming out of upward queue and so ready to be accessed, refresh the LRU page list
-           m_gpu->getGmmu()->page_refresh( m_gpu->get_global_memory()->get_page_num(mf->get_addr()), mf->get_mem_access().get_type() == GLOBAL_ACC_W ? true : false );
+           mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num(mf->get_addr());
+           m_gpu->get_global_memory()->set_page_access(page_num);
 
-           insert_into_tlb(m_gpu->get_global_memory()->get_page_num(mf->get_mem_access().get_addr()));
+           // on write (store) set the dirty flag 
+           if ( mf->get_mem_access().get_type() == GLOBAL_ACC_W ) {
+               m_gpu->get_global_memory()->set_page_dirty(page_num);
+           }
+
+           m_gpu->getGmmu()->refresh_lru_list(mf->get_addr());
+
+           refresh_tlb(page_num);
        } else {
            mem_stage_access_type type = inst.accessq_front().get_type() == GLOBAL_ACC_W ? G_MEM_ST : G_MEM_LD;
            m_stats->gpgpu_n_stall_shd_mem++;
@@ -2003,11 +2032,11 @@ ldst_unit::ldst_unit( gpgpu_sim *gpu,
           tpc );
 }
 
-void ldst_unit::invalidate_tlb(mem_addr_t addr) 
+void ldst_unit::invalidate_tlb(mem_addr_t page_num) 
 {
-    if ( tlb.erase(addr) == 1 ) {                                  
+    if ( remove_tlb_entry(page_num) ) {
          m_new_stats->tlb_page_evict[m_sid]++;
-	 m_new_stats->tlb_thrashing[m_sid][addr].push_back(false);
+	 m_new_stats->tlb_thrashing[m_sid][page_num].push_back(false);
     }                                                                                                                                         
 } 
 

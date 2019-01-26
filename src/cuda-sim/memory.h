@@ -48,6 +48,12 @@
 
 typedef address_type mem_addr_t;
 
+typedef struct _lru_t {
+    mem_addr_t addr;
+    size_t size;
+    unsigned long long cycle;
+} lru_t;
+
 #define MEM_BLOCK_SIZE (4*1024)
 
 template<unsigned BSIZE> class mem_storage {

@@ -1247,9 +1247,11 @@ protected:
    std::list<mem_fetch*> m_cu_gmmu_queue;
 
    // set of virtual addresses present in TLB
-   std::set<mem_addr_t> tlb;
+   std::list<mem_addr_t> tlb;
 
-   void insert_into_tlb (mem_addr_t page_num);
+   bool remove_tlb_entry (mem_addr_t page_num);
+   bool is_in_tlb (mem_addr_t page_num);
+   void refresh_tlb (mem_addr_t page_num);
 };
 
 enum pipeline_stage_name_t {

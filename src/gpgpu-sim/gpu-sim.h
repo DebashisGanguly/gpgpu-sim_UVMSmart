@@ -606,11 +606,11 @@ public:
    void register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb);
    void tlb_flush(mem_addr_t page_num);
    void page_eviction_procedure();
-   bool is_basic_block_evictable(mem_addr_t bb_addr, size_t size);
+   bool is_block_evictable(mem_addr_t bb_addr, size_t size);
 
    // add a new accessed page or refresh the position of the page in the LRU page list
    // being called on detecting tlb hit or when memory fetch comes back from the upward (gmmu to cu) queue
-   void page_refresh(mem_addr_t page_num, bool write);
+   void refresh_lru_list(mem_addr_t page_addr);
 
    // check whether the page to be accessed is already in pci-e write stage queue
    // being called on tlb hit or on tlb miss but no page fault
@@ -618,7 +618,7 @@ public:
 
    // get list of valid pages 
    // used by Load/Store Unit for LRU TLB replacement
-   const std::list<mem_addr_t>& get_valid_pages() { return valid_pages; }
+   const std::list<lru_t *>& get_valid_pages() { return valid_pages; }
 
    void valid_pages_erase(mem_addr_t pagenum);
    void valid_pages_clear();
@@ -630,6 +630,7 @@ public:
    void reset_large_page_info(struct lp_tree_node* node);
    void reset_lp_tree_node(struct lp_tree_node* node);
    struct lp_tree_node* get_lp_node(mem_addr_t addr);
+   void evict_whole_tree(struct lp_tree_node *root);
    mem_addr_t update_basic_block(struct lp_tree_node *root, mem_addr_t addr, size_t size, bool prefetch);
    mem_addr_t get_basic_block(struct lp_tree_node *root, mem_addr_t addr);
 
@@ -658,6 +659,9 @@ public:
    void update_hardware_prefetcher_oversubscribed();
 
    void reset_large_page_info();
+
+   mem_addr_t get_eviction_base_addr(mem_addr_t page_addr);
+   size_t get_eviction_granularity(mem_addr_t page_addr);
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -708,7 +712,7 @@ private:
     std::list<std::function<void(mem_addr_t)> > callback_tlb_flush;
 
     // list of valid pages (valid = 1, accessed = 1/0, dirty = 1/0) ordered as LRU
-    std::list<mem_addr_t> valid_pages;
+    std::list<lru_t *> valid_pages;
 
     // page eviction policy
     enum class eviction_policy { LRU, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM }; 

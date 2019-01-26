@@ -2077,17 +2077,6 @@ bool gmmu_t::pcie_transfers_completed()
     return pcie_write_stage_queue.empty() && pcie_write_latency_queue == NULL && pcie_read_stage_queue.empty() && pcie_read_latency_queue == NULL;
 }
 
-void gmmu_t::valid_pages_erase(mem_addr_t page_num)
-{
-    assert( find( valid_pages.begin(), valid_pages.end(), page_num ) != valid_pages.end());
-    valid_pages.erase( find( valid_pages.begin(), valid_pages.end(), page_num ) );
-}
-
-void gmmu_t::valid_pages_clear()
-{
-    valid_pages.clear();
-}
-
 void gmmu_t::register_tlbflush_callback(std::function<void(mem_addr_t)> cb_tlb)
 {
     callback_tlb_flush.push_back(cb_tlb);
@@ -2109,14 +2098,16 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num, bool refresh)
         if ( std::find((*iter)->page_list.begin(), (*iter)->page_list.end(), page_num ) != (*iter)->page_list.end() ) {
             // on tlb hit refresh position of pages in the valid page list
             for ( std::list<mem_addr_t>::iterator pg_iter = (*iter)->page_list.begin(); pg_iter != (*iter)->page_list.end(); pg_iter++ ) {
-                if ( refresh ) {
-                    page_refresh( *pg_iter, true );
-                }
+                m_gpu->get_global_memory()->set_page_access(*pg_iter);
+
+                m_gpu->get_global_memory()->set_page_dirty(*pg_iter);
 
                 // reclaim valid size in large page tree for unique basic blocks corresponding to all pages
                 mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(*pg_iter);
                 struct lp_tree_node* root = get_lp_node(page_addr);
                 update_basic_block(root, page_addr, m_config.page_size, true);
+
+                refresh_lru_list(page_addr);
             }
 
 	    pcie_write_stage_queue.erase( iter );
@@ -2126,9 +2117,9 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num, bool refresh)
 }
 
 // check if the block is already scheduled for eviction or is not valid at all
-bool gmmu_t::is_basic_block_evictable(mem_addr_t bb_addr, size_t size)
+bool gmmu_t::is_block_evictable(mem_addr_t addr, size_t size)
 {
-    for ( mem_addr_t start = bb_addr; start != bb_addr + size; start += m_config.page_size ) {
+    for ( mem_addr_t start = addr; start != addr + size; start += m_config.page_size ) {
 	if( !m_gpu->get_global_memory()->is_valid( m_gpu->get_global_memory()->get_page_num(start)) ) {
 	    return false;
 	}
@@ -2136,12 +2127,12 @@ bool gmmu_t::is_basic_block_evictable(mem_addr_t bb_addr, size_t size)
 
     for ( std::list<pcie_latency_t*>::iterator iter = pcie_write_stage_queue.begin();
           iter != pcie_write_stage_queue.end(); iter++ ) {
-        if ( (bb_addr >= (*iter)->start_addr) && (bb_addr < (*iter)->start_addr + (*iter)->size) ) {
+        if ( (addr >= (*iter)->start_addr) && (addr < (*iter)->start_addr + (*iter)->size) ) {
             return false;
         }
     }
 
-    for ( mem_addr_t start = bb_addr; start != bb_addr + size; start += m_config.page_size ) {
+    for ( mem_addr_t start = addr; start != addr + size; start += m_config.page_size ) {
 	if( !reserve_pages_check(start) ) {
 	    return false;
 	}
@@ -2160,39 +2151,39 @@ void gmmu_t::page_eviction_procedure()
 
     if ( evict_policy == eviction_policy::LRU || m_config.page_size == MAX_PREFETCH_SIZE ) {
         // in lru, only evict the least recently used pages at the front of accessed pages queue
-        list<mem_addr_t>::iterator iter = valid_pages.begin();
+        std::list<lru_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
-        while ( iter != valid_pages.end() && !is_basic_block_evictable( m_gpu->get_global_memory()->get_mem_addr(*iter), m_config.page_size) && !m_gpu->get_global_memory()->is_page_access(*iter) ) {
+        while ( iter != valid_pages.end() && !is_block_evictable( (*iter)->addr, (*iter)->size) ) {
             iter++;
         }
 
         if ( iter != valid_pages.end() ) {
-            mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
+            mem_addr_t page_addr = (*iter)->addr;
             struct lp_tree_node *root = get_lp_node(page_addr);
-            update_basic_block(root, page_addr, m_config.page_size, false);
+            evict_whole_tree(root);
 
-            evicted_pages.push_back( std::make_pair( page_addr, m_config.page_size) );
+            evicted_pages.push_back( std::make_pair( root->addr, root->size) );
         }
     } else if ( evict_policy == eviction_policy::RANDOM ) {
         // in random eviction, select a random page
-	list<mem_addr_t>::iterator iter = valid_pages.begin();
+	std::list<lru_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start + (rand() % (int)(valid_pages.size() * (1 - m_config.reserve_accessed_page_percent / 100))) );
 
-        while ( iter != valid_pages.end() && !is_basic_block_evictable( m_gpu->get_global_memory()->get_mem_addr(*iter), m_config.page_size) && !m_gpu->get_global_memory()->is_page_access(*iter) ) {
+        while ( iter != valid_pages.end() && !is_block_evictable( (*iter)->addr, (*iter)->size) ) {
             iter++;
         }
 
         if ( iter != valid_pages.end() ) {
-            mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
+            mem_addr_t page_addr = (*iter)->addr;
             struct lp_tree_node *root = get_lp_node(page_addr);
-            update_basic_block(root, page_addr, m_config.page_size, false);
+            evict_whole_tree(root);
 
-            evicted_pages.push_back( std::make_pair( page_addr, m_config.page_size) );
+            evicted_pages.push_back( std::make_pair( root->addr, root->size) );
         }
     } else if ( evict_policy == eviction_policy::SEQUENTIAL_LOCAL ) {
         // we evict sixteen 4KB pages in the 2 MB allocation where this evictable belong to
-        list<mem_addr_t>::iterator iter = valid_pages.begin();
+        std::list<lru_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
         struct lp_tree_node *root;
@@ -2200,13 +2191,13 @@ void gmmu_t::page_eviction_procedure()
         mem_addr_t bb_addr;
 
         for ( ; iter != valid_pages.end(); iter++ ) {
-            page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
+            page_addr = (*iter)->addr;
 
             root = get_lp_node(page_addr);
 
             bb_addr = get_basic_block(root, page_addr);
 
-            if ( is_basic_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
+            if ( is_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
                 update_basic_block(root, page_addr, MIN_PREFETCH_SIZE, false);
                 break;
             }
@@ -2217,7 +2208,7 @@ void gmmu_t::page_eviction_procedure()
         }
     } else if ( evict_policy == eviction_policy::SPATIO_TEMPORAL ) {
         // we evict multiple 64KB pages in the 2 MB allocation where this evictable belong
-        list<mem_addr_t>::iterator iter = valid_pages.begin();
+        std::list<lru_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
         // find all basic blocks which are not staged/scheduled for write back or not invalid or not in ld/st unit
@@ -2228,13 +2219,13 @@ void gmmu_t::page_eviction_procedure()
         mem_addr_t bb_addr;
 
         for ( ; iter != valid_pages.end(); iter++ ) {
-            page_addr = m_gpu->get_global_memory()->get_mem_addr(*iter);
+            page_addr = (*iter)->addr;
 
             root = get_lp_node(page_addr);
 
             bb_addr = get_basic_block(root, page_addr);
 
-            if ( is_basic_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
+            if ( is_block_evictable(bb_addr, MIN_PREFETCH_SIZE) ) {
                 update_basic_block(root, page_addr, MIN_PREFETCH_SIZE, false);
                 break;
             }
@@ -2276,18 +2267,14 @@ void gmmu_t::page_eviction_procedure()
 
             p_t->page_list.push_back( page_num );
 
-            if ( find( valid_pages.begin(), valid_pages.end(), page_num ) != valid_pages.end() ) {
-                valid_pages.erase ( find( valid_pages.begin(), valid_pages.end(), page_num ) );
-            }
+            valid_pages_erase(page_num);
         } else {
             mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num(iter->first);
 
             for (int i = 0; i < (int)(iter->second / m_config.page_size); i++) {
                 p_t->page_list.push_back( page_num + i );
 
-                if ( find( valid_pages.begin(), valid_pages.end(), (page_num + i) ) != valid_pages.end() ) {
-	            valid_pages.erase ( find( valid_pages.begin(), valid_pages.end(), (page_num + i) ) ); 
-                }
+                valid_pages_erase(page_num + i);
             }
         }
 
@@ -2295,21 +2282,42 @@ void gmmu_t::page_eviction_procedure()
     }
 }
 
-void gmmu_t::page_refresh(mem_addr_t page_num, bool write)
+void gmmu_t::valid_pages_erase(mem_addr_t page_num)
 {
-    m_gpu->get_global_memory()->set_page_access(page_num);
+    mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
+    for (std::list<lru_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
+        if ((*it)->addr <= page_addr && page_addr < (*it)->addr + (*it)->size) {
+            valid_pages.erase(it);
+            break;
+	}
+    }
+}
 
-    // on write (store) set the dirty flag
-    if ( write ) {
-	m_gpu->get_global_memory()->set_page_dirty(page_num);
-    } 
-   
-    // push the page and the end of the accessed page list to implement LRU
-    if( find( valid_pages.begin(), valid_pages.end(), page_num ) != valid_pages.end() ){
-	valid_pages.erase ( find( valid_pages.begin(), valid_pages.end(), page_num ) );
+void gmmu_t::valid_pages_clear()
+{
+    valid_pages.clear();
+}
+
+void gmmu_t::refresh_lru_list(mem_addr_t page_addr) 
+{
+    bool valid = false;
+    for (std::list<lru_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
+        if ((*it)->addr <= page_addr && page_addr < (*it)->addr + (*it)->size) {
+	    (*it)->cycle = gpu_tot_sim_cycle+gpu_sim_cycle;
+            valid = true;
+            break;
+	}
     }
 
-    valid_pages.push_back(page_num);	
+    if (!valid) {
+        lru_t *item = new lru_t();
+	item->addr = get_eviction_base_addr(page_addr);
+	item->size = get_eviction_granularity(page_addr);
+	item->cycle = gpu_tot_sim_cycle+gpu_sim_cycle;
+	valid_pages.push_back(item);
+    }
+
+    valid_pages.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
 }
 
 unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
@@ -2404,6 +2412,15 @@ mem_addr_t gmmu_t::get_basic_block(struct lp_tree_node *node, mem_addr_t addr)
    return node->addr;
 }
 
+void gmmu_t::evict_whole_tree(struct lp_tree_node *node)
+{
+    if (node != NULL) {
+        node->valid_size = 0;
+        evict_whole_tree(node->left);
+        evict_whole_tree(node->right);
+    }
+}
+
 mem_addr_t gmmu_t::update_basic_block(struct lp_tree_node *node, mem_addr_t addr, size_t size,  bool prefetch) 
 {
    while (node->size != MIN_PREFETCH_SIZE) {
@@ -2454,7 +2471,7 @@ void gmmu_t::fill_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& sched
 void gmmu_t::remove_lp_tree(struct lp_tree_node* node, std::set<mem_addr_t>& scheduled_basic_blocks) 
 {
 	if (node->size == MIN_PREFETCH_SIZE) {
-		if (node->valid_size == MIN_PREFETCH_SIZE && is_basic_block_evictable(node->addr, MIN_PREFETCH_SIZE)) {
+		if (node->valid_size == MIN_PREFETCH_SIZE && is_block_evictable(node->addr, MIN_PREFETCH_SIZE)) {
 			node->valid_size = 0;
 			scheduled_basic_blocks.insert(node->addr);
 		}
@@ -2556,6 +2573,36 @@ void gmmu_t::reset_large_page_info()
      over_sub = false;
 }
 
+mem_addr_t gmmu_t::get_eviction_base_addr(mem_addr_t page_addr)
+{
+    mem_addr_t lru_addr;
+
+    struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(page_addr);
+
+    if (evict_policy == eviction_policy::SPATIO_TEMPORAL || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
+        lru_addr = m_gpu->getGmmu()->get_basic_block(root, page_addr);
+    } else {
+        lru_addr = root->addr;
+    }
+
+    return lru_addr;
+}
+
+size_t gmmu_t::get_eviction_granularity(mem_addr_t page_addr)
+{
+    size_t lru_size;
+
+    struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(page_addr);
+
+    if (evict_policy == eviction_policy::SPATIO_TEMPORAL || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
+        lru_size = MIN_PREFETCH_SIZE;
+    } else {
+        lru_size = root->size;
+    }
+    
+    return lru_size;
+}
+
 void gmmu_t::cycle()
 {
     int simt_cluster_id = 0;
@@ -2647,14 +2694,14 @@ void gmmu_t::cycle()
     if ( pcie_read_latency_queue != NULL && (gpu_sim_cycle+gpu_tot_sim_cycle) >= pcie_read_latency_queue->ready_cycle) {
 
 	if(pcie_read_latency_queue->type == latency_type::PCIE_READ) {
-           
+
            for (std::list<mem_addr_t>::iterator iter = pcie_read_latency_queue->page_list.begin();
                 iter != pcie_read_latency_queue->page_list.end(); iter++) {
                 // validate the page in page table
                 m_gpu->get_global_memory()->validate_page(*iter);
 
                 // add to the valid pages list
-                valid_pages.push_back(*iter);
+                refresh_lru_list(m_gpu->get_global_memory()->get_mem_addr(*iter));
 
                 m_new_stats->page_thrashing[*iter].push_back(true);
 
@@ -2734,6 +2781,7 @@ void gmmu_t::cycle()
 
     // schedule a transfer if there is a pending item in staging queue and 
     // nothing is being served at the read latency queue and we have available free pages
+
     if ( !pcie_read_stage_queue.empty() && pcie_read_latency_queue == NULL  && m_gpu->get_global_memory()->get_free_pages() >= pcie_read_stage_queue.front()->page_list.size()) {
 
 	std::list<pcie_latency_t*>::const_iterator iter = pcie_read_stage_queue.begin();
@@ -2860,7 +2908,7 @@ void gmmu_t::cycle()
 			 } else if( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_R) {
 			     m_new_stats->rdma_page_transfer_read++;
 			 }
-        
+
 			 page_fault_this_turn[page_list.front()].push_back(mf);
 		     }
 	         }
