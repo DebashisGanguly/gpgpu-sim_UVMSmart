@@ -52,6 +52,7 @@ typedef struct _lru_t {
     mem_addr_t addr;
     size_t size;
     unsigned long long cycle;
+    unsigned long long access_counter;
 } lru_t;
 
 #define MEM_BLOCK_SIZE (4*1024)

@@ -610,15 +610,11 @@ public:
 
    // add a new accessed page or refresh the position of the page in the LRU page list
    // being called on detecting tlb hit or when memory fetch comes back from the upward (gmmu to cu) queue
-   void refresh_lru_list(mem_addr_t page_addr);
+   void refresh_valid_pages(mem_addr_t page_addr);
 
    // check whether the page to be accessed is already in pci-e write stage queue
    // being called on tlb hit or on tlb miss but no page fault
    void check_write_stage_queue(mem_addr_t page_num, bool refresh);
-
-   // get list of valid pages 
-   // used by Load/Store Unit for LRU TLB replacement
-   const std::list<lru_t *>& get_valid_pages() { return valid_pages; }
 
    void valid_pages_erase(mem_addr_t pagenum);
    void valid_pages_clear();
@@ -715,13 +711,13 @@ private:
     std::list<lru_t *> valid_pages;
 
     // page eviction policy
-    enum class eviction_policy { LRU, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM }; 
+    enum class eviction_policy { LRU, TBN, SEQUENTIAL_LOCAL, RANDOM, LFU }; 
 
     // types of hardware prefetcher
-    enum class hwardware_prefetcher { DISBALED, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM }; 
+    enum class hwardware_prefetcher { DISBALED, TBN, SEQUENTIAL_LOCAL, RANDOM }; 
 
     // types of hardware prefetcher under over-subscription
-    enum class hwardware_prefetcher_oversub { DISBALED, SPATIO_TEMPORAL, SEQUENTIAL_LOCAL, RANDOM };
+    enum class hwardware_prefetcher_oversub { DISBALED, TBN, SEQUENTIAL_LOCAL, RANDOM };
 
     eviction_policy evict_policy;    
     hwardware_prefetcher prefetcher;

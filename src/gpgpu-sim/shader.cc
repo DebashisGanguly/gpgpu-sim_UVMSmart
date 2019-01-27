@@ -1636,7 +1636,7 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
 
       refresh_tlb(page_no);
 
-      m_gpu->getGmmu()->refresh_lru_list(inst.accessq_front().get_addr());
+      m_gpu->getGmmu()->refresh_valid_pages(inst.accessq_front().get_addr());
 
       return true;
   } else {
@@ -1775,7 +1775,7 @@ bool ldst_unit::memory_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
                m_gpu->get_global_memory()->set_page_dirty(page_num);
            }
 
-           m_gpu->getGmmu()->refresh_lru_list(mf->get_addr());
+           m_gpu->getGmmu()->refresh_valid_pages(mf->get_addr());
 
            refresh_tlb(page_num);
        } else {

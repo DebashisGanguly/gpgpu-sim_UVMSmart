@@ -1938,11 +1938,13 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
     if( m_config.eviction_policy == 0 ) {
        evict_policy = eviction_policy::LRU; 
     } else if (	m_config.eviction_policy == 1 ) {
-       evict_policy = eviction_policy::SPATIO_TEMPORAL;
+       evict_policy = eviction_policy::TBN;
     } else if ( m_config.eviction_policy == 2 ) {
        evict_policy = eviction_policy::SEQUENTIAL_LOCAL;
     } else if ( m_config.eviction_policy == 3 ) {
        evict_policy = eviction_policy::RANDOM;
+    } else if ( m_config.eviction_policy == 4 ) {
+       evict_policy = eviction_policy::LFU;
     } else {
         printf("Unknown eviction policy"); 
         exit(1);
@@ -1951,7 +1953,7 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
     if ( m_config.hardware_prefetch == 0 ) {
         prefetcher = hwardware_prefetcher::DISBALED;
     } else if ( m_config.hardware_prefetch == 1 ) {
-        prefetcher = hwardware_prefetcher::SPATIO_TEMPORAL;
+        prefetcher = hwardware_prefetcher::TBN;
     } else if ( m_config.hardware_prefetch == 2 ) {
         prefetcher = hwardware_prefetcher::SEQUENTIAL_LOCAL;
     } else if ( m_config.hardware_prefetch == 3 ) {
@@ -1964,7 +1966,7 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
     if ( m_config.hwprefetch_oversub == 0 ) {
         oversub_prefetcher = hwardware_prefetcher_oversub::DISBALED;
     } else if ( m_config.hwprefetch_oversub == 1 ) {
-        oversub_prefetcher = hwardware_prefetcher_oversub::SPATIO_TEMPORAL;
+        oversub_prefetcher = hwardware_prefetcher_oversub::TBN;
     } else if ( m_config.hwprefetch_oversub == 2 ) {
         oversub_prefetcher = hwardware_prefetcher_oversub::SEQUENTIAL_LOCAL;
     } else if ( m_config.hwprefetch_oversub == 3 ) {
@@ -2107,7 +2109,7 @@ void gmmu_t::check_write_stage_queue(mem_addr_t page_num, bool refresh)
                 struct lp_tree_node* root = get_lp_node(page_addr);
                 update_basic_block(root, page_addr, m_config.page_size, true);
 
-                refresh_lru_list(page_addr);
+                refresh_valid_pages(page_addr);
             }
 
 	    pcie_write_stage_queue.erase( iter );
@@ -2149,8 +2151,9 @@ void gmmu_t::page_eviction_procedure()
 
     int eviction_start = (int) (valid_pages.size() * m_config.reserve_accessed_page_percent / 100);
 
-    if ( evict_policy == eviction_policy::LRU || m_config.page_size == MAX_PREFETCH_SIZE ) {
+    if ( evict_policy == eviction_policy::LRU || evict_policy == eviction_policy::LFU || m_config.page_size == MAX_PREFETCH_SIZE ) {
         // in lru, only evict the least recently used pages at the front of accessed pages queue
+        // in lfu, only evict the page accessed least number of times from the front of accessed pages queue
         std::list<lru_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
@@ -2206,7 +2209,7 @@ void gmmu_t::page_eviction_procedure()
         if ( iter != valid_pages.end() ) {
             evicted_pages.push_back( std::make_pair( bb_addr, MIN_PREFETCH_SIZE ) );
         }
-    } else if ( evict_policy == eviction_policy::SPATIO_TEMPORAL ) {
+    } else if ( evict_policy == eviction_policy::TBN ) {
         // we evict multiple 64KB pages in the 2 MB allocation where this evictable belong
         std::list<lru_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
@@ -2298,12 +2301,13 @@ void gmmu_t::valid_pages_clear()
     valid_pages.clear();
 }
 
-void gmmu_t::refresh_lru_list(mem_addr_t page_addr) 
+void gmmu_t::refresh_valid_pages(mem_addr_t page_addr) 
 {
     bool valid = false;
     for (std::list<lru_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
         if ((*it)->addr <= page_addr && page_addr < (*it)->addr + (*it)->size) {
 	    (*it)->cycle = gpu_tot_sim_cycle+gpu_sim_cycle;
+            (*it)->access_counter++;
             valid = true;
             break;
 	}
@@ -2314,10 +2318,16 @@ void gmmu_t::refresh_lru_list(mem_addr_t page_addr)
 	item->addr = get_eviction_base_addr(page_addr);
 	item->size = get_eviction_granularity(page_addr);
 	item->cycle = gpu_tot_sim_cycle+gpu_sim_cycle;
+        item->access_counter = 1;
 	valid_pages.push_back(item);
     }
 
-    valid_pages.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
+    if (evict_policy == eviction_policy::LFU) {
+        valid_pages.sort([](const lru_t* i, const lru_t* j) { 
+                            return (i->access_counter < j->access_counter) || ((i->access_counter == j->access_counter) && (i->cycle < j->cycle)); });
+    } else { 
+        valid_pages.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
+    }
 }
 
 unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
@@ -2545,8 +2555,8 @@ void gmmu_t::update_hardware_prefetcher_oversubscribed()
 {
     if ( oversub_prefetcher == hwardware_prefetcher_oversub::DISBALED ) {
         prefetcher = hwardware_prefetcher::DISBALED;
-    } else if ( oversub_prefetcher == hwardware_prefetcher_oversub::SPATIO_TEMPORAL ) {
-        prefetcher = hwardware_prefetcher::SPATIO_TEMPORAL;
+    } else if ( oversub_prefetcher == hwardware_prefetcher_oversub::TBN ) {
+        prefetcher = hwardware_prefetcher::TBN;
     } else if ( oversub_prefetcher == hwardware_prefetcher_oversub::SEQUENTIAL_LOCAL ) {
         prefetcher = hwardware_prefetcher::SEQUENTIAL_LOCAL;
     } else if ( oversub_prefetcher == hwardware_prefetcher_oversub::RANDOM ) {
@@ -2579,7 +2589,7 @@ mem_addr_t gmmu_t::get_eviction_base_addr(mem_addr_t page_addr)
 
     struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(page_addr);
 
-    if (evict_policy == eviction_policy::SPATIO_TEMPORAL || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
+    if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
         lru_addr = m_gpu->getGmmu()->get_basic_block(root, page_addr);
     } else {
         lru_addr = root->addr;
@@ -2594,7 +2604,7 @@ size_t gmmu_t::get_eviction_granularity(mem_addr_t page_addr)
 
     struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(page_addr);
 
-    if (evict_policy == eviction_policy::SPATIO_TEMPORAL || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
+    if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
         lru_size = MIN_PREFETCH_SIZE;
     } else {
         lru_size = root->size;
@@ -2701,7 +2711,7 @@ void gmmu_t::cycle()
                 m_gpu->get_global_memory()->validate_page(*iter);
 
                 // add to the valid pages list
-                refresh_lru_list(m_gpu->get_global_memory()->get_mem_addr(*iter));
+                refresh_valid_pages(m_gpu->get_global_memory()->get_mem_addr(*iter));
 
                 m_new_stats->page_thrashing[*iter].push_back(true);
 
@@ -3156,7 +3166,7 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
                     cur_transfer_faulty_pages.push_back(m_gpu->get_global_memory()->get_page_num(page_addr));
                 }
 
-                if ( prefetcher == hwardware_prefetcher::SPATIO_TEMPORAL ) {
+                if ( prefetcher == hwardware_prefetcher::TBN ) {
                     for (std::list<struct lp_tree_node*>::iterator root = large_page_info.begin(); root != large_page_info.end(); root++) {
                         traverse_and_fill_lp_tree(*root, schedulable_basic_blocks);
                     }
