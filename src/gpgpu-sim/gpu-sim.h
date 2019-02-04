@@ -374,7 +374,6 @@ private:
     float curve_a;
     float curve_b;
 
-    bool enable_nvlink;
     bool enable_rdma;
     unsigned migrate_threshold;
 public:

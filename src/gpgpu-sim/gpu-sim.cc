@@ -577,9 +577,6 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "PCI-e bandwidth per direction, in GB/s.",
                "16.0GB/s");
 
-    option_parser_register(opp, "-enable_nvlink", OPT_BOOL, &enable_nvlink,
-                "Enable nvlink 2.0, 150.0GB/s",
-                "0");
     option_parser_register(opp, "-enable_rdma", OPT_BOOL, &enable_rdma,
                 "Enable remote direct memory access",
                 "0");   
@@ -597,7 +594,7 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
 
     option_parser_register(opp, "-hwprefetch_oversub", OPT_INT32, &hwprefetch_oversub,
                 "Select gpgpu-sim hardware prefetcher under over-subscription",
-                "1");
+                "0");
 
     option_parser_register(opp, "-page_fault_latency", OPT_INT64, &page_fault_latency,                                                                                          
                "Average fault latency (in core cycle).",
@@ -635,9 +632,6 @@ void gpgpu_sim_config::convert_byte_string()
 	  printf("-pcie_bandwidth should be 16.0GB/s, 32.0GB/s or 64.0GB/s\n");
        }
 
-       if(enable_nvlink) {
-	  curve_a = 120.0;
-       }
        curve_b = 0.07292;
        
    } else { 
