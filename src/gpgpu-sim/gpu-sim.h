@@ -710,7 +710,7 @@ private:
     std::list<lru_t *> valid_pages;
 
     // page eviction policy
-    enum class eviction_policy { LRU, TBN, SEQUENTIAL_LOCAL, RANDOM, LFU }; 
+    enum class eviction_policy { LRU, TBN, SEQUENTIAL_LOCAL, RANDOM, LFU, LRU4K }; 
 
     // types of hardware prefetcher
     enum class hwardware_prefetcher { DISBALED, TBN, SEQUENTIAL_LOCAL, RANDOM }; 

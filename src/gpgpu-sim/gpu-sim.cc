@@ -1939,6 +1939,8 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
        evict_policy = eviction_policy::RANDOM;
     } else if ( m_config.eviction_policy == 4 ) {
        evict_policy = eviction_policy::LFU;
+    } else if ( m_config.eviction_policy == 5 ) {
+       evict_policy = eviction_policy::LRU4K;
     } else {
         printf("Unknown eviction policy"); 
         exit(1);
@@ -2145,7 +2147,22 @@ void gmmu_t::page_eviction_procedure()
 
     int eviction_start = (int) (valid_pages.size() * m_config.reserve_accessed_page_percent / 100);
 
-    if ( evict_policy == eviction_policy::LRU || evict_policy == eviction_policy::LFU || m_config.page_size == MAX_PREFETCH_SIZE ) {
+    if ( evict_policy == eviction_policy::LRU4K ) {
+        std::list<lru_t *>::iterator iter = valid_pages.begin();
+        std::advance( iter, eviction_start );
+
+        while ( iter != valid_pages.end() && !is_block_evictable( (*iter)->addr, (*iter)->size) ) {
+            iter++;
+        }
+
+        if ( iter != valid_pages.end() ) {
+            mem_addr_t page_addr = (*iter)->addr;
+            struct lp_tree_node *root = get_lp_node(page_addr);
+            update_basic_block(root, page_addr, m_config.page_size, false);
+
+            evicted_pages.push_back( std::make_pair( page_addr, m_config.page_size) );
+        }
+    } else if ( evict_policy == eviction_policy::LRU || evict_policy == eviction_policy::LFU || m_config.page_size == MAX_PREFETCH_SIZE ) {
         // in lru, only evict the least recently used pages at the front of accessed pages queue
         // in lfu, only evict the page accessed least number of times from the front of accessed pages queue
         std::list<lru_t *>::iterator iter = valid_pages.begin();
@@ -2585,6 +2602,8 @@ mem_addr_t gmmu_t::get_eviction_base_addr(mem_addr_t page_addr)
 
     if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
         lru_addr = m_gpu->getGmmu()->get_basic_block(root, page_addr);
+    } else if (evict_policy == eviction_policy::LRU4K) {
+        lru_addr = page_addr;
     } else {
         lru_addr = root->addr;
     }
@@ -2600,6 +2619,8 @@ size_t gmmu_t::get_eviction_granularity(mem_addr_t page_addr)
 
     if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
         lru_size = MIN_PREFETCH_SIZE;
+    } else if (evict_policy == eviction_policy::LRU4K) {
+        lru_size = m_config.page_size;
     } else {
         lru_size = root->size;
     }
