@@ -1,1 +1,4 @@
+# Total size = 2*((2048+1)*4) = 32.125MB
+# Total iterations = (2049 - 1)/16 = 128
+# Total kernels launched = 128*2 = 256
 ./needle 2048 10

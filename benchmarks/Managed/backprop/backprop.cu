@@ -58,7 +58,6 @@ float *alloc_1d_dbl(int n)
 {
   float *new_arr;
 
-  printf("cudaMallocManaged called\n");
   cudaMallocManaged(&new_arr, n * sizeof (float));
   if (new_arr == NULL) {
     printf("ALLOC_1D_DBL: Couldn't allocate array of %d floats\n", n);

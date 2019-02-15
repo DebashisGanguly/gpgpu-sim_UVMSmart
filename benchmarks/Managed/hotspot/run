@@ -1,1 +1,4 @@
-./hotspot 512 2 2 ../../data/hotspot/temp_512 ../../data/hotspot/power_512 output.out
+# Total size = ((1024*1024*4)*3) = 12MB
+# Total iterations = 8/2 = 4
+# Total kernels launched = 1*4 = 4
+./hotspot 1024 2 8 ../../data/hotspot/temp_1024 ../../data/hotspot/power_1024 output.out
