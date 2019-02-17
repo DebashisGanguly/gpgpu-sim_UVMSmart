@@ -2143,6 +2143,8 @@ void gmmu_t::page_eviction_procedure()
 {
     assert( !valid_pages.empty() );
 
+    sort_valid_pages();
+
     std::list<std::pair<mem_addr_t, size_t> > evicted_pages;
 
     int eviction_start = (int) (valid_pages.size() * m_config.reserve_accessed_page_percent / 100);
@@ -2332,12 +2334,44 @@ void gmmu_t::refresh_valid_pages(mem_addr_t page_addr)
         item->access_counter = 1;
 	valid_pages.push_back(item);
     }
+}
 
+void gmmu_t::sort_valid_pages() {
     if (evict_policy == eviction_policy::LFU) {
         valid_pages.sort([](const lru_t* i, const lru_t* j) { 
                             return (i->access_counter < j->access_counter) || ((i->access_counter == j->access_counter) && (i->cycle < j->cycle)); });
-    } else { 
-        valid_pages.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
+    } else {
+        if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL ) {
+           std::map<mem_addr_t, std::list<lru_t *> > tempMap;
+
+           for (std::list<lru_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
+               struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node((*it)->addr);
+               tempMap[root->addr].push_back(*it);
+           }
+
+           for (std::map<mem_addr_t, std::list<lru_t *> >::iterator it = tempMap.begin(); it != tempMap.end(); it++) {
+               it->second.sort([](const lru_t* i, const lru_t* j) { return i->cycle > j->cycle; });
+           }
+
+           std::list< pair< mem_addr_t, std::list<lru_t *> > > tempList;
+
+           for (std::map<mem_addr_t, std::list<lru_t *> >::iterator it = tempMap.begin(); it != tempMap.end(); it++) {
+               tempList.push_back(make_pair(it->first, it->second));
+           }
+
+           tempList.sort([](const pair< mem_addr_t, std::list<lru_t *> > i, const pair< mem_addr_t, std::list<lru_t *> > j) { return i.second.front()->cycle < j.second.front()->cycle; });
+	
+           std::list<lru_t *> new_valid_pages;
+
+           for (std::list< pair< mem_addr_t, std::list<lru_t *> > >::iterator it = tempList.begin(); it != tempList.end(); it++) {
+	       (*it).second.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
+               new_valid_pages.insert(new_valid_pages.end(), it->second.begin(), it->second.end());
+	   }
+
+           valid_pages = new_valid_pages;
+        } else {
+            valid_pages.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
+        }
     }
 }
 

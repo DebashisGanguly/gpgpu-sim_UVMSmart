@@ -610,6 +610,7 @@ public:
    // add a new accessed page or refresh the position of the page in the LRU page list
    // being called on detecting tlb hit or when memory fetch comes back from the upward (gmmu to cu) queue
    void refresh_valid_pages(mem_addr_t page_addr);
+   void sort_valid_pages();
 
    // check whether the page to be accessed is already in pci-e write stage queue
    // being called on tlb hit or on tlb miss but no page fault
