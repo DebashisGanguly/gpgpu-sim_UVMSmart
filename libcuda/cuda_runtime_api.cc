@@ -476,7 +476,6 @@ __host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, uns
         if (size == 0) {
         	return g_last_cudaError = cudaErrorInvalidValue;
         }
-
         CUctx_st* context = GPGPUSim_Context();
 
         size_t num_large_pages = (size_t)(size / MAX_PREFETCH_SIZE);
@@ -494,6 +493,8 @@ __host__ cudaError_t CUDARTAPI cudaMallocManaged(void **devPtr, size_t size, uns
 
         size = (num_large_pages * MAX_PREFETCH_SIZE) + corrected_remainder;
 	
+        printf("##### Size %u\n", size);
+
 	//create a piece of memory for cpu side so that cpu side initialization code doesn't get SIGSEGV
 	void *cpuMemPtr = (void *)malloc(size);
 
