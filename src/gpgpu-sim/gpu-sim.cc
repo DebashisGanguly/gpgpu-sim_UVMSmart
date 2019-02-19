@@ -3216,9 +3216,8 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
                 }
 
                 if ( prefetcher == hwardware_prefetcher::TBN ) {
-                    for (std::list<struct lp_tree_node*>::iterator root = large_page_info.begin(); root != large_page_info.end(); root++) {
-                        traverse_and_fill_lp_tree(*root, schedulable_basic_blocks);
-                    }
+                    struct lp_tree_node* root = get_lp_node(lp_pf_iter->first);
+                    traverse_and_fill_lp_tree(root, schedulable_basic_blocks);
                 }
 
                 for (std::set<mem_addr_t>::iterator bb = schedulable_basic_blocks.begin(); bb != schedulable_basic_blocks.end(); bb++) {
