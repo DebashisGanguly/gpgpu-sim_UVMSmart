@@ -1587,7 +1587,7 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
 
        m_new_stats->page_access_times[m_sid][page_no]++;
 
-       m_new_stats->time_and_page_access[gpu_tot_sim_cycle+gpu_sim_cycle].push_back(page_no);
+       m_new_stats->time_and_page_access.push_back( access_info(page_no, inst.accessq_front().get_addr(), inst.accessq_front().get_size(),gpu_tot_sim_cycle+gpu_sim_cycle, inst.accessq_front().get_type() == GLOBAL_ACC_R ));
 
        if( m_gpu->get_global_memory()->is_page_managed( 
                                                    inst.accessq_front().get_addr(), 

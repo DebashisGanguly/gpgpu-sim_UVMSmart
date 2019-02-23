@@ -517,6 +517,17 @@ void update_sim_prof_prefetch(mem_addr_t start_addr, size_t size, unsigned long 
 
 void update_sim_prof_prefetch_break_down(unsigned long long end_time);
 
+class access_info {
+public:
+    mem_addr_t page_no;
+    mem_addr_t mem_addr;
+    size_t     size;
+    unsigned long long cycle;
+    bool is_read;
+    access_info(mem_addr_t p_n, mem_addr_t addr, size_t s, unsigned long long c, bool rw):
+	page_no(p_n), mem_addr(addr), size(s), cycle(c), is_read(rw) {}
+};
+
 class gpgpu_new_stats {
 public:
     gpgpu_new_stats(const gpgpu_sim_config &config);
@@ -566,7 +577,7 @@ public:
     std::map<mem_addr_t, unsigned >* page_access_times;
 
     // for each timestamp, which page is being accessed
-    std::map<unsigned long long, std::list<mem_addr_t> > time_and_page_access;
+    std::list<access_info> time_and_page_access; 
 
     // ready lanes utilization     
     std::list<std::pair<unsigned long long, float> > pcie_read_utilization;
