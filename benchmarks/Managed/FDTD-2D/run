@@ -1,0 +1,4 @@
+# Total Size = 65536 + 6815744 + 6815744 + 6553600 = 20250624 = 19.3125MB
+# Total iterations = 20
+# Total kernels launched = 20*3 = 60
+./main
