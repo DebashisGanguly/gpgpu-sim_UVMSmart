@@ -102,7 +102,7 @@ unsigned long long memory_copy_time_d2h = 0;
 unsigned long long prefetch_time = 0;
 unsigned long long devicesync_time = 0;
 unsigned long long writeback_time = 0;
-unsigned long long rdma_time = 0;
+unsigned long long dma_time = 0;
 
 void calculate_sim_prof(FILE *fout, gpgpu_sim *gpu)
 {
@@ -131,7 +131,7 @@ void calculate_sim_prof(FILE *fout, gpgpu_sim *gpu)
     fprintf(fout, "Tot_memcpy_time: %llu(cycle), %f(us)\n", memory_copy_time_h2d+ memory_copy_time_d2h, ((float)(memory_copy_time_h2d+ memory_copy_time_d2h))/freq);
     fprintf(fout, "Tot_devicesync_time: %llu(cycle), %f(us)\n", devicesync_time, ((float)devicesync_time)/freq);
     fprintf(fout, "Tot_writeback_time: %llu(cycle), %f(us)\n", writeback_time, ((float)writeback_time)/freq);
-    fprintf(fout, "Tot_rdma_time: %llu(cycle), %f(us)\n", rdma_time, ((float)rdma_time)/freq);
+    fprintf(fout, "Tot_dma_time: %llu(cycle), %f(us)\n", dma_time, ((float)dma_time)/freq);
     fprintf(fout, "Tot_memcpy_d2h_sync_wb_time: %llu(cycle), %f(us)\n", writeback_time+devicesync_time+memory_copy_time_d2h, 
 	    ((float)(writeback_time+devicesync_time+memory_copy_time_d2h)/freq));
 }
@@ -561,6 +561,10 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "Select page eviction policy",
                "0");
 
+    option_parser_register(opp, "-invalidate_clean", OPT_BOOL, &invalidate_clean,                 
+               "Should directly invalidate clean pages",
+               "0");
+
     option_parser_register(opp, "-reserve_accessed_page_percent", OPT_FLOAT, &reserve_accessed_page_percent,
                "Percentage of accessed pages reserved from eviction in hope that they will be accessed in next iteration.",
                "0.0");
@@ -577,9 +581,14 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "PCI-e bandwidth per direction, in GB/s.",
                "16.0GB/s");
 
-    option_parser_register(opp, "-enable_rdma", OPT_BOOL, &enable_rdma,
-                "Enable remote direct memory access",
+    option_parser_register(opp, "-enable_dma", OPT_INT32, &enable_dma,
+                "Enable direct access to CPU memory",
                 "0");   
+
+    option_parser_register(opp, "-multiply_dma_penalty", OPT_INT32, &multiply_dma_penalty,
+                "Oversubscription Multiplicative Penalty Factor for Adaptive DMA",
+                "0");   
+
     option_parser_register(opp, "-migrate_threshold", OPT_INT32, &migrate_threshold,
                 "Access counter threshold for migrating the page from cpu to gpu",
                 "10");
@@ -1617,9 +1626,9 @@ gpgpu_new_stats::gpgpu_new_stats(const gpgpu_sim_config &config)
     page_evict_not_dirty = 0;
     page_evict_dirty = 0;
 
-    num_rdma = 0;
-    rdma_page_transfer_read = 0;
-    rdma_page_transfer_write = 0;
+    num_dma = 0;
+    dma_page_transfer_read = 0;
+    dma_page_transfer_write = 0;
 
     tlb_thrashing = new std::map<mem_addr_t, std::vector<bool> >[m_config.num_cluster()];
 
@@ -1856,9 +1865,9 @@ void gpgpu_new_stats::print(FILE *fout) const
    fprintf(fout, "Avg_page_latency: %f, Avg_prefetch_size: %f, Avg_prefetch_latency: %f\n", avg_pf_latency, avg_pref_size, avg_pref_latency); 
 
    fprintf(fout, "========================================Rdma statistics==============================\n");
-   fprintf(fout, "Rdma_read: %llu\n", num_rdma);
-   fprintf(fout, "Rdma_migration_read %llu\n", rdma_page_transfer_read);
-   fprintf(fout, "Rdma_migration_write %llu\n", rdma_page_transfer_write);
+   fprintf(fout, "dma_read: %llu\n", num_dma);
+   fprintf(fout, "dma_migration_read %llu\n", dma_page_transfer_read);
+   fprintf(fout, "dma_migration_write %llu\n", dma_page_transfer_write);
 
    fprintf(fout, "========================================PCI-e statistics==============================\n");
    float avg_r = 0;
@@ -1926,6 +1935,19 @@ gmmu_t::gmmu_t(class gpgpu_sim* gpu, const gpgpu_sim_config &config, class gpgpu
 	:m_gpu(gpu),m_config(config), m_new_stats(new_stats)
 {
     m_shader_config = &m_config.m_shader_config;
+
+    if ( m_config.enable_dma == 0 ) {
+       dma_mode = dma_type::DISABLED;
+    } else if ( m_config.enable_dma == 1 ) {
+       dma_mode = dma_type::ADAPTIVE;
+    } else if ( m_config.enable_dma == 2 ) {
+       dma_mode = dma_type::ALWAYS;
+    } else if ( m_config.enable_dma == 3 ) {
+       dma_mode = dma_type::OVERSUB;
+    } else {
+       printf("Unknown DMA mode\n");
+       exit(1);
+    }
 
     if( m_config.eviction_policy == 0 ) {
        evict_policy = eviction_policy::LRU; 
@@ -2148,7 +2170,7 @@ void gmmu_t::page_eviction_procedure()
     int eviction_start = (int) (valid_pages.size() * m_config.reserve_accessed_page_percent / 100);
 
     if ( evict_policy == eviction_policy::LRU4K ) {
-        std::list<lru_t *>::iterator iter = valid_pages.begin();
+        std::list<eviction_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
         while ( iter != valid_pages.end() && !is_block_evictable( (*iter)->addr, (*iter)->size) ) {
@@ -2165,7 +2187,7 @@ void gmmu_t::page_eviction_procedure()
     } else if ( evict_policy == eviction_policy::LRU || evict_policy == eviction_policy::LFU || m_config.page_size == MAX_PREFETCH_SIZE ) {
         // in lru, only evict the least recently used pages at the front of accessed pages queue
         // in lfu, only evict the page accessed least number of times from the front of accessed pages queue
-        std::list<lru_t *>::iterator iter = valid_pages.begin();
+        std::list<eviction_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
         while ( iter != valid_pages.end() && !is_block_evictable( (*iter)->addr, (*iter)->size) ) {
@@ -2181,7 +2203,7 @@ void gmmu_t::page_eviction_procedure()
         }
     } else if ( evict_policy == eviction_policy::RANDOM ) {
         // in random eviction, select a random page
-	std::list<lru_t *>::iterator iter = valid_pages.begin();
+	std::list<eviction_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start + (rand() % (int)(valid_pages.size() * (1 - m_config.reserve_accessed_page_percent / 100))) );
 
         while ( iter != valid_pages.end() && !is_block_evictable( (*iter)->addr, (*iter)->size) ) {
@@ -2197,7 +2219,7 @@ void gmmu_t::page_eviction_procedure()
         }
     } else if ( evict_policy == eviction_policy::SEQUENTIAL_LOCAL ) {
         // we evict sixteen 4KB pages in the 2 MB allocation where this evictable belong to
-        std::list<lru_t *>::iterator iter = valid_pages.begin();
+        std::list<eviction_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
         struct lp_tree_node *root;
@@ -2222,7 +2244,7 @@ void gmmu_t::page_eviction_procedure()
         }
     } else if ( evict_policy == eviction_policy::TBN ) {
         // we evict multiple 64KB pages in the 2 MB allocation where this evictable belong
-        std::list<lru_t *>::iterator iter = valid_pages.begin();
+        std::list<eviction_t *>::iterator iter = valid_pages.begin();
         std::advance( iter, eviction_start );
 
         // find all basic blocks which are not staged/scheduled for write back or not invalid or not in ld/st unit
@@ -2274,7 +2296,19 @@ void gmmu_t::page_eviction_procedure()
 
         p_t->start_addr = iter->first;
         p_t->size = iter->second;
-	p_t->type = latency_type::PCIE_WRITE;
+
+        latency_type ltype = latency_type::PCIE_WRITE_BACK;
+
+        for (std::list<eviction_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
+            if ((*it)->addr <= iter->first && iter->first < (*it)->addr + (*it)->size) {
+                if ((*it)->RW == 1) {
+                    ltype = latency_type::INVALIDATE;
+                    break;
+                }
+            }
+        }
+
+	p_t->type = ltype;
 
         if ( m_config.page_size == MAX_PREFETCH_SIZE ) {
             mem_addr_t page_num = m_gpu->get_global_memory()->get_page_num(iter->first);
@@ -2299,7 +2333,7 @@ void gmmu_t::page_eviction_procedure()
 void gmmu_t::valid_pages_erase(mem_addr_t page_num)
 {
     mem_addr_t page_addr = m_gpu->get_global_memory()->get_mem_addr(page_num);
-    for (std::list<lru_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
+    for (std::list<eviction_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
         if ((*it)->addr <= page_addr && page_addr < (*it)->addr + (*it)->size) {
             valid_pages.erase(it);
             break;
@@ -2315,60 +2349,71 @@ void gmmu_t::valid_pages_clear()
 void gmmu_t::refresh_valid_pages(mem_addr_t page_addr) 
 {
     bool valid = false;
-    for (std::list<lru_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
+    for (std::list<eviction_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
         if ((*it)->addr <= page_addr && page_addr < (*it)->addr + (*it)->size) {
 	    (*it)->cycle = gpu_tot_sim_cycle+gpu_sim_cycle;
-            (*it)->access_counter++;
             valid = true;
             break;
 	}
     }
 
     if (!valid) {
-        lru_t *item = new lru_t();
+        eviction_t *item = new eviction_t();
 	item->addr = get_eviction_base_addr(page_addr);
 	item->size = get_eviction_granularity(page_addr);
 	item->cycle = gpu_tot_sim_cycle+gpu_sim_cycle;
-        item->access_counter = 1;
 	valid_pages.push_back(item);
     }
 }
 
 void gmmu_t::sort_valid_pages() {
+    for (std::list<eviction_t *>::iterator vp_iter = valid_pages.begin(); vp_iter != valid_pages.end(); vp_iter++) {
+        for (std::list<struct lp_tree_node*>::iterator lp_iter = large_page_info.begin(); lp_iter != large_page_info.end(); lp_iter++) {
+            if ((*vp_iter)->addr == (*lp_iter)->addr) {
+                (*vp_iter)->access_counter = (*lp_iter)->access_counter;
+                (*vp_iter)->RW = (*lp_iter)->RW;
+                break;
+            }
+        }
+    }
+
     if (evict_policy == eviction_policy::LFU) {
-        valid_pages.sort([](const lru_t* i, const lru_t* j) { 
-                            return (i->access_counter < j->access_counter) || ((i->access_counter == j->access_counter) && (i->cycle < j->cycle)); });
+        valid_pages.sort([](const eviction_t* i, const eviction_t* j) { 
+                            return (i->access_counter < j->access_counter) || 
+                                   ((i->access_counter == j->access_counter) && (i->RW < j->RW)) || 
+                                   ((i->access_counter == j->access_counter) && (i->RW == j->RW) && (i->cycle < j->cycle)); 
+                        });
     } else {
         if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL ) {
-           std::map<mem_addr_t, std::list<lru_t *> > tempMap;
+           std::map<mem_addr_t, std::list<eviction_t *> > tempMap;
 
-           for (std::list<lru_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
+           for (std::list<eviction_t *>::iterator it = valid_pages.begin(); it != valid_pages.end(); it++) {
                struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node((*it)->addr);
                tempMap[root->addr].push_back(*it);
            }
 
-           for (std::map<mem_addr_t, std::list<lru_t *> >::iterator it = tempMap.begin(); it != tempMap.end(); it++) {
-               it->second.sort([](const lru_t* i, const lru_t* j) { return i->cycle > j->cycle; });
+           for (std::map<mem_addr_t, std::list<eviction_t *> >::iterator it = tempMap.begin(); it != tempMap.end(); it++) {
+               it->second.sort([](const eviction_t* i, const eviction_t* j) { return i->cycle > j->cycle; });
            }
 
-           std::list< pair< mem_addr_t, std::list<lru_t *> > > tempList;
+           std::list< pair< mem_addr_t, std::list<eviction_t *> > > tempList;
 
-           for (std::map<mem_addr_t, std::list<lru_t *> >::iterator it = tempMap.begin(); it != tempMap.end(); it++) {
+           for (std::map<mem_addr_t, std::list<eviction_t *> >::iterator it = tempMap.begin(); it != tempMap.end(); it++) {
                tempList.push_back(make_pair(it->first, it->second));
            }
 
-           tempList.sort([](const pair< mem_addr_t, std::list<lru_t *> > i, const pair< mem_addr_t, std::list<lru_t *> > j) { return i.second.front()->cycle < j.second.front()->cycle; });
+           tempList.sort([](const pair< mem_addr_t, std::list<eviction_t *> > i, const pair< mem_addr_t, std::list<eviction_t *> > j) { return i.second.front()->cycle < j.second.front()->cycle; });
 	
-           std::list<lru_t *> new_valid_pages;
+           std::list<eviction_t *> new_valid_pages;
 
-           for (std::list< pair< mem_addr_t, std::list<lru_t *> > >::iterator it = tempList.begin(); it != tempList.end(); it++) {
-	       (*it).second.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
+           for (std::list< pair< mem_addr_t, std::list<eviction_t *> > >::iterator it = tempList.begin(); it != tempList.end(); it++) {
+	       (*it).second.sort([](const eviction_t* i, const eviction_t* j) { return i->cycle < j->cycle; });
                new_valid_pages.insert(new_valid_pages.end(), it->second.begin(), it->second.end());
 	   }
 
            valid_pages = new_valid_pages;
         } else {
-            valid_pages.sort([](const lru_t* i, const lru_t* j) { return i->cycle < j->cycle; });
+            valid_pages.sort([](const eviction_t* i, const eviction_t* j) { return i->cycle < j->cycle; });
         }
     }
 }
@@ -2380,7 +2425,7 @@ unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
     return  gpu_tot_sim_cycle + gpu_sim_cycle + (unsigned long long) ( (float)(m_config.page_size * num_pages) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
 }
 
-unsigned long long gmmu_t::get_ready_cycle_rdma(unsigned size)
+unsigned long long gmmu_t::get_ready_cycle_dma(unsigned size)
 {
    float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(size)/1024.0) );
    return  gpu_tot_sim_cycle + gpu_sim_cycle + (unsigned long long) ( (float)(size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
@@ -2422,6 +2467,8 @@ struct lp_tree_node* gmmu_t::build_lp_tree(mem_addr_t addr, size_t size)
 	node->addr = addr;
 	node->size = size;
 	node->valid_size = 0;
+	node->access_counter = 0;
+	node->RW = 0;
 	
 	if (size == MIN_PREFETCH_SIZE) {
 		node->left = NULL;
@@ -2610,6 +2657,8 @@ void gmmu_t::update_hardware_prefetcher_oversubscribed()
 void gmmu_t::reset_lp_tree_node(struct lp_tree_node* node)
 {
     node->valid_size = 0;
+    node->access_counter = 0;
+    node->RW = 0;
     
     if (node->size != MIN_PREFETCH_SIZE) {
         reset_lp_tree_node(node->left);
@@ -2658,6 +2707,195 @@ size_t gmmu_t::get_eviction_granularity(mem_addr_t page_addr)
     }
     
     return lru_size;
+}
+
+void gmmu_t::update_access_type(mem_addr_t addr, int type) 
+{
+   struct lp_tree_node *node = m_gpu->getGmmu()->get_lp_node(addr);
+
+   while (node->size != MIN_PREFETCH_SIZE) {
+       node->RW |= type;
+
+       if (node->left->addr <= addr && addr < node->left->addr + node->left->size) {
+           node = node->left;
+       } else {
+           node = node->right;
+       }
+   }
+
+   node->RW |= type;
+}
+
+int gmmu_t::get_bb_access_counter(struct lp_tree_node *node, mem_addr_t addr)
+{  
+   while (node->size != MIN_PREFETCH_SIZE) {
+       if (node->left->addr <= addr && addr < node->left->addr + node->left->size) {
+           node = node->left;
+       } else { 
+           node = node->right;
+       }
+   }
+   
+   return node->access_counter & ((1 << 11) - 1);
+}
+
+int gmmu_t::get_bb_round_trip(struct lp_tree_node *node, mem_addr_t addr)
+{  
+   while (node->size != MIN_PREFETCH_SIZE) {
+       if (node->left->addr <= addr && addr < node->left->addr + node->left->size) {
+           node = node->left;
+       } else { 
+           node = node->right;
+       }
+   }   
+   
+   return (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
+}
+
+void gmmu_t::inc_bb_access_counter(mem_addr_t addr)
+{
+   struct lp_tree_node *node = m_gpu->getGmmu()->get_lp_node(addr);
+
+   while (node->size != MIN_PREFETCH_SIZE) {
+       node->access_counter++;
+
+       if (node->left->addr <= addr && addr < node->left->addr + node->left->size) {
+           node = node->left;
+       } else {
+           node = node->right;
+       }
+   }
+
+   if (node->access_counter == ((1 << 11) - 1)) {
+       reset_bb_access_counter();
+   }
+
+   node->access_counter++;
+}
+
+void gmmu_t::inc_bb_round_trip(struct lp_tree_node *node)
+{
+   if (node->size != MIN_PREFETCH_SIZE) {
+       inc_bb_round_trip(node->left);
+       inc_bb_round_trip(node->right);
+   } else {
+       uint16_t round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
+
+       if (round_trip == ((1 << 6) - 1)) {
+           reset_bb_round_trip();
+       }
+
+       round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
+       round_trip++;
+
+       node->access_counter = (round_trip << 11) | (node->access_counter & ((1 << 11) - 1));
+   }
+}
+
+void gmmu_t::traverse_and_reset_access_counter(struct lp_tree_node *node) {
+    if ( node->size == MIN_PREFETCH_SIZE ) {
+        int round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
+        int access_counter = (node->access_counter & ((1 << 11) - 1)) >> 1;
+
+        node->access_counter = (round_trip << 11) | access_counter;
+    } else {
+        traverse_and_reset_access_counter(node->left);
+        traverse_and_reset_access_counter(node->right);
+        node->access_counter = node->access_counter >> 1;
+    }
+}
+
+void gmmu_t::reset_bb_access_counter()
+{
+    for (std::list<struct lp_tree_node*>::iterator iter = large_page_info.begin(); iter != large_page_info.end(); iter++) {
+        traverse_and_reset_access_counter(*iter);
+    }
+}
+
+void gmmu_t::traverse_and_reset_round_trip(struct lp_tree_node *node) {
+    if ( node->size == MIN_PREFETCH_SIZE ) {
+        int round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 12;
+        int access_counter = node->access_counter & ((1 << 11) - 1);
+
+        node->access_counter = (round_trip << 11) | access_counter;
+    } else {
+        traverse_and_reset_access_counter(node->left);
+        traverse_and_reset_access_counter(node->right);
+    }
+}
+
+void gmmu_t::reset_bb_round_trip()
+{
+    for (std::list<struct lp_tree_node*>::iterator iter = large_page_info.begin(); iter != large_page_info.end(); iter++) {
+        traverse_and_reset_round_trip(*iter);
+    }
+}
+
+bool gmmu_t::should_cause_page_migration(mem_addr_t addr, bool is_write)
+{
+    if ( dma_mode == dma_type::DISABLED ) {
+        return false;
+    } else if ( dma_mode == dma_type::ALWAYS ) {
+        if ( is_write ) {
+            return true;
+        } else {
+            struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(addr);
+
+            if ( get_bb_access_counter(root, addr) < m_config.migrate_threshold ) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    } else if ( dma_mode == dma_type::OVERSUB ) {
+        if ( over_sub ) {
+            if ( is_write ) {
+                return true;
+            } else {
+                struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(addr);
+
+                if ( get_bb_access_counter(root, addr) < m_config.migrate_threshold ) {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+        } else {
+            return false;
+        }
+    } else if ( dma_mode == dma_type::ADAPTIVE ) {
+        if ( is_write ) {
+            return true;
+        } else {
+            struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(addr);
+
+            int derived_threshold;
+
+            if ( over_sub ) {
+                derived_threshold = m_config.migrate_threshold * m_config.multiply_dma_penalty * (get_bb_round_trip(root, addr) + 1);
+            } else {
+                size_t num_read_stage_queue = 0;
+
+                for ( std::list<pcie_latency_t*>::iterator iter = pcie_read_stage_queue.begin(); iter != pcie_read_stage_queue.end(); iter++) {
+                    num_read_stage_queue += (*iter)->page_list.size();
+                }
+
+                size_t num_write_stage_queue = 0;
+
+                for ( std::list<pcie_latency_t*>::iterator iter = pcie_write_stage_queue.begin(); iter != pcie_write_stage_queue.end(); iter++) {
+                    num_write_stage_queue += (*iter)->page_list.size();
+                }
+
+                derived_threshold = (int)(1.0 + m_config.migrate_threshold * m_gpu->get_global_memory()->get_projected_occupancy(num_read_stage_queue, num_write_stage_queue, m_config.free_page_buffer_percentage));
+            }
+
+            if ( get_bb_access_counter(root, addr) < derived_threshold ) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    }
 }
 
 void gmmu_t::cycle()
@@ -2728,21 +2966,34 @@ void gmmu_t::cycle()
             m_gpu->get_global_memory()->invalidate_page( *iter );
 	    m_gpu->get_global_memory()->clear_page_dirty( *iter );
 	    m_gpu->get_global_memory()->clear_page_access( *iter );
-	    m_gpu->get_global_memory()->clear_access_counter( *iter );
 
             m_gpu->get_global_memory()->free_pages(1);
         
 	    tlb_flush( *iter );
         }
 
+        struct lp_tree_node *root = m_gpu->getGmmu()->get_lp_node(m_gpu->get_global_memory()->get_mem_addr(pcie_write_latency_queue->page_list.front()));
+        inc_bb_round_trip(root);
+
 	if(sim_prof_enable) {
-           event_stats* wb = new memory_stats( write_back, gpu_sim_cycle+gpu_tot_sim_cycle, 
-					       m_gpu->get_global_memory()->get_mem_addr(pcie_write_latency_queue->page_list.front()),
-                                               pcie_write_latency_queue->page_list.size() * m_config.page_size, 0);
-	   writeback_stats.push_back(wb);
+           if (pcie_write_latency_queue->type == latency_type::INVALIDATE && m_config.invalidate_clean) {
+               event_stats* inv = new memory_stats( invalidate, gpu_sim_cycle+gpu_tot_sim_cycle, gpu_sim_cycle+gpu_tot_sim_cycle,
+	  				            m_gpu->get_global_memory()->get_mem_addr(pcie_write_latency_queue->page_list.front()),
+                                                    pcie_write_latency_queue->page_list.size() * m_config.page_size, 0);
+               sim_prof[inv->start_time].push_back(inv);
+           } else {
+               event_stats* wb = new memory_stats( write_back, gpu_sim_cycle+gpu_tot_sim_cycle, 
+	  				           m_gpu->get_global_memory()->get_mem_addr(pcie_write_latency_queue->page_list.front()),
+                                                   pcie_write_latency_queue->page_list.size() * m_config.page_size, 0);
+	       writeback_stats.push_back(wb);
+           }
         }
 
         pcie_write_stage_queue.pop_front();
+
+        if (pcie_write_latency_queue->type == latency_type::INVALIDATE && m_config.invalidate_clean) {
+            pcie_write_latency_queue = NULL;
+        }
     }    
 
     list<mem_addr_t> page_finsihed_for_mf;
@@ -2824,7 +3075,7 @@ void gmmu_t::cycle()
 		   } 
                }
 	    }
-	} else if (pcie_read_latency_queue->type == latency_type::RDMA) { // processed RDMA request is returned to upward queue
+	} else if (pcie_read_latency_queue->type == latency_type::DMA) { // processed DMA request is returned to upward queue
 	   mem_fetch* mf = pcie_read_latency_queue->mf;
 
            simt_cluster_id = mf->get_sid() / m_config.num_core_per_cluster();
@@ -2843,12 +3094,12 @@ void gmmu_t::cycle()
 
 	std::list<pcie_latency_t*>::const_iterator iter = pcie_read_stage_queue.begin();
 	for( ; iter != pcie_read_stage_queue.end(); iter++){
-	    if((*iter)->type == latency_type::RDMA) {
+	    if((*iter)->type == latency_type::DMA) {
 		break;
             }
 	}
 
-        // prioritize rdma before page migration
+        // prioritize dma before page migration
 	if( iter == pcie_read_stage_queue.end() ) {
             pcie_read_latency_queue = pcie_read_stage_queue.front();
 	} else {
@@ -2877,12 +3128,12 @@ void gmmu_t::cycle()
                                                             pcie_read_latency_queue->page_list.size() * m_config.page_size);
               fault_stats.push_back(mf_fault);
             }
-	} else if (pcie_read_latency_queue->type == latency_type::RDMA) { // schedule RDMA request for transfer
-	    pcie_read_latency_queue->ready_cycle = get_ready_cycle_rdma( pcie_read_latency_queue->mf->get_access_size() );
+	} else if (pcie_read_latency_queue->type == latency_type::DMA) { // schedule DMA request for transfer
+	    pcie_read_latency_queue->ready_cycle = get_ready_cycle_dma( pcie_read_latency_queue->mf->get_access_size() );
 	    if(sim_prof_enable) {
-               event_stats* ma_rdma = new memory_stats(rdma, gpu_tot_sim_cycle+gpu_sim_cycle, pcie_read_latency_queue->ready_cycle,
+               event_stats* ma_dma = new memory_stats(dma, gpu_tot_sim_cycle+gpu_sim_cycle, pcie_read_latency_queue->ready_cycle,
                                                       pcie_read_latency_queue->mf->get_addr(), pcie_read_latency_queue->mf->get_access_size(), 0);
-               sim_prof[gpu_tot_sim_cycle+gpu_sim_cycle].push_back(ma_rdma);
+               sim_prof[gpu_tot_sim_cycle+gpu_sim_cycle].push_back(ma_dma);
             }
 	}
 
@@ -2943,27 +3194,23 @@ void gmmu_t::cycle()
                 // if the memory fetch is not part of any request in the prefetch command buffer
 	         if ( iter == prefetch_req_buffer.end()) {
 
-		     // if rdma is enabled/it is a write access/read access counter hasn't reached thresold
-		     if ( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_R &&
-                          m_gpu->get_global_memory()->get_access_counter(page_list.front()) + 1 < m_config.migrate_threshold ){
-
+		     // if dma is enabled/it is a write access/read access counter hasn't reached thresold
+                     if ( !should_cause_page_migration(mf->get_mem_access().get_addr(), mf->get_mem_access().get_type() == GLOBAL_ACC_W) ) {
 			     
-		         m_new_stats->num_rdma++;
+		         m_new_stats->num_dma++;
                          pcie_latency_t *p_t = new pcie_latency_t();
 
-                         mf->set_rdma();
+                         mf->set_dma();
 
                          p_t->mf = mf;
-                         p_t->type = latency_type::RDMA;
+                         p_t->type = latency_type::DMA;
 
                          pcie_read_stage_queue.push_back(p_t);
-
-                         m_gpu->get_global_memory()->inc_access_counter(page_list.front());
                      } else {
-		         if ( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_W) {
-		             m_new_stats->rdma_page_transfer_write++;
-			 } else if( m_config.enable_rdma && mf->get_mem_access().get_type() == GLOBAL_ACC_R) {
-			     m_new_stats->rdma_page_transfer_read++;
+		         if ( dma_mode != dma_type::DISABLED && mf->get_mem_access().get_type() == GLOBAL_ACC_W) {
+		             m_new_stats->dma_page_transfer_write++;
+			 } else if( dma_mode != dma_type::DISABLED && mf->get_mem_access().get_type() == GLOBAL_ACC_R) {
+			     m_new_stats->dma_page_transfer_read++;
 			 }
 
 			 page_fault_this_turn[page_list.front()].push_back(mf);

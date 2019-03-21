@@ -114,8 +114,8 @@ public:
 
    unsigned get_num_flits(bool simt_to_mem);
 
-   bool is_rdma() { return m_rdma; }
-   void set_rdma() { m_rdma = true; }
+   bool is_dma() { return m_dma; }
+   void set_dma() { m_dma = true; }
 private:
    // request source information
    unsigned m_request_uid;
@@ -148,7 +148,7 @@ private:
    const class memory_config *m_mem_config;
    unsigned icnt_flit_size;
 
-   bool m_rdma;
+   bool m_dma;
 };
 
 #endif

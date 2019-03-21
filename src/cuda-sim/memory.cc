@@ -261,22 +261,10 @@ template<unsigned BSIZE> bool memory_space_impl<BSIZE>::should_evict_page(size_t
   return ((float) (write_stage_queue_size + num_gddr_pages)) < ( (((float) num_gddr_pages) * eviction_buffer_percentage / 100) + ((float) (num_gddr_pages - num_free_pages + read_stage_queue_size)) );
 }
 
-
-template<unsigned BSIZE> unsigned memory_space_impl<BSIZE>::get_access_counter(mem_addr_t pg_index)
+template<unsigned BSIZE> float memory_space_impl<BSIZE>::get_projected_occupancy(size_t read_stage_queue_size, size_t write_stage_queue_size, float eviction_buffer_percentage)
 {
-  return m_data[pg_index].get_counter();
+  return ( (((float) num_gddr_pages) * eviction_buffer_percentage / 100) + ((float) (num_gddr_pages - num_free_pages + read_stage_queue_size)) ) / ((float) (write_stage_queue_size + num_gddr_pages));
 }
-
-template<unsigned BSIZE> void memory_space_impl<BSIZE>::inc_access_counter(mem_addr_t pg_index)
-{
-  m_data[pg_index].inc_counter();
-}
-
-template<unsigned BSIZE> void memory_space_impl<BSIZE>::clear_access_counter(mem_addr_t pg_index)
-{
-  m_data[pg_index].clear_counter();
-}
-
 
 template<unsigned BSIZE> void memory_space_impl<BSIZE>::set_page_dirty(mem_addr_t pg_index)
 {

@@ -62,7 +62,7 @@ mem_fetch::mem_fetch( const mem_access_t &access,
    m_mem_config = config;
    icnt_flit_size = config->icnt_flit_size;
 
-   m_rdma = false;
+   m_dma = false;
 }
 
 mem_fetch::~mem_fetch()

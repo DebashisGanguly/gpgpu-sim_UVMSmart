@@ -365,6 +365,7 @@ private:
     unsigned long long page_table_walk_latency;
 
     int   eviction_policy;
+    bool  invalidate_clean;
     float reserve_accessed_page_percent;
     float free_page_buffer_percentage;
 
@@ -374,7 +375,8 @@ private:
     float curve_a;
     float curve_b;
 
-    bool enable_rdma;
+    int enable_dma;
+    int multiply_dma_penalty;
     unsigned migrate_threshold;
 public:
     int  hardware_prefetch;
@@ -391,7 +393,7 @@ extern unsigned long long memory_copy_time_d2h;
 extern unsigned long long prefetch_time;
 extern unsigned long long devicesync_time;
 extern unsigned long long writeback_time;
-extern unsigned long long rdma_time;
+extern unsigned long long dma_time;
 
 enum stats_type {
    prefetch=0,
@@ -403,7 +405,8 @@ enum stats_type {
    page_fault,
    device_sync,
    write_back,
-   rdma
+   invalidate,
+   dma
 };
 
 
@@ -447,8 +450,10 @@ public:
 		fprintf(fout, "T: device_sync");
 	else if(type == write_back)
 		fprintf(fout, "T: write_back");
-	else if(type == rdma)
-		fprintf(fout, "T: rdma");
+	else if(type == invalidate)
+		fprintf(fout, "T: invalidate");
+	else if(type == dma)
+		fprintf(fout, "T: dma");
 
 	fprintf(fout, "(%f)\n",((float)(end_time-start_time))/freq);
     }
@@ -463,8 +468,8 @@ public:
 		devicesync_time += end_time - start_time; 
 	} else if(type == write_back) {
 		writeback_time += end_time - start_time;
-	} else if(type == rdma){
-		rdma_time += end_time - start_time;
+	} else if(type == dma){
+		dma_time += end_time - start_time;
 	}
     }
 };
@@ -600,9 +605,9 @@ public:
 
     const gpgpu_sim_config &m_config;
 
-    unsigned long long num_rdma;
-    unsigned long long rdma_page_transfer_read;
-    unsigned long long rdma_page_transfer_write;
+    unsigned long long num_dma;
+    unsigned long long dma_page_transfer_read;
+    unsigned long long dma_page_transfer_write;
 };
 
 // this class simulate the gmmu unit on chip
@@ -651,7 +656,7 @@ public:
    void initialize_large_page(mem_addr_t start_addr, size_t size);
 
    unsigned long long get_ready_cycle(unsigned num_pages);
-   unsigned long long get_ready_cycle_rdma(unsigned size);
+   unsigned long long get_ready_cycle_dma(unsigned size);
 
    float get_pcie_utilization(unsigned num_pages);
 
@@ -669,6 +674,18 @@ public:
 
    mem_addr_t get_eviction_base_addr(mem_addr_t page_addr);
    size_t get_eviction_granularity(mem_addr_t page_addr);
+
+   int get_bb_access_counter(struct lp_tree_node *node, mem_addr_t addr);
+   int get_bb_round_trip(struct lp_tree_node *node, mem_addr_t addr);
+   void inc_bb_access_counter(mem_addr_t addr);
+   void inc_bb_round_trip(struct lp_tree_node *root);
+   void traverse_and_reset_access_counter(struct lp_tree_node *root);
+   void reset_bb_access_counter();
+   void traverse_and_reset_round_trip(struct lp_tree_node *root);
+   void reset_bb_round_trip();
+   void update_access_type(mem_addr_t addr, int type);
+
+   bool should_cause_page_migration(mem_addr_t addr, bool is_write);
 private:
    // data structure to wrap memory fetch and page table walk delay
    struct page_table_walk_latency_t {
@@ -679,7 +696,7 @@ private:
    //page table walk delay queue
    std::list<page_table_walk_latency_t> page_table_walk_queue;  
 
-   enum class latency_type { PCIE_READ, PCIE_WRITE, PAGE_FAULT, RDMA };
+   enum class latency_type { PCIE_READ, PCIE_WRITE_BACK, INVALIDATE, PAGE_FAULT, DMA };
 
    // data structure to wrap a memory page and delay to transfer over PCI-E
    struct pcie_latency_t {
@@ -719,7 +736,7 @@ private:
     std::list<std::function<void(mem_addr_t)> > callback_tlb_flush;
 
     // list of valid pages (valid = 1, accessed = 1/0, dirty = 1/0) ordered as LRU
-    std::list<lru_t *> valid_pages;
+    std::list<eviction_t *> valid_pages;
 
     // page eviction policy
     enum class eviction_policy { LRU, TBN, SEQUENTIAL_LOCAL, RANDOM, LFU, LRU4K }; 
@@ -730,9 +747,14 @@ private:
     // types of hardware prefetcher under over-subscription
     enum class hwardware_prefetcher_oversub { DISBALED, TBN, SEQUENTIAL_LOCAL, RANDOM };
 
+    // type of DMA
+    enum class dma_type { DISABLED, ADAPTIVE, ALWAYS, OVERSUB };
+
     eviction_policy evict_policy;    
     hwardware_prefetcher prefetcher;
     hwardware_prefetcher_oversub oversub_prefetcher;
+
+    dma_type dma_mode;
 
     struct prefetch_req {
         // starting address (rolled up and down for page alignment) for the prefetch
@@ -784,6 +806,8 @@ struct lp_tree_node {
     size_t valid_size;
     struct lp_tree_node *left;
     struct lp_tree_node *right;
+    uint16_t access_counter;
+    uint8_t  RW;
 };
 
 class gpgpu_sim : public gpgpu_t {

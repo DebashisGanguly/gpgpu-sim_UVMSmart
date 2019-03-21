@@ -48,12 +48,13 @@
 
 typedef address_type mem_addr_t;
 
-typedef struct _lru_t {
+typedef struct _eviction_t {
     mem_addr_t addr;
     size_t size;
     unsigned long long cycle;
-    unsigned long long access_counter;
-} lru_t;
+    uint16_t access_counter;
+    uint8_t  RW;
+} eviction_t;
 
 #define MEM_BLOCK_SIZE (4*1024)
 
@@ -121,10 +122,6 @@ public:
    void set_managed() { managed = true; }
    bool is_managed()  { return managed; }
 
-   unsigned get_counter() { return counter; }
-   void inc_counter() { counter++; }
-   void clear_counter() { counter = 0; }
-
    // methods to query and modify page table flags
    bool is_valid	()	{ return valid;  }
    void validate_page	()	{ valid = true;  }
@@ -181,10 +178,6 @@ public:
    virtual void free_pages(size_t num) = 0;                                               
    virtual size_t get_free_pages() = 0;
   
-   virtual unsigned get_access_counter(mem_addr_t pg_index) = 0;
-   virtual void inc_access_counter(mem_addr_t pg_index) = 0;
-   virtual void clear_access_counter(mem_addr_t pg_index) = 0;
- 
    virtual void set_page_dirty(mem_addr_t pg_index) = 0;
    virtual bool is_page_dirty(mem_addr_t pg_index) = 0;
    virtual void clear_page_dirty(mem_addr_t pg_index) = 0;
@@ -204,6 +197,7 @@ public:
    virtual mem_addr_t                   get_mem_addr(mem_addr_t pg_index) = 0;
    virtual bool                         is_valid (mem_addr_t pg_index) = 0;
    virtual bool				should_evict_page(size_t read_stage_queue_size, size_t write_stage_queue_size, float eviction_buffer_percentage) = 0;
+   virtual float			get_projected_occupancy(size_t read_stage_queue_size, size_t write_stage_queue_size, float eviction_buffer_percentage) = 0;
 
    virtual void				reset() = 0;
 };
@@ -216,11 +210,6 @@ public:
    virtual void read( mem_addr_t addr, size_t length, void *data ) const;
    virtual void print( const char *format, FILE *fout ) const;
    virtual void set_watch( addr_t addr, unsigned watchpoint ); 
-
-   virtual unsigned get_access_counter(mem_addr_t pg_index);
-   virtual void inc_access_counter(mem_addr_t pg_index);
-   virtual void clear_access_counter(mem_addr_t pg_index);
- 
 
    // method to find out whether or not to follow the managed time simulation
    virtual bool is_page_managed(mem_addr_t addr, size_t length);
@@ -253,6 +242,7 @@ public:
 
    virtual bool is_valid (mem_addr_t pg_index);
    virtual bool should_evict_page(size_t read_stage_queue_size, size_t write_stage_queue_size, float eviction_buffer_percentage);   
+   virtual float get_projected_occupancy(size_t read_stage_queue_size, size_t write_stage_queue_size, float eviction_buffer_percentage);   
 
    virtual void	reset();
 private:

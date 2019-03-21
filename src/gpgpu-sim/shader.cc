@@ -1618,6 +1618,8 @@ bool ldst_unit::access_cycle( warp_inst_t &inst, mem_stage_stall_type &stall_rea
       return true;
   }
 
+  m_gpu->getGmmu()->update_access_type(inst.accessq_front().get_addr(), inst.accessq_front().get_type() == GLOBAL_ACC_W ? 2 : 1);
+  m_gpu->getGmmu()->inc_bb_access_counter(inst.accessq_front().get_addr());
   m_gpu->getGmmu()->reserve_pages_insert(inst.accessq_front().get_addr(), inst.accessq_front().get_uid());
 
   // check if the page corresponding to memory access is there in TLB or not

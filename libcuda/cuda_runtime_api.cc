@@ -2062,7 +2062,6 @@ cudaError_t CUDARTAPI cudaDeviceSynchronize(void){
 			context->get_device()->get_gpgpu()->get_global_memory()->invalidate_page( *iter );
 			context->get_device()->get_gpgpu()->get_global_memory()->clear_page_access( *iter );
 			context->get_device()->get_gpgpu()->get_global_memory()->clear_page_dirty( *iter );
-			context->get_device()->get_gpgpu()->get_global_memory()->clear_access_counter( *iter );
                         context->get_device()->get_gpgpu()->get_global_memory()->free_pages(1);
 			context->get_device()->get_gpgpu()->getGmmu()->tlb_flush( *iter );
 	}
