@@ -2834,7 +2834,7 @@ void gmmu_t::reset_bb_round_trip()
 bool gmmu_t::should_cause_page_migration(mem_addr_t addr, bool is_write)
 {
     if ( dma_mode == dma_type::DISABLED ) {
-        return false;
+        return true;
     } else if ( dma_mode == dma_type::ALWAYS ) {
         if ( is_write ) {
             return true;
@@ -2861,7 +2861,7 @@ bool gmmu_t::should_cause_page_migration(mem_addr_t addr, bool is_write)
                 }
             }
         } else {
-            return false;
+            return true;
         }
     } else if ( dma_mode == dma_type::ADAPTIVE ) {
         if ( is_write ) {
