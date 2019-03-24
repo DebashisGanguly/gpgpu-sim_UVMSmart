@@ -1676,7 +1676,7 @@ void gpgpu_new_stats::print_access_pattern(FILE *fout) const
 void gpgpu_new_stats::print_time_and_access(FILE *fout) const
 {
    for(std::list<access_info>::const_iterator iter = time_and_page_access.begin(); iter != time_and_page_access.end(); iter++) {
-	fprintf(fout, "%u 0x%x %u %llu %d\n", iter->page_no, iter->mem_addr, iter->size, iter->cycle, iter->is_read);
+	fprintf(fout, "%u 0x%x %u %llu %d %u %u\n", iter->page_no, iter->mem_addr, iter->size, iter->cycle, iter->is_read, iter->sm_id, iter->warp_id);
    }
 
    for(std::map<unsigned long long, std::list<event_stats*> >::iterator iter = sim_prof.begin();iter != sim_prof.end(); iter++){

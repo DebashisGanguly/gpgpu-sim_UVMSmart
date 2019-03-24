@@ -529,8 +529,10 @@ public:
     size_t     size;
     unsigned long long cycle;
     bool is_read;
-    access_info(mem_addr_t p_n, mem_addr_t addr, size_t s, unsigned long long c, bool rw):
-	page_no(p_n), mem_addr(addr), size(s), cycle(c), is_read(rw) {}
+    unsigned sm_id;
+    unsigned warp_id;
+    access_info(mem_addr_t p_n, mem_addr_t addr, size_t s, unsigned long long c, bool rw, unsigned s_id, unsigned w_id):
+	page_no(p_n), mem_addr(addr), size(s), cycle(c), is_read(rw), sm_id(s_id), warp_id(w_id) {}
 };
 
 class gpgpu_new_stats {

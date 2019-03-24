@@ -116,14 +116,13 @@ static void termination_callback()
 
     fclose(f3);
  
-
+*/
     FILE* f4 = fopen("access.txt", "w");
 
     g_the_gpu->m_new_stats->print_time_and_access(f4);
 
     fclose(f4);
 
-*/
 
     if(sim_prof_enable) {
        print_sim_prof(stdout, g_the_gpu->shader_clock());
