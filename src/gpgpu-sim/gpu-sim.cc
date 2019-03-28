@@ -2377,6 +2377,7 @@ void gmmu_t::sort_valid_pages() {
         }
     }
 
+
     if (evict_policy == eviction_policy::LFU) {
         valid_pages.sort([](const eviction_t* i, const eviction_t* j) { 
                             return (i->access_counter < j->access_counter) || 
@@ -2428,7 +2429,7 @@ unsigned long long gmmu_t::get_ready_cycle(unsigned num_pages)
 unsigned long long gmmu_t::get_ready_cycle_dma(unsigned size)
 {
    float speed = 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(size)/1024.0) );
-   return  gpu_tot_sim_cycle + gpu_sim_cycle + (unsigned long long) ( (float)(size) * m_config.core_freq / speed / (1024.0*1024.0*1024.0)) ;
+   return  gpu_tot_sim_cycle + gpu_sim_cycle + 200;
 }
 
 float gmmu_t::get_pcie_utilization(unsigned num_pages)
@@ -2736,7 +2737,7 @@ int gmmu_t::get_bb_access_counter(struct lp_tree_node *node, mem_addr_t addr)
        }
    }
    
-   return node->access_counter & ((1 << 11) - 1);
+   return node->access_counter & ((1 << 27) - 1);
 }
 
 int gmmu_t::get_bb_round_trip(struct lp_tree_node *node, mem_addr_t addr)
@@ -2749,7 +2750,7 @@ int gmmu_t::get_bb_round_trip(struct lp_tree_node *node, mem_addr_t addr)
        }
    }   
    
-   return (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
+   return (node->access_counter & (((1 << 6) - 1) << 27)) >> 27;
 }
 
 void gmmu_t::inc_bb_access_counter(mem_addr_t addr)
@@ -2766,7 +2767,7 @@ void gmmu_t::inc_bb_access_counter(mem_addr_t addr)
        }
    }
 
-   if (node->access_counter == ((1 << 11) - 1)) {
+   if (node->access_counter == ((1 << 27) - 1)) {
        reset_bb_access_counter();
    }
 
@@ -2779,25 +2780,25 @@ void gmmu_t::inc_bb_round_trip(struct lp_tree_node *node)
        inc_bb_round_trip(node->left);
        inc_bb_round_trip(node->right);
    } else {
-       uint16_t round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
+       uint16_t round_trip = (node->access_counter & (((1 << 6) - 1) << 27)) >> 27;
 
        if (round_trip == ((1 << 6) - 1)) {
            reset_bb_round_trip();
        }
 
-       round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
+       round_trip = (node->access_counter & (((1 << 6) - 1) << 27)) >> 27;
        round_trip++;
 
-       node->access_counter = (round_trip << 11) | (node->access_counter & ((1 << 11) - 1));
+       node->access_counter = (round_trip << 27) | (node->access_counter & ((1 << 27) - 1));
    }
 }
 
 void gmmu_t::traverse_and_reset_access_counter(struct lp_tree_node *node) {
     if ( node->size == MIN_PREFETCH_SIZE ) {
-        int round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 11;
-        int access_counter = (node->access_counter & ((1 << 11) - 1)) >> 1;
+        int round_trip = (node->access_counter & (((1 << 6) - 1) << 27)) >> 27;
+        int access_counter = (node->access_counter & ((1 << 27) - 1)) >> 1;
 
-        node->access_counter = (round_trip << 11) | access_counter;
+        node->access_counter = (round_trip << 27) | access_counter;
     } else {
         traverse_and_reset_access_counter(node->left);
         traverse_and_reset_access_counter(node->right);
@@ -2814,10 +2815,10 @@ void gmmu_t::reset_bb_access_counter()
 
 void gmmu_t::traverse_and_reset_round_trip(struct lp_tree_node *node) {
     if ( node->size == MIN_PREFETCH_SIZE ) {
-        int round_trip = (node->access_counter & (((1 << 6) - 1) << 11)) >> 12;
-        int access_counter = node->access_counter & ((1 << 11) - 1);
+        int round_trip = (node->access_counter & (((1 << 6) - 1) << 27)) >> 28;
+        int access_counter = node->access_counter & ((1 << 27) - 1);
 
-        node->access_counter = (round_trip << 11) | access_counter;
+        node->access_counter = (round_trip << 27) | access_counter;
     } else {
         traverse_and_reset_access_counter(node->left);
         traverse_and_reset_access_counter(node->right);

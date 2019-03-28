@@ -808,7 +808,7 @@ struct lp_tree_node {
     size_t valid_size;
     struct lp_tree_node *left;
     struct lp_tree_node *right;
-    uint16_t access_counter;
+    uint32_t access_counter;
     uint8_t  RW;
 };
 

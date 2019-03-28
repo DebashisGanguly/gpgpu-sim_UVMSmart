@@ -52,7 +52,7 @@ typedef struct _eviction_t {
     mem_addr_t addr;
     size_t size;
     unsigned long long cycle;
-    uint16_t access_counter;
+    uint32_t access_counter;
     uint8_t  RW;
 } eviction_t;
 
