@@ -1,0 +1,4 @@
+# Total size = 28MB
+# Total iterations = 15
+# Total kernels launched = 1 + 15*2 = 31
+./sssp
