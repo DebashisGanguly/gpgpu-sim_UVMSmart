@@ -23,11 +23,17 @@ int main(void)
 {
   //int N = 1<<10;
   float *input, *output, *table;
+  float *d_input, *d_table, *d_output;
+
+  input = (float*)malloc(N*sizeof(float));
+  output = (float*)malloc(N*sizeof(float));
+  table = (float*)malloc(N*sizeof(float));
+
 
   // Allocate Unified Memory -- accessible from CPU or GPU
-  cudaMallocManaged(&input, N*sizeof(float));
-  cudaMallocManaged(&output, N*sizeof(float));
-  cudaMallocManaged(&table, N*sizeof(float));
+  cudaMalloc(&d_input, N*sizeof(float));
+  cudaMalloc(&d_output, N*sizeof(float));
+  cudaMalloc(&d_table, N*sizeof(float));
 
   // initialize x and y arrays on the host
   for (int i = 0; i < N; i++) {
@@ -36,12 +42,16 @@ int main(void)
     table[i] = ((float)(i));
   }
 
+  cudaMemcpy(d_input, input, N*sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_table, table, N*sizeof(float), cudaMemcpyHostToDevice);
+  cudaMemset(d_output, 0, N*sizeof(float)); 
+
   int blockSize = 256;
   int numBlocks = (N + blockSize - 1) / blockSize;
 
-  kernel<<<numBlocks, blockSize>>>(input, output, table, N);
+  kernel<<<numBlocks, blockSize>>>(d_input, d_output, d_table, N);
 
-  cudaDeviceSynchronize();
+  cudaMemcpy(output, d_output, N*sizeof(float), cudaMemcpyDeviceToHost);
 
   for (int i = 0; i < N; i++)
     if(output[i] != 0) {
