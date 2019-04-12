@@ -3014,8 +3014,6 @@ void gmmu_t::cycle()
 
                 m_new_stats->page_thrashing[*iter].push_back(true);
 
-	        assert(req_info.find(*iter) != req_info.end());
-
                 // check if the transferred page is part of a prefetch request
                 if ( !prefetch_req_buffer.empty() ) {
 
