@@ -2213,9 +2213,9 @@ void gmmu_t::page_eviction_procedure()
         if ( iter != valid_pages.end() ) {
             mem_addr_t page_addr = (*iter)->addr;
             struct lp_tree_node *root = get_lp_node(page_addr);
-            evict_whole_tree(root);
+            update_basic_block(root, page_addr, m_config.page_size, false);
 
-            evicted_pages.push_back( std::make_pair( root->addr, root->size) );
+            evicted_pages.push_back( std::make_pair(page_addr, m_config.page_size) );
         }
     } else if ( evict_policy == eviction_policy::SEQUENTIAL_LOCAL ) {
         // we evict sixteen 4KB pages in the 2 MB allocation where this evictable belong to
@@ -2434,7 +2434,7 @@ unsigned long long gmmu_t::get_ready_cycle_dma(unsigned size)
 
 float gmmu_t::get_pcie_utilization(unsigned num_pages)
 {
-    return 3.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*m_config.page_size)/1024.0) ) / m_config.pcie_bandwidth;
+    return 2.0 * m_config.curve_a / M_PI * atan (m_config.curve_b * ((float)(num_pages*m_config.page_size)/1024.0) ) / m_config.pcie_bandwidth;
 }
 
 void gmmu_t::activate_prefetch(mem_addr_t m_device_addr, size_t m_cnt, struct CUstream_st *m_stream)
