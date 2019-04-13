@@ -2684,7 +2684,7 @@ mem_addr_t gmmu_t::get_eviction_base_addr(mem_addr_t page_addr)
 
     if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
         lru_addr = m_gpu->getGmmu()->get_basic_block(root, page_addr);
-    } else if (evict_policy == eviction_policy::LRU4K) {
+    } else if (evict_policy == eviction_policy::LRU4K || evict_policy == eviction_policy::RANDOM) {
         lru_addr = page_addr;
     } else {
         lru_addr = root->addr;
@@ -2701,7 +2701,7 @@ size_t gmmu_t::get_eviction_granularity(mem_addr_t page_addr)
 
     if (evict_policy == eviction_policy::TBN || evict_policy == eviction_policy::SEQUENTIAL_LOCAL) {
         lru_size = MIN_PREFETCH_SIZE;
-    } else if (evict_policy == eviction_policy::LRU4K) {
+    } else if (evict_policy == eviction_policy::LRU4K || evict_policy == eviction_policy::RANDOM) {
         lru_size = m_config.page_size;
     } else {
         lru_size = root->size;
