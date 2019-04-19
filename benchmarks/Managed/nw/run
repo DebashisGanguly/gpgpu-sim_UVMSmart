@@ -1,4 +1,1 @@
-# Total size = 2*((1024+1)*4) = 8.125MB
-# Total iterations = (1024 + 1 - 1)/16 = 64
-# Total kernels launched = 64*2 = 128
 ./needle 1024 10

@@ -38,7 +38,17 @@ vim gpgpusim.config
 
 Currently, we support architectural support for *GeForceGTX 1080Ti* with *PCIe 3.0 16x*. The additional configuration items are added to GeForceGTX1080Ti under configs. Change the respective parameters to simulate desired configuration.
 
+## What are included?
+
+ 1. A set of micro-benchmarks to determine semantics of hardware prefetcher implemented in *GeForceGtTX 1080Ti* (can be founder in micro-benchmarks under root).
+ 2. A micro-benchmark to find out transfer bandwidth for respective transfer size (cudaMemcpy host to device).
+ 3. A set of benchmarks both with copy-then-execute model (in Unmanaged under benchmarks folder) and unified virtual memory (in Managed under benchmarks folder).
+ 4. Specification of the working set, iterations, and kernel launch for managed versions of the benchmarks.
+ 5. Output log, scripts to plot, and the derived plots for ISCA paper in Results under benchmarks folder.
+
 ## Copyright Notice
 
-**(c)** *Debashis Ganguly, Department of Computer Science, School of Computing and Information, University of Pittsburgh*, **All rights reserved**.
+Copyright **(c)** 2019
+*Debashis Ganguly, Department of Computer Science, School of Computing and Information, University of Pittsburgh*
+**All rights reserved**
 

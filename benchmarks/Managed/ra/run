@@ -1,4 +1,1 @@
-# Total size = 1024*1024*4 + 1024*1024*4 + 1024*1024*4 = 4MB + 4MB + 4MB = 12MB
-# Total iterations = 1
-# Total kernels launched = 1
 ./main

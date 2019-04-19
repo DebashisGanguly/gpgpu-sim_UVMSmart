@@ -1,1 +1,1 @@
-./main ../../data/stencil/128x128x32.bin 128 128 32 40
+./main ../../data/stencil/512x512x64x100.bin 512 512 64 10

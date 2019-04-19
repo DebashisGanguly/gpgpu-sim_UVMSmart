@@ -1,4 +1,1 @@
-# Total size = (1024*1024*4) = 4MB
-# Total iterations = 4
-# Total kernels launched = 2*4 = 8
 ./srad 1024 1024 0 127 0 127 0.5 4

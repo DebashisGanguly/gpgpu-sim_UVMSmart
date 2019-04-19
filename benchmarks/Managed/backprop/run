@@ -1,5 +1,1 @@
-# Total size = (16+1)*4 + (131056+1)*4 + ((131056+1)*(16+1)*4)*2 = 64KB + 0.5MB + 8.5MB*2 = 17.5625MB
-# Total iterations = 1
-# Total kernels launched = 2
-
 ./backprop 131056

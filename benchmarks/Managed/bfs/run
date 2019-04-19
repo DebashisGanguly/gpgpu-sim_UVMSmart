@@ -1,4 +1,1 @@
-# Total size = (261444*8) + (261444*1)*3 + (1568420*4) + (261444*4) = 9.75MB
-# Total iterations = ? (dynamic based on input)
-# Total kernels launched = ? (2 kernels per iteration)
 ./bfs ../../data/bfs/graph256k.txt

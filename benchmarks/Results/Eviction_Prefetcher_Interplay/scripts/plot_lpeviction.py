@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from matplotlib import gridspec
+from scipy.stats.mstats import gmean
 
 #######################
 # data extraction section
@@ -13,7 +14,7 @@ from matplotlib import gridspec
 parent_folder = '../output_logs'
 
 experiment_folder = 'LPEviction'
-sub_folders = ['NoOversub', '2MB_110', 'TBN_110', '2MB_125', 'TBN_125']
+sub_folders = ['2MB_110', 'TBN_110', '2MB_125', 'TBN_125']
 
 benchmarks = ['backprop', 'bfs', 'fdtd', 'hotspot', 'nw', 'pathfinder']
 
@@ -33,9 +34,7 @@ for b in benchmarks:
 			line = re.findall(r"^Tot_kernel_exec_time_and_fault_time.*", file_content, flags=re.MULTILINE)[0]
 			rt = float(line[line.find(', ')+2:line.rfind('(us)')])
 
-			if sf == 'NoOversub':
-				rt_NoOversub.append(rt)
-			elif sf == '2MB_110':
+			if sf == '2MB_110':
 				rt_2MB_110.append(rt)
 			elif sf == 'TBN_110':
 				rt_TBN_110.append(rt)
@@ -49,6 +48,13 @@ rt_2MB_110 = np.array(np.divide(rt_2MB_110, rt_2MB_110))
 rt_TBN_125 = np.array(np.divide(rt_TBN_125, rt_2MB_125))
 rt_2MB_125 = np.array(np.divide(rt_2MB_125, rt_2MB_125))
 
+rt_TBN_110 = np.append(rt_TBN_110, gmean(rt_TBN_110))
+rt_2MB_110 = np.append(rt_2MB_110, gmean(rt_2MB_110))
+rt_TBN_125 = np.append(rt_TBN_125, gmean(rt_TBN_125))
+rt_2MB_125 = np.append(rt_2MB_125, gmean(rt_2MB_125))
+
+benchmarks = np.append(benchmarks, 'gmean')
+
 #######################
 # plotting section
 #######################
@@ -57,14 +63,14 @@ rt_2MB_125 = np.array(np.divide(rt_2MB_125, rt_2MB_125))
 barWidth = 0.3
  
 # Set position of bar on X axis
-r1 = np.arange(len(rt_NoOversub), dtype=float)
+r1 = np.arange(len(rt_2MB_110), dtype=float)
 
-r1a = [0, 1.6, 3.2, 4.8, 6.4, 8.0]
+r1a = [0, 1.6, 3.2, 4.8, 6.4, 8.0, 9.6]
 
-for i in range(len(rt_NoOversub)):
+for i in range(len(rt_2MB_110)):
 	r1[i] = r1[i] + 0.3
 
-for i in range(len(rt_NoOversub)):
+for i in range(len(rt_2MB_110)):
 	r1a[i] = r1a[i] + 0.3
 
 r2 = [x + barWidth for x in r1a]
