@@ -22,15 +22,10 @@ rt_TBN = []
 rt_SL = []
 rt_Random = []
 
-dp_LRU = []
-dp_TBN = []
-dp_SL = []
-dp_Random = []
-
-ndp_LRU = []
-ndp_TBN = []
-ndp_SL = []
-ndp_Random = []
+ev_LRU = []
+ev_TBN = []
+ev_SL = []
+ev_Random = []
 
 for b in benchmarks:
 	for sf in sub_folders:
@@ -46,22 +41,20 @@ for b in benchmarks:
 			dp = float(line.split()[3])
 			ndp = float(line.split()[5])
 
+			ev = dp+ndp
+
 			if sf == 'LRU':
 				rt_LRU.append(rt)
-				dp_LRU.append(dp)
-				ndp_LRU.append(ndp)
+				ev_LRU.append(ev)
 			elif sf == 'TBN':
 				rt_TBN.append(rt)
-				dp_TBN.append(dp)
-				ndp_TBN.append(ndp)
+				ev_TBN.append(ev)
 			elif sf == 'SL':
 				rt_SL.append(rt)
-				dp_SL.append(dp)
-				ndp_SL.append(ndp)
+				ev_SL.append(ev)
 			elif sf == 'Random':
 				rt_Random.append(rt)
-				dp_Random.append(dp)
-				ndp_Random.append(ndp)			
+				ev_Random.append(ev)
 
 
 #######################
@@ -132,15 +125,10 @@ plt.rcParams['hatch.linewidth'] = 1.5
 
 plt.figure(figsize=(10,4))
 
-plt.bar(r2, dp_LRU, hatch="--", color='r', width=barWidth, edgecolor='black', label='Dirty Pages Evicted by LRU 4KB')
-plt.bar(r2, ndp_LRU, hatch="oo", color='orangered', width=barWidth, edgecolor='black', label='Not Dirty Pages Evicted by LRU 4KB', bottom = dp_LRU)
-plt.bar(r3, dp_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Dirty Pages Evicted by Random 4KB')
-plt.bar(r3, ndp_Random, hatch="OO", color='cyan', width=barWidth, edgecolor='black', label='Not Dirty Pages Evicted by Random 4KB', bottom = dp_Random)         
-plt.bar(r4, dp_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Dirty Pages Evicted by Sequential-local 64KB')       
-plt.bar(r4, ndp_SL, hatch="**", color='#ffffff', width=barWidth, edgecolor='black', label='Not Dirty Pages Evicted by Sequential-local 64KB', bottom = dp_SL)
-plt.bar(r5, dp_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Dirty Pages Evicted by Tree-based neighborhood')
-plt.bar(r5, ndp_TBN, hatch="..", color='lime', width=barWidth, edgecolor='black', label='Not Dirty Pages Evicted by Tree-based neighborhood', bottom = dp_TBN)
-
+plt.bar(r2, ev_LRU, hatch="--", color='r', width=barWidth, edgecolor='black', label='LRU 4KB')
+plt.bar(r3, ev_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Random 4KB')         
+plt.bar(r4, ev_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Sequential-local 64KB')
+plt.bar(r5, ev_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Tree-based neighborhood')
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
 
@@ -152,6 +140,6 @@ plt.ylabel('Number of Pages Evicted')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.68), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
 
-plt.savefig('../plots/EvictionPolicies/evictions_dirty_not.png',  dpi=300, bbox_inches="tight")
+plt.savefig('../plots/EvictionPolicies/evictions_pg.png',  dpi=300, bbox_inches="tight")

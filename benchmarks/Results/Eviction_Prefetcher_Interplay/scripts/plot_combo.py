@@ -41,7 +41,6 @@ for b in benchmarks:
 			elif sf == 'TBN_TBN':
 				rt_TBN_TBN.append(rt)			
 
-
 #######################
 # plotting section
 #######################
