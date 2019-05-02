@@ -90,12 +90,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
 plt.bar(r2, rt_LRU, hatch="--", color='r', width=barWidth, edgecolor='black', label='LRU 4KB')
-plt.bar(r3, rt_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Random 4KB')         
-plt.bar(r4, rt_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Sequential-local 64KB')
-plt.bar(r5, rt_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Tree-based neighborhood')
+plt.bar(r3, rt_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='$R_e$')         
+plt.bar(r4, rt_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$SL_e$')
+plt.bar(r5, rt_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='$TBN_e$')
 
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
@@ -108,7 +108,7 @@ plt.ylabel('Kernel Execution Time (us)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), prop={'size': 12}, ncol=4)
 
 plt.savefig('../plots/EvictionPolicies/evictions.png',  dpi=300, bbox_inches="tight")
 
@@ -123,12 +123,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
 plt.bar(r2, ev_LRU, hatch="--", color='r', width=barWidth, edgecolor='black', label='LRU 4KB')
-plt.bar(r3, ev_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Random 4KB')         
-plt.bar(r4, ev_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Sequential-local 64KB')
-plt.bar(r5, ev_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Tree-based neighborhood')
+plt.bar(r3, ev_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='$R_e$')         
+plt.bar(r4, ev_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$SL_e$')
+plt.bar(r5, ev_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='$TBN_e$')
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
 
@@ -140,6 +140,6 @@ plt.ylabel('Number of Pages Evicted')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), prop={'size': 12}, ncol=4)
 
 plt.savefig('../plots/EvictionPolicies/evictions_pg.png',  dpi=300, bbox_inches="tight")

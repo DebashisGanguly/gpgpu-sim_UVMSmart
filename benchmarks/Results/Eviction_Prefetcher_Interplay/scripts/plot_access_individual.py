@@ -54,9 +54,15 @@ alloc_mids = ((alloc_data['PageStart'] + alloc_data['PageEnd'])/2).apply(int).ge
 # Labels of managed data structure axis is the name of the allocations
 alloc_names = alloc_data['DataStructure'].get_values()
 
+if len(sys.argv) > 2:
+	iterations = sys.argv[2:]
+else:
+	iterations = kernel_data['Iteration'].unique()
 
 # Loop on kernel iterations to plot access pattern
-for iter in kernel_data['Iteration'].unique():
+for iter in iterations:
+	iter = int(iter)
+
 	cycle_min = kernel_data.query('Iteration == @iter')['Start'].min()
 	cycle_max = kernel_data.query('Iteration == @iter')['End'].max()
 
@@ -70,7 +76,7 @@ for iter in kernel_data['Iteration'].unique():
 	cycle_bounds = np.unique(np.append(kernel_data.query('Iteration == @iter')['Start'].values, kernel_data.query('Iteration == @iter')['End'].values))
 
 	# Create figure 
-	fig = plt.figure(figsize=(8,4))
+	fig = plt.figure(figsize=(10,5))
 
 	# Set font of the plot
 	font = {'family' : 'sans-serif',
@@ -92,7 +98,7 @@ for iter in kernel_data['Iteration'].unique():
 
 	prim_ax.set_xlim([cycle_min - 500, cycle_max + 500]) 
 	prim_ax.set_xticks(cycle_bounds)
-	prim_ax.set_xticklabels(cycle_bounds, rotation=90)
+	prim_ax.set_xticklabels(cycle_bounds, rotation=0)
 
 	prim_ax.grid(b=True, which='major', color='grey', linestyle='-')
 
@@ -112,8 +118,37 @@ for iter in kernel_data['Iteration'].unique():
 	# Set the bounds, ticks, tick labels for secondary x-axis
 	sec_x_ax.set_xlim(prim_ax.get_xlim())
 	sec_x_ax.set_xticks(kernel_mids)
-	sec_x_ax.set_xticklabels(kernel_names, rotation=90)
- 
+	sec_x_ax.set_xticklabels(kernel_names, rotation=0)
+
+        ##################################################################################################
+	# Static part to zoom for needle; extremely hardcoded
+	##################################################################################################
+	from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
+
+	all_cycles = sorted(acc_data.query('Cycle >= @cycle_min & Cycle <= @cycle_max')['Cycle'].unique())
+	len_all_cycle = len(all_cycles)
+	zoom_plot_xmin = all_cycles[int(len_all_cycle*0.1)]
+	zoom_plot_xmax = zoom_plot_xmin + 400
+
+	axins = zoomed_inset_axes(prim_ax, 10, loc=7)
+
+	axins.scatter(acc_data.query('Cycle >= @cycle_min & Cycle <= @cycle_max')['Cycle'].values, acc_data.query('Cycle >= @cycle_min & Cycle <= @cycle_max')['PageNum'].values, marker='o', edgecolor='none', s=2, c='k')
+
+	axins.set_xlim(zoom_plot_xmin, zoom_plot_xmax)
+	axins.set_ylim(786850, 787050)
+
+	plt.ticklabel_format(useOffset=False)
+	axins.get_xaxis().get_major_formatter().set_scientific(False)
+	axins.get_yaxis().get_major_formatter().set_scientific(False)
+
+	#plt.yticks(visible=False)
+	plt.xticks(visible=False)
+
+	from mpl_toolkits.axes_grid1.inset_locator import mark_inset
+
+	mark_inset(prim_ax, axins, loc1=2, loc2=4, fc="none", ec="0.5")	
+	##################################################################################################
+
 	plt.savefig(acc_dir + benchmark + '_iter' + str(iter) + '.png',  dpi=300, bbox_inches="tight")
 
 	plt.close()

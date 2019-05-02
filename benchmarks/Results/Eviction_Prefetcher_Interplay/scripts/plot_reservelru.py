@@ -74,12 +74,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, rt_SL_110, hatch="xx", color='r', width=barWidth, edgecolor='black', label='SL 64KB eviction + SL prefetcher after eviction')
-plt.bar(r3, rt_TBN_110, hatch="\\\\", color='c', width=barWidth, edgecolor='black', label='TBN eviction + TBN prefetcher after eviction')
-plt.bar(r4, rt_TBN_110_Rsv10, hatch="OO", color='yellow', width=barWidth, edgecolor='black', label='TBN eviction + TBN prefetcher after eviction\n + Reserve 10% of LRU page list from eviction')
-plt.bar(r5, rt_TBN_110_Rsv20, hatch="oo", color='g', width=barWidth, edgecolor='black', label='TBN eviction + TBN prefetcher after eviction\n + Reserve 20% of LRU page list from eviction')
+plt.bar(r2, rt_SL_110, hatch="xx", color='r', width=barWidth, edgecolor='black', label='$SL_e$ + $SL_p$')
+plt.bar(r3, rt_TBN_110, hatch="\\\\", color='c', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$')
+plt.bar(r4, rt_TBN_110_Rsv10, hatch="OO", color='yellow', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$ + Reserve top 10% of LRU queue')
+plt.bar(r5, rt_TBN_110_Rsv20, hatch="oo", color='g', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$ + Reserve top 20% of LRU queue')
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
 
@@ -91,7 +91,7 @@ plt.ylabel('Kernel Execution Time (us)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.48), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.32), prop={'size': 12})
 
 plt.savefig('../plots/ReserveLRU/reservelru.png',  dpi=300, bbox_inches="tight")
 

@@ -99,12 +99,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, rt_OnDemand, hatch="--", color='r', width=barWidth, edgecolor='black', label='On-demand paging')
-plt.bar(r3, rt_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Random 4KB along with on-demand paging')         
-plt.bar(r4, rt_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Sequential-local 64KB')
-plt.bar(r5, rt_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Tree-based neighborhood')
+plt.bar(r2, rt_OnDemand, hatch="--", color='r', width=barWidth, edgecolor='black', label='No prefetcher')
+plt.bar(r3, rt_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='$R_p$')         
+plt.bar(r4, rt_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$SL_p$')
+plt.bar(r5, rt_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='$TBN_p$')
 
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
@@ -119,7 +119,7 @@ plt.ylabel('Kernel Execution Time (log scale)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.11), prop={'size': 12}, ncol=4)
 
 plt.savefig('../plots/HWPrefetchers/hwprefetchers.png',  dpi=300, bbox_inches="tight")
 
@@ -134,12 +134,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, rbw_OnDemand, hatch="--", color='r', width=barWidth, edgecolor='black', label='On-demand paging')
-plt.bar(r3, rbw_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Random 4KB along with on-demand paging')         
-plt.bar(r4, rbw_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Sequential-local 64KB')
-plt.bar(r5, rbw_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Tree-based neighborhood')
+plt.bar(r2, rbw_OnDemand, hatch="--", color='r', width=barWidth, edgecolor='black', label='No prefetcher')
+plt.bar(r3, rbw_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='$R_p$')         
+plt.bar(r4, rbw_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$SL_p$')
+plt.bar(r5, rbw_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='$TBN_p$')
 
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
@@ -152,7 +152,7 @@ plt.ylabel('Average PCI-e Read Bandwidth (GB/s)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.11), prop={'size': 12}, ncol=4)
 
 plt.savefig('../plots/HWPrefetchers/hwprefetchers_read_bw.png',  dpi=300, bbox_inches="tight")
 
@@ -167,12 +167,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, pf_OnDemand, hatch="--", color='r', width=barWidth, edgecolor='black', label='On-demand paging')
-plt.bar(r3, pf_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Random 4KB along with on-demand paging')         
-plt.bar(r4, pf_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Sequential-local 64KB')
-plt.bar(r5, pf_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Tree-based neighborhood')
+plt.bar(r2, pf_OnDemand, hatch="--", color='r', width=barWidth, edgecolor='black', label='No prefetcher')
+plt.bar(r3, pf_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='$R_p$')
+plt.bar(r4, pf_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$SL_p$')
+plt.bar(r5, pf_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='$TBN_p$')
 
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
@@ -187,7 +187,7 @@ plt.ylabel('Total Number of Far-faults (log scale)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.11), prop={'size': 12}, ncol=4)
 
 plt.savefig('../plots/HWPrefetchers/hwprefetchers_page_fault.png',  dpi=300, bbox_inches="tight")
 

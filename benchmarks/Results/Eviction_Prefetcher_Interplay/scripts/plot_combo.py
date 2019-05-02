@@ -74,12 +74,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, rt_LRU_OD, hatch="--", color='r', width=barWidth, edgecolor='black', label='LRU 4KB eviction + OD after eviction')
-plt.bar(r3, rt_Random_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='Random 4KB eviction + RP after eviction')         
-plt.bar(r4, rt_SL_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='SL 64KB eviction + SL prefetcher after eviction')
-plt.bar(r5, rt_TBN_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='TBN eviction + TBN prefetcher after eviction')
+plt.bar(r2, rt_LRU_OD, hatch="--", color='r', width=barWidth, edgecolor='black', label='LRU 4KB + OD')
+plt.bar(r3, rt_Random_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='$R_e$ + $R_p$')         
+plt.bar(r4, rt_SL_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$SL_e$ + $SL_p$')
+plt.bar(r5, rt_TBN_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$')
 
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
@@ -94,6 +94,6 @@ plt.ylabel('Kernel Execution Time (log scale)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.11), prop={'size': 12}, ncol=4)
 
 plt.savefig('../plots/EvictionPolicy_HWPrefetcher_Combo/combo.png',  dpi=300, bbox_inches="tight")

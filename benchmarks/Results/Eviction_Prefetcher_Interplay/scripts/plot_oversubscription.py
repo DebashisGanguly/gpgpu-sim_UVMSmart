@@ -99,12 +99,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, rt_110, hatch="--", color='r', width=barWidth, edgecolor='black', label='Working set == gddr size * 110%')
-plt.bar(r3, rt_125, hatch="++", color='c', width=barWidth, edgecolor='black', label='Working set == gddr size * 125%')         
-plt.bar(r4, rt_110_PreEvict95, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Working set == gddr size * 110% and pre-eviction at 95%')
-plt.bar(r5, rt_110_PreEvict90, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Working set == gddr size * 110% and pre-eviction at 90%')
+plt.bar(r2, rt_110, hatch="--", color='r', width=barWidth, edgecolor='black', label='Working set == device memory size * 110%')
+plt.bar(r3, rt_125, hatch="++", color='c', width=barWidth, edgecolor='black', label='Working set == device memory size * 125%')         
+plt.bar(r4, rt_110_PreEvict95, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Working set == device memory size * 110% and pre-eviction at 95%')
+plt.bar(r5, rt_110_PreEvict90, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Working set == device memory size * 110% and pre-eviction at 90%')
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
 
@@ -116,7 +116,7 @@ plt.ylabel('Kernel Execution Time\n(Normalized to no oversubscription)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.29), prop={'size': 12})
 
 plt.savefig('../plots/Oversubscription/oversub.png',  dpi=300, bbox_inches="tight")
 
@@ -128,12 +128,12 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, pt4k_110, hatch="--", color='r', width=barWidth, edgecolor='black', label='Working set == gddr size * 110%')
-plt.bar(r3, pt4k_125, hatch="++", color='c', width=barWidth, edgecolor='black', label='Working set == gddr size * 125%')         
-plt.bar(r4, pt4k_110_PreEvict95, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Working set == gddr size * 110% and pre-eviction at 95%')
-plt.bar(r5, pt4k_110_PreEvict90, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Working set == gddr size * 110% and pre-eviction at 90%')
+plt.bar(r2, pt4k_110, hatch="--", color='r', width=barWidth, edgecolor='black', label='Working set == device memory size * 110%')
+plt.bar(r3, pt4k_125, hatch="++", color='c', width=barWidth, edgecolor='black', label='Working set == device memory size * 125%')         
+plt.bar(r4, pt4k_110_PreEvict95, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Working set == device memory size * 110% and pre-eviction at 95%')
+plt.bar(r5, pt4k_110_PreEvict90, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='Working set == device memory size * 110% and pre-eviction at 90%')
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
 
@@ -145,7 +145,7 @@ plt.ylabel('Number of 4KB Page Transfers\n(Normalized to no oversubscription)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.36), prop={'size': 12})
+ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.29), prop={'size': 12})
 
 plt.savefig('../plots/Oversubscription/oversub_4k.png',  dpi=300, bbox_inches="tight")
 

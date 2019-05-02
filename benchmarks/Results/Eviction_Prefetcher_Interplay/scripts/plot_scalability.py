@@ -70,11 +70,11 @@ plt.rc('font', **font)
 
 plt.rcParams['hatch.linewidth'] = 1.5
 
-plt.figure(figsize=(10,4))
+plt.figure(figsize=(10,5))
 
-plt.bar(r2, rt_110, hatch="--", color='r', width=barWidth, edgecolor='black', label='Working set == gddr size * 110%')
-plt.bar(r3, rt_125, hatch="++", color='c', width=barWidth, edgecolor='black', label='Working set == gddr size * 125%')         
-plt.bar(r4, rt_150, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Working set == gddr size * 150%')
+plt.bar(r2, rt_110, hatch="--", color='r', width=barWidth, edgecolor='black', label='Working set == device memory size * 110%')
+plt.bar(r3, rt_125, hatch="++", color='c', width=barWidth, edgecolor='black', label='Working set == device memory size * 125%')         
+plt.bar(r4, rt_150, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='Working set == device memory size * 150%')
 
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
@@ -90,6 +90,6 @@ plt.ylabel('Kernel Execution Time (us)')
 ax.xaxis.set_ticks_position('none')
 
 # Create legend & Show graphic
-plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.28), prop={'size': 12})
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.23), prop={'size': 12})
 
 plt.savefig('../plots/Scalability/scalability.png',  dpi=300, bbox_inches="tight")
