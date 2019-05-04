@@ -76,7 +76,7 @@ plt.rcParams['hatch.linewidth'] = 1.5
 
 plt.figure(figsize=(10,5))
 
-plt.bar(r2, rt_LRU_OD, hatch="--", color='r', width=barWidth, edgecolor='black', label='LRU 4KB + OD')
+plt.bar(r2, rt_LRU_OD, hatch="--", color='r', width=barWidth, edgecolor='black', label='LRU 4KB + No prefetcher')
 plt.bar(r3, rt_Random_Random, hatch="++", color='c', width=barWidth, edgecolor='black', label='$R_e$ + $R_p$')         
 plt.bar(r4, rt_SL_SL, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$SL_e$ + $SL_p$')
 plt.bar(r5, rt_TBN_TBN, hatch="\\\\", color='g', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$')

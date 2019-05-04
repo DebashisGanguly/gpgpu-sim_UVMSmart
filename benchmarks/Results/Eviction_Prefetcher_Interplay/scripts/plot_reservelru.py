@@ -13,11 +13,10 @@ from matplotlib import gridspec
 parent_folder = '../output_logs'
 
 experiment_folder = 'ReserveLRU'
-sub_folders = ['SL_110', 'TBN_110', 'TBN_110_Rsv10', 'TBN_110_Rsv20']
+sub_folders = ['TBN_110', 'TBN_110_Rsv10', 'TBN_110_Rsv20']
 
 benchmarks = ['backprop', 'bfs', 'fdtd', 'hotspot', 'nw', 'pathfinder', 'srad']
 
-rt_SL_110 = []
 rt_TBN_110 = []
 rt_TBN_110_Rsv10 = []
 rt_TBN_110_Rsv20 = []
@@ -32,9 +31,7 @@ for b in benchmarks:
 			line = re.findall(r"^Tot_kernel_exec_time_and_fault_time.*", file_content, flags=re.MULTILINE)[0]
 			rt = float(line[line.find(', ')+2:line.rfind('(us)')])
 
-			if sf == 'SL_110':
-				rt_SL_110.append(rt)
-			elif sf == 'TBN_110':
+			if sf == 'TBN_110':
 				rt_TBN_110.append(rt)
 			elif sf == 'TBN_110_Rsv10':
 				rt_TBN_110_Rsv10.append(rt)
@@ -62,7 +59,6 @@ for i in range(len(rt_TBN_110)):
 r2 = [x + barWidth for x in r1a]
 r3 = [x + barWidth for x in r2]
 r4 = [x + barWidth for x in r3]
-r5 = [x + barWidth for x in r4]
 
 
 plt.figure(1)
@@ -76,10 +72,9 @@ plt.rcParams['hatch.linewidth'] = 1.5
 
 plt.figure(figsize=(10,5))
 
-plt.bar(r2, rt_SL_110, hatch="xx", color='r', width=barWidth, edgecolor='black', label='$SL_e$ + $SL_p$')
-plt.bar(r3, rt_TBN_110, hatch="\\\\", color='c', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$')
-plt.bar(r4, rt_TBN_110_Rsv10, hatch="OO", color='yellow', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$ + Reserve top 10% of LRU queue')
-plt.bar(r5, rt_TBN_110_Rsv20, hatch="oo", color='g', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$ + Reserve top 20% of LRU queue')
+plt.bar(r2, rt_TBN_110, hatch="--", color='r', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$')
+plt.bar(r3, rt_TBN_110_Rsv10, hatch="++", color='c', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$ + Reserve top 10% of LRU queue')
+plt.bar(r4, rt_TBN_110_Rsv20, hatch="xx", color='yellow', width=barWidth, edgecolor='black', label='$TBN_e$ + $TBN_p$ + Reserve top 20% of LRU queue')
 
 plt.xticks([r + 0.3 + barWidth for r in r1a], benchmarks)
 
