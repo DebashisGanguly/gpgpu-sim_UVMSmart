@@ -613,6 +613,10 @@ void gpgpu_sim_config::reg_options(option_parser_t opp)
                "Enable page fault functional simulation.",
                "0");
 
+    option_parser_register(opp, "-enable_smart_runtime", OPT_BOOL, &enable_smart_runtime, 
+		"Enable access pattern detection, policy engine, and adaptive memory management.", 
+		"0");
+
     ptx_file_line_stats_options(opp);
 
     //Jin: kernel launch latency
@@ -2655,6 +2659,73 @@ void gmmu_t::update_hardware_prefetcher_oversubscribed()
     }
 }
 
+void gmmu_t::log_kernel_info(unsigned kernel_id, unsigned long long time, bool finish) 
+{
+    if (!finish) {
+	kernel_info.insert(std::make_pair(kernel_id, std::make_pair(time, 0)));
+    } else {
+	std::map<unsigned, std::pair<unsigned long long, unsigned long long> >::iterator it = kernel_info.find(kernel_id);
+	if (it != kernel_info.end()) {
+	    it->second.second = time;
+	}
+    }
+}
+
+void gmmu_t::update_memory_management_policy() 
+{
+    printf("**********************************************\n");
+    const std::map<uint64_t, struct allocation_info*>& managedAllocations = m_gpu->gpu_get_managed_allocations();
+
+    int i = 1;
+
+    std::map<std::pair<mem_addr_t, size_t>, std::string> dataStructures;
+    std::map<std::string, ds_pattern> accessPatterns;
+
+    for(std::map<uint64_t, struct allocation_info*>::const_iterator iter = managedAllocations.begin(); iter != managedAllocations.end(); iter++) {
+	dataStructures.insert(std::make_pair(std::make_pair(iter->second->gpu_mem_addr, iter->second->allocation_size), std::string("ds" + std::to_string(i))));
+	accessPatterns.insert(std::make_pair(std::string("ds" + std::to_string(i)), ds_pattern::UNDECIDED));
+	i++;
+    }
+
+    std::map<unsigned, std::map<std::string, std::list<mem_addr_t> > > kernel_pattern;
+
+    for (std::map<unsigned, std::pair<unsigned long long, unsigned long long> >::iterator k_iter = kernel_info.begin(); k_iter != kernel_info.end(); k_iter++) {
+
+	unsigned long long start = k_iter->second.first;
+	unsigned long long end = k_iter->second.second;
+
+	std::map<std::string, std::list<mem_addr_t> > dsAccess;
+
+	for (std::list<std::pair<unsigned long long , mem_addr_t> >::iterator acc_iter = block_access_list.begin(); acc_iter != block_access_list.end(); acc_iter++ ) {
+
+	    unsigned long long access_cycle = acc_iter->first;
+	    mem_addr_t block_addr = acc_iter->second;
+
+	    if (access_cycle >= start && ((end == 0) || (access_cycle <= end))) {
+
+		for (std::map<std::pair<mem_addr_t, size_t>, std::string>::iterator ds_iter = dataStructures.begin(); ds_iter != dataStructures.end(); ds_iter++ ) {
+
+		    if (block_addr >= ds_iter->first.first && block_addr < ds_iter->first.first + ds_iter->first.second) {
+			dsAccess[ds_iter->second].push_back(block_addr);
+		    }
+		}
+	    }
+	}
+
+	kernel_pattern.insert(std::make_pair(k_iter->first, dsAccess));
+    }
+
+    for (std::map<unsigned, std::map<std::string, std::list<mem_addr_t> > >::iterator k_iter = kernel_pattern.begin(); k_iter != kernel_pattern.end(); k_iter++) {
+	printf("##### Kerenl %u\n", k_iter->first);
+	for (std::map<std::string, std::list<mem_addr_t> >::iterator da_iter = k_iter->second.begin(); da_iter != k_iter->second.end(); da_iter++) {
+	    printf("#####\tData Structure %s\n", da_iter->first.c_str());
+	    for (std::list<mem_addr_t>::iterator ba_iter = da_iter->second.begin(); ba_iter != da_iter->second.end(); ba_iter++) {
+		printf("#####\t\t0x%x\n", *ba_iter);
+	    }
+	}
+    }
+}
+
 void gmmu_t::reset_lp_tree_node(struct lp_tree_node* node)
 {
     node->valid_size = 0;
@@ -2918,6 +2989,11 @@ void gmmu_t::cycle()
     num_write_stage_queue += pcie_write_latency_queue != NULL ? pcie_write_latency_queue->page_list.size() : 0;
 
     if ( m_gpu->get_global_memory()->should_evict_page(num_read_stage_queue, num_write_stage_queue, m_config.free_page_buffer_percentage) ) {
+
+	if (m_config.enable_smart_runtime) {
+	    update_memory_management_policy();
+	}
+
         page_eviction_procedure();
     }
     
@@ -3465,6 +3541,9 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
                 }
 
                 for (std::set<mem_addr_t>::iterator bb = schedulable_basic_blocks.begin(); bb != schedulable_basic_blocks.end(); bb++) {
+
+		    block_access_list.push_back(std::make_pair(gpu_tot_sim_cycle + gpu_sim_cycle, *bb));
+
                     // all the invalid pages in the current 64 K basic block of transfer
                     std::list<mem_addr_t> all_block_pages = m_gpu->get_global_memory()->get_faulty_pages( *bb, MIN_PREFETCH_SIZE );
                     
@@ -3579,7 +3658,12 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
 
 	if ( !over_sub && m_gpu->get_global_memory()->should_evict_page(num_pages_read_stage_queue + temp_req_info.size(), 0, m_config.free_page_buffer_percentage) ) {
 
-	     update_hardware_prefetcher_oversubscribed();
+	     if (m_config.enable_smart_runtime) {
+		update_memory_management_policy();
+		update_hardware_prefetcher_oversubscribed();
+	     } else {
+		update_hardware_prefetcher_oversubscribed();
+	     }
 
 	     over_sub = true;
 	}

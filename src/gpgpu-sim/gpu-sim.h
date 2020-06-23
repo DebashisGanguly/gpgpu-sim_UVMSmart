@@ -378,6 +378,8 @@ private:
     int enable_dma;
     int multiply_dma_penalty;
     unsigned migrate_threshold;
+
+    bool enable_smart_runtime;
 public:
     int  hardware_prefetch;
     int  hwprefetch_oversub;
@@ -672,6 +674,10 @@ public:
 
    void update_hardware_prefetcher_oversubscribed();
 
+   // update paging, pinning, and eviction decision based on memory access pattern under oversubscription
+   void update_memory_management_policy();
+   void log_kernel_info(unsigned kernel_id, unsigned long long time, bool finish);
+
    void reset_large_page_info();
 
    mem_addr_t get_eviction_base_addr(mem_addr_t page_addr);
@@ -751,6 +757,15 @@ private:
 
     // type of DMA
     enum class dma_type { DISABLED, ADAPTIVE, ALWAYS, OVERSUB };
+
+    // type of memory access pattern per data structure
+    enum class ds_pattern { UNDECIDED, RANDOM, LINEAR, MIXED };
+
+    // list of scheduled basic blocks by their timestamps
+    std::list<std::pair<unsigned long long, mem_addr_t> > block_access_list;
+
+    // list of launch and finish cycle of kernels keyed by id 
+    std::map<unsigned, std::pair<unsigned long long, unsigned long long> > kernel_info;
 
     eviction_policy evict_policy;    
     hwardware_prefetcher prefetcher;

@@ -206,6 +206,8 @@ bool stream_operation::do_operation( gpgpu_sim *gpu )
                 gpu->set_cache_config(m_kernel->name());
                 gpu->launch( m_kernel );
 
+		gpu->getGmmu()->log_kernel_info(m_kernel->get_uid(), gpu_sim_cycle + gpu_tot_sim_cycle, false);
+
 		if(sim_prof_enable) {
 			kernel_stats* k_s = new kernel_stats(cur_cycle, m_stream->get_uid(), m_kernel->get_uid());
 			sim_prof[cur_cycle].push_back(k_s);
@@ -311,6 +313,7 @@ bool stream_manager::register_finished_kernel(unsigned grid_uid)
 //            kernel_stat.close();
 	    if(sim_prof_enable){
 	    	update_sim_prof_kernel(kernel->get_uid(), gpu_sim_cycle + gpu_tot_sim_cycle); 
+		m_gpu->getGmmu()->log_kernel_info(kernel->get_uid(), gpu_sim_cycle + gpu_tot_sim_cycle, true);
 	    }
 
             stream->record_next_done();
