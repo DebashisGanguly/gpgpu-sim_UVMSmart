@@ -2673,20 +2673,31 @@ void gmmu_t::log_kernel_info(unsigned kernel_id, unsigned long long time, bool f
 
 void gmmu_t::update_memory_management_policy() 
 {
-    printf("**********************************************\n");
-    const std::map<uint64_t, struct allocation_info*>& managedAllocations = m_gpu->gpu_get_managed_allocations();
+    //printf("**********************************************\n");
 
-    int i = 1;
-
-    std::map<std::pair<mem_addr_t, size_t>, std::string> dataStructures;
     std::map<std::string, ds_pattern> accessPatterns;
 
+    int i = 1;
+    std::map<std::pair<mem_addr_t, size_t>, std::string> dataStructures;
+    std::map<std::string, std::list<mem_addr_t> > dsUniqueBlocks;
+
+    // get the managed allocations 
+    const std::map<uint64_t, struct allocation_info*>& managedAllocations = m_gpu->gpu_get_managed_allocations();
+
+    // loop over managed allocations to create three maps
+    // 1. data structures - key: pair of start addr and size; value: ds_i
+    // 2. access pattern: key: ds_i; value: UNDECIDED pattern
+    // 3. unique accessed blocks for reuse: key: ds_i; value: empty list of block start address 
     for(std::map<uint64_t, struct allocation_info*>::const_iterator iter = managedAllocations.begin(); iter != managedAllocations.end(); iter++) {
 	dataStructures.insert(std::make_pair(std::make_pair(iter->second->gpu_mem_addr, iter->second->allocation_size), std::string("ds" + std::to_string(i))));
+
 	accessPatterns.insert(std::make_pair(std::string("ds" + std::to_string(i)), ds_pattern::UNDECIDED));
+	dsUniqueBlocks.insert(std::make_pair(std::string("ds" + std::to_string(i)), std::list<mem_addr_t>()));
 	i++;
     }
 
+    // create three level hierarchy for kernel-wise then data-structure wise block address
+    // first level: name of kernel (k_i); second level: ds_i; third level: block addresses ordered by access time
     std::map<unsigned, std::map<std::string, std::list<mem_addr_t> > > kernel_pattern;
 
     for (std::map<unsigned, std::pair<unsigned long long, unsigned long long> >::iterator k_iter = kernel_info.begin(); k_iter != kernel_info.end(); k_iter++) {
@@ -2715,15 +2726,121 @@ void gmmu_t::update_memory_management_policy()
 	kernel_pattern.insert(std::make_pair(k_iter->first, dsAccess));
     }
 
+    // determine pattern per data structure 
+    // first loop on kernel level then on data structures accessed in that kernel
     for (std::map<unsigned, std::map<std::string, std::list<mem_addr_t> > >::iterator k_iter = kernel_pattern.begin(); k_iter != kernel_pattern.end(); k_iter++) {
+
+	for (std::map<std::string, std::list<mem_addr_t> >::iterator da_iter = k_iter->second.begin(); da_iter != k_iter->second.end(); da_iter++) {
+
+            // get the sorted list of block addresses belonging to the current data-structure in current kernel
+	    std::list<mem_addr_t> curBlocks = std::list<mem_addr_t>(da_iter->second);
+	    curBlocks.sort();
+	    curBlocks.unique();
+
+	    // check for data reuse
+	    bool reuse = false;
+
+	    // first within this kernel
+	    // if the number of unique blocks accessed and total number of blocks accessed are not same then there is repetition
+	    if (curBlocks.size() != da_iter->second.size()) {
+		reuse = true;
+	    }
+
+            // second check if the current accessed blocks are already seen or not
+	    std::map<std::string, std::list<mem_addr_t> >::iterator ub_it = dsUniqueBlocks.find(da_iter->first);
+
+            // check for intersection between unique blocks accessed in current kernel and the previous kernels is null set or not
+	    std::list<int> intersection;
+	    std::set_intersection(curBlocks.begin(), curBlocks.end(), ub_it->second.begin(), ub_it->second.end(), std::back_inserter(intersection));
+
+	    if (intersection.size() != 0) {
+		reuse = true;
+	    }
+
+            // add the current blocks to the seen set per data structure
+	    ub_it->second.merge(curBlocks);
+	    ub_it->second.sort();
+	    ub_it->second.unique();
+
+	    // now update the pattern
+	    std::map<std::string, ds_pattern>::iterator dsp_it = accessPatterns.find(da_iter->first);
+	    ds_pattern curPattern;
+
+            // check for linearity or randomness in current kernel
+	    if (std::is_sorted(da_iter->second.begin(), da_iter->second.end())) {
+		if (reuse) {
+		    curPattern = ds_pattern::LINEAR_REUSE;
+		} else {
+		    curPattern = ds_pattern::LINEAR;
+		}
+	    } else {
+		if (reuse) {
+		    curPattern = ds_pattern::RANDOM_REUSE;
+		} else {
+		    curPattern = ds_pattern::RANDOM;
+		}
+	    }
+
+	    // determine the pattern
+	    if (dsp_it->second == ds_pattern::UNDECIDED) {
+		dsp_it->second = curPattern;
+	    } else if (dsp_it->second == ds_pattern::LINEAR) { 
+		if (curPattern == ds_pattern::LINEAR_REUSE) {
+		    dsp_it->second = ds_pattern::LINEAR_REUSE;
+		} else if (curPattern == ds_pattern::RANDOM) {
+		    dsp_it->second = ds_pattern::MIXED;
+		} else if (curPattern == ds_pattern::RANDOM_REUSE) {
+		    dsp_it->second = ds_pattern::MIXED_REUSE;
+		}
+	    } else if (dsp_it->second == ds_pattern::LINEAR_REUSE) { 
+		if (curPattern == ds_pattern::RANDOM || curPattern == ds_pattern::RANDOM_REUSE) {
+		    dsp_it->second = ds_pattern::MIXED_REUSE;
+		}
+	    } else if (dsp_it->second == ds_pattern::RANDOM) { 
+		if (curPattern == ds_pattern::RANDOM_REUSE) {
+		    dsp_it->second = ds_pattern::RANDOM_REUSE;
+		} else if (curPattern == ds_pattern::LINEAR) {
+		    dsp_it->second = ds_pattern::MIXED;
+		} else if (curPattern == ds_pattern::LINEAR_REUSE) {
+		    dsp_it->second = ds_pattern::MIXED_REUSE;
+		}
+	    } else if (dsp_it->second == ds_pattern::RANDOM_REUSE) { 
+		if (curPattern == ds_pattern::LINEAR || curPattern == ds_pattern::LINEAR_REUSE) {
+		    dsp_it->second = ds_pattern::MIXED_REUSE;
+		}
+	    }
+	}
+    }
+
+    /*for (std::map<unsigned, std::map<std::string, std::list<mem_addr_t> > >::iterator k_iter = kernel_pattern.begin(); k_iter != kernel_pattern.end(); k_iter++) {
 	printf("##### Kerenl %u\n", k_iter->first);
 	for (std::map<std::string, std::list<mem_addr_t> >::iterator da_iter = k_iter->second.begin(); da_iter != k_iter->second.end(); da_iter++) {
-	    printf("#####\tData Structure %s\n", da_iter->first.c_str());
+
+	    std::map<std::string, ds_pattern>::iterator it = accessPatterns.find(da_iter->first);
+	    std::string pattern;
+
+	    if (it->second == ds_pattern::UNDECIDED) {
+		pattern = std::string("UNDECIDED");
+	    } else if (it->second == ds_pattern::RANDOM) {
+		pattern = std::string("RANDOM");
+	    } else if (it->second == ds_pattern::LINEAR) {
+		pattern = std::string("LINEAR");
+	    } else if (it->second == ds_pattern::MIXED) {
+		pattern = std::string("MIXED");
+	    } else if (it->second == ds_pattern::RANDOM_REUSE) {
+		pattern = std::string("RANDOM_REUSE");
+	    } else if (it->second == ds_pattern::LINEAR_REUSE) {
+		pattern = std::string("LINEAR_REUSE");
+	    } else if (it->second == ds_pattern::MIXED_REUSE) {
+		pattern = std::string("MIXED_REUSE");
+	    }
+
+	    printf("#####\t%s with pattern %s\n", da_iter->first.c_str(), pattern.c_str());
 	    for (std::list<mem_addr_t>::iterator ba_iter = da_iter->second.begin(); ba_iter != da_iter->second.end(); ba_iter++) {
 		printf("#####\t\t0x%x\n", *ba_iter);
 	    }
 	}
-    }
+    }*/
 }
 
 void gmmu_t::reset_lp_tree_node(struct lp_tree_node* node)

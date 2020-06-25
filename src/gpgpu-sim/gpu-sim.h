@@ -759,7 +759,7 @@ private:
     enum class dma_type { DISABLED, ADAPTIVE, ALWAYS, OVERSUB };
 
     // type of memory access pattern per data structure
-    enum class ds_pattern { UNDECIDED, RANDOM, LINEAR, MIXED };
+    enum class ds_pattern { UNDECIDED, RANDOM, LINEAR, MIXED, RANDOM_REUSE, LINEAR_REUSE, MIXED_REUSE };
 
     // list of scheduled basic blocks by their timestamps
     std::list<std::pair<unsigned long long, mem_addr_t> > block_access_list;
