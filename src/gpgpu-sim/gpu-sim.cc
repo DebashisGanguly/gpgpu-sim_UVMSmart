@@ -2673,8 +2673,6 @@ void gmmu_t::log_kernel_info(unsigned kernel_id, unsigned long long time, bool f
 
 void gmmu_t::update_memory_management_policy() 
 {
-    //printf("**********************************************\n");
-
     std::map<std::string, ds_pattern> accessPatterns;
 
     int i = 1;
@@ -2812,35 +2810,6 @@ void gmmu_t::update_memory_management_policy()
 	}
     }
 
-    /*for (std::map<unsigned, std::map<std::string, std::list<mem_addr_t> > >::iterator k_iter = kernel_pattern.begin(); k_iter != kernel_pattern.end(); k_iter++) {
-	printf("##### Kerenl %u\n", k_iter->first);
-	for (std::map<std::string, std::list<mem_addr_t> >::iterator da_iter = k_iter->second.begin(); da_iter != k_iter->second.end(); da_iter++) {
-
-	    std::map<std::string, ds_pattern>::iterator it = accessPatterns.find(da_iter->first);
-	    std::string pattern;
-
-	    if (it->second == ds_pattern::UNDECIDED) {
-		pattern = std::string("UNDECIDED");
-	    } else if (it->second == ds_pattern::RANDOM) {
-		pattern = std::string("RANDOM");
-	    } else if (it->second == ds_pattern::LINEAR) {
-		pattern = std::string("LINEAR");
-	    } else if (it->second == ds_pattern::MIXED) {
-		pattern = std::string("MIXED");
-	    } else if (it->second == ds_pattern::RANDOM_REUSE) {
-		pattern = std::string("RANDOM_REUSE");
-	    } else if (it->second == ds_pattern::LINEAR_REUSE) {
-		pattern = std::string("LINEAR_REUSE");
-	    } else if (it->second == ds_pattern::MIXED_REUSE) {
-		pattern = std::string("MIXED_REUSE");
-	    }
-
-	    printf("#####\t%s with pattern %s\n", da_iter->first.c_str(), pattern.c_str());
-	    for (std::list<mem_addr_t>::iterator ba_iter = da_iter->second.begin(); ba_iter != da_iter->second.end(); ba_iter++) {
-		printf("#####\t\t0x%x\n", *ba_iter);
-	    }
-	}
-    }*/
 }
 
 void gmmu_t::reset_lp_tree_node(struct lp_tree_node* node)
@@ -3777,7 +3746,6 @@ void gmmu_t::do_hardware_prefetch (std::map<mem_addr_t, std::list<mem_fetch*> > 
 
 	     if (m_config.enable_smart_runtime) {
 		update_memory_management_policy();
-		update_hardware_prefetcher_oversubscribed();
 	     } else {
 		update_hardware_prefetcher_oversubscribed();
 	     }
