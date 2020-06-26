@@ -2165,8 +2165,6 @@ bool gmmu_t::is_block_evictable(mem_addr_t addr, size_t size)
 
 void gmmu_t::page_eviction_procedure()
 {
-    assert( !valid_pages.empty() );
-
     sort_valid_pages();
 
     std::list<std::pair<mem_addr_t, size_t> > evicted_pages;
