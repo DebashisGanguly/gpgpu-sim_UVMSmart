@@ -1,6 +1,26 @@
 Details of managed benchmarks
 =============================
 
+2dconv:
+	DataSet:
+		NI = NJ = 1024
+		A = B = sizeof(float)*NI*NJ = 4194304 = 4MB
+	Total size = 8MB
+
+	Number of iterations = 0
+	Number of kernels launched = 1
+
+atax:
+	DataSet:
+		NX = NY = 1200
+		A = sizeof(float)*NX*NY = 4096 = 6MB
+		X = Y = sizeof(float)*NY = 65536 = 64KB
+		tmp = sizeof(float)*NX = 65536 = 64KB
+	Total size = 6.1875MB
+
+	Number of iterations = 0
+	Number of kernels launched = 2
+
 backprop:
 	DataSet:
 		n_in = 131056, n_hidden = 16 (fixed), n_out = 1 (fixed)
@@ -105,4 +125,13 @@ stencil:
 
 	Number of iterations = iteration = argv[5] = 10
 	Number of kernels launched = 1*10 = 10
+
+stream_triad:
+	DataSet:
+		N = 1<<20
+		x = y = z = sizeof(float)*N = 4MB
+	Total size = 12MB
+
+	Number of iterations = 0
+	Number of kernels launched = 1
 
