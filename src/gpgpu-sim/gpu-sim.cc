@@ -2808,6 +2808,30 @@ void gmmu_t::update_memory_management_policy()
 	}
     }
 
+    bool is_random = false, is_random_reuse = false, is_linear = false, is_linear_reuse = false, is_mixed = false, is_mixed_reuse = false;
+
+    for (std::map<std::string, ds_pattern>::iterator ap_iter = accessPatterns.begin(); ap_iter != accessPatterns.end(); ap_iter++) {
+	if (ap_iter->second == ds_pattern::RANDOM) {
+	    is_random = true;
+	} else if (ap_iter->second == ds_pattern::RANDOM_REUSE) {
+	    is_random_reuse = true;
+	} else if (ap_iter->second == ds_pattern::LINEAR) {
+	    is_linear = true;
+	} else if (ap_iter->second == ds_pattern::LINEAR_REUSE) {
+	    is_linear_reuse = true;
+	} else if (ap_iter->second == ds_pattern::MIXED) {
+	    is_mixed = true;
+	} else if (ap_iter->second == ds_pattern::MIXED_REUSE) {
+	    is_mixed_reuse = true;
+	}
+    }
+
+    if (is_random || is_random_reuse || is_mixed || is_mixed_reuse) {
+	dma_mode = dma_type::OVERSUB;
+	evict_policy = eviction_policy::TBN;
+    } else if (is_linear_reuse) {
+	evict_policy = eviction_policy::TBN;
+    }
 }
 
 void gmmu_t::reset_lp_tree_node(struct lp_tree_node* node)
