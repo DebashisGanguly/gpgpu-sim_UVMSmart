@@ -1,0 +1,31 @@
+==112045== NVPROF is profiling process 112045, command: ./srad 1024 1024 0 127 0 127 0.5 4
+WG size of kernel = 16 X 16
+Randomizing the input matrix
+Start the SRAD main loop
+Computation Done
+==112045== Profiling application: ./srad 1024 1024 0 127 0 127 0.5 4
+==112045== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   86.42%  2.6866ms         4  671.65us  356.49us  1.5657ms  srad_cuda_1(float*, float*, float*, float*, float*, float*, int, int, float)
+                   13.58%  422.16us         4  105.54us  105.16us  105.80us  srad_cuda_2(float*, float*, float*, float*, float*, float*, int, int, float, float)
+      API calls:   88.94%  210.02ms         5  42.003ms  142.59us  209.44ms  cudaMalloc
+                    8.60%  20.301ms         1  20.301ms  20.301ms  20.301ms  cudaMallocManaged
+                    1.30%  3.0775ms         4  769.38us  455.95us  1.6584ms  cudaDeviceSynchronize
+                    0.67%  1.5774ms         6  262.89us  243.58us  337.79us  cudaFree
+                    0.26%  621.94us        94  6.6160us     128ns  269.26us  cuDeviceGetAttribute
+                    0.14%  322.35us         1  322.35us  322.35us  322.35us  cuDeviceTotalMem
+                    0.05%  127.71us         8  15.963us  5.9410us  63.278us  cudaLaunch
+                    0.03%  59.378us         1  59.378us  59.378us  59.378us  cuDeviceGetName
+                    0.01%  15.213us        76     200ns     117ns  4.1630us  cudaSetupArgument
+                    0.00%  5.2680us         8     658ns     161ns  3.3770us  cudaConfigureCall
+                    0.00%  3.7930us         3  1.2640us     188ns  3.3550us  cuDeviceGetCount
+                    0.00%  2.0750us         1  2.0750us  2.0750us  2.0750us  cudaThreadSynchronize
+                    0.00%     617ns         2     308ns     148ns     469ns  cuDeviceGet
+
+==112045== Unified Memory profiling result:
+Device "GeForce GTX 1080 Ti (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+      55  102.40KB  4.0000KB  0.9961MB  5.500000MB  1.030016ms  Host To Device
+      24  64.000KB  4.0000KB  252.00KB  1.500000MB  137.6000us  Device To Host
+      12         -         -         -           -  2.100160ms  Gpu page fault groups
+Total CPU Page faults: 24

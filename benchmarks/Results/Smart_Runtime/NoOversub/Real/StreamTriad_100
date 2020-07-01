@@ -1,0 +1,24 @@
+==49561== NVPROF is profiling process 49561, command: ./stream_triad
+==49561== Profiling application: ./stream_triad
+==49561== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:  100.00%  3.3878ms         1  3.3878ms  3.3878ms  3.3878ms  stream_triad(int, int, float*, float*, float*)
+      API calls:   97.43%  244.87ms         3  81.625ms  11.579us  244.76ms  cudaMallocManaged
+                    1.35%  3.3863ms         1  3.3863ms  3.3863ms  3.3863ms  cudaDeviceSynchronize
+                    0.40%  995.93us         3  331.98us  229.57us  459.71us  cudaFree
+                    0.38%  952.83us         1  952.83us  952.83us  952.83us  cuDeviceGetName
+                    0.26%  653.07us        94  6.9470us     128ns  291.78us  cuDeviceGetAttribute
+                    0.15%  376.01us         1  376.01us  376.01us  376.01us  cuDeviceTotalMem
+                    0.03%  75.093us         1  75.093us  75.093us  75.093us  cudaLaunch
+                    0.00%  6.2060us         5  1.2410us     131ns  5.0120us  cudaSetupArgument
+                    0.00%  3.6210us         3  1.2070us     193ns  3.2210us  cuDeviceGetCount
+                    0.00%  3.1260us         1  3.1260us  3.1260us  3.1260us  cudaConfigureCall
+                    0.00%     613ns         2     306ns     139ns     474ns  cuDeviceGet
+
+==49561== Unified Memory profiling result:
+Device "GeForce GTX 1080 Ti (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+     179  68.648KB  4.0000KB  988.00KB  12.00000MB  1.225312ms  Host To Device
+      24  170.67KB  4.0000KB  0.9961MB  4.000000MB  336.7040us  Device To Host
+      24         -         -         -           -  3.784672ms  Gpu page fault groups
+Total CPU Page faults: 48

@@ -1,0 +1,30 @@
+==107625== NVPROF is profiling process 107625, command: ./pathfinder 50000 200 10
+pyramidHeight: 10
+gridSize: [50000]
+border:[10]
+blockSize: 256
+blockGrid:[212]
+targetBlock:[236]
+==107625== Profiling application: ./pathfinder 50000 200 10
+==107625== Profiling result:
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:  100.00%  10.544ms        20  527.18us  354.12us  1.1651ms  dynproc_kernel(int, int*, int*, int*, int, int, int, int)
+      API calls:   94.03%  228.47ms         3  76.155ms  23.437us  228.40ms  cudaMallocManaged
+                    4.28%  10.397ms         1  10.397ms  10.397ms  10.397ms  cudaDeviceSynchronize
+                    1.19%  2.8965ms         3  965.51us  120.62us  2.6347ms  cudaFree
+                    0.26%  634.95us        94  6.7540us     129ns  290.61us  cuDeviceGetAttribute
+                    0.13%  313.70us         1  313.70us  313.70us  313.70us  cuDeviceTotalMem
+                    0.07%  174.14us        20  8.7070us  5.1770us  65.860us  cudaLaunch
+                    0.02%  59.710us         1  59.710us  59.710us  59.710us  cuDeviceGetName
+                    0.01%  26.901us       160     168ns     112ns  3.6460us  cudaSetupArgument
+                    0.00%  7.3430us        20     367ns     179ns  3.7400us  cudaConfigureCall
+                    0.00%  3.8850us         3  1.2950us     171ns  3.4780us  cuDeviceGetCount
+                    0.00%  2.7750us         1  2.7750us  2.7750us  2.7750us  cudaGetDeviceCount
+                    0.00%     814ns         2     407ns     154ns     660ns  cuDeviceGet
+
+==107625== Unified Memory profiling result:
+Device "GeForce GTX 1080 Ti (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+     475  82.366KB  4.0000KB  0.9883MB  38.20703MB  3.856064ms  Host To Device
+     107         -         -         -           -  10.74909ms  Gpu page fault groups
+Total CPU Page faults: 117
