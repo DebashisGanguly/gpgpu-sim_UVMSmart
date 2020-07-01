@@ -42,8 +42,8 @@ srad_cuda_1(
   __shared__ float  west[BLOCK_SIZE][BLOCK_SIZE];
 
   //load data to shared memory
-  north[ty][tx] = J_cuda[index_n]; 
-  south[ty][tx] = J_cuda[index_s];
+  if (index_n < (rows*cols) && index_n >= 0) north[ty][tx] = J_cuda[index_n]; 
+  if (index_s < (rows*cols) && index_s >= 0) south[ty][tx] = J_cuda[index_s];
   if ( by == 0 ){
   north[ty][tx] = J_cuda[BLOCK_SIZE * bx + tx]; 
   }
@@ -52,8 +52,8 @@ srad_cuda_1(
   }
    __syncthreads();
  
-  west[ty][tx] = J_cuda[index_w];
-  east[ty][tx] = J_cuda[index_e];
+  if (index_w < (rows*cols) && index_w >= 0) west[ty][tx] = J_cuda[index_w];
+  if (index_e < (rows*cols) && index_e >= 0) east[ty][tx] = J_cuda[index_e];
 
   if ( bx == 0 ){
   west[ty][tx] = J_cuda[cols * BLOCK_SIZE * by + cols * ty]; 
