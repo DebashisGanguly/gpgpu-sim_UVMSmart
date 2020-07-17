@@ -18,11 +18,11 @@ If you use or build on this framework, please cite the following papers based on
     delayed migration, LFU eviction, cold vs hot data structure
     classification, and page migration and pinning.
     
-    Debashis Ganguly, Ziyu Zhang, Jun Yang, and Rami Melhem. 2020.
+    [Debashis Ganguly, Ziyu Zhang, Jun Yang, and Rami Melhem. 2020.
     Adaptive Page Migration for Irregular Data-intensive Applications
     under GPU Memory Oversubscription. In _Proceedings of the 34th IEEE
     International Parallel &   Distributed Processing Symposium_ (IPDPS
-    2020). _[TO APPEAR]_, New Orleans, Louisiana, USA.
+    2020). IEEE , New Orleans, Louisiana, USA.](https://ieeexplore.ieee.org/document/9139797)
 
 ## Features
 
