@@ -21,7 +21,12 @@ If you use or build on this framework, please cite the following papers based on
     Adaptive Page Migration for Irregular Data-intensive Applications under GPU Memory Oversubscription. In _Proceedings of the 34th IEEE
     International Parallel &   Distributed Processing Symposium_ (IPDPS
     2020). IEEE , New Orleans, Louisiana, USA, 451-461.](https://ieeexplore.ieee.org/document/9139797)
-
+ 3. Please cite the following paper when using adaptive runtime to detect pattern in CPU-GPU interconnect traffic, and policy engine to choose and dynamically employ memory management policies.
+    
+    Debashis Ganguly, Rami Melhem, and Jun Yang. 2021.
+    An Adaptive Framework for Oversubscription Management in CPU-GPU Unified Memory. In _2021 Design, Automation & Test in Europe Conference & Exhibition_ (DATE
+    2021).
+    
 ## Features
 
  1. A fully-associative last-level TLB and hence TLB lookup is performed in a single core cycle, 
@@ -33,7 +38,8 @@ If you use or build on this framework, please cite the following papers based on
  7. Page replacement policies (Tree-based neighbourhood, Sequential-local 64KB, LRU 4KB, Random 4KB, LRU 2MB, LFU 2MB),
  8. 32-bit access registers per 64KB (basic block),
  9. Delayed migration based on an access-counter threshold, 
- 10. Rounding up managed allocation and maintaining large page (2MB) level full-binary trees. 
+ 10. Rounding up managed allocation and maintaining large page (2MB) level full-binary trees.
+ 11. A runtime engine to detect underlying pattern in CPU-GPU interconnect traffic, a policy engine to choose and dynamically apply the best suitable memory management techniques.
 
 Note that currently, we do not support heterogeneous systems for CPU-GPU or multi-GPU collaborative workloads. This means CPU page table (validation/invalidation, CPU-memory page swapping) is not simulated.
 
@@ -60,7 +66,7 @@ Currently, we support architectural support for *GeForceGTX 1080Ti* with *PCIe 3
  2. A micro-benchmark to find out transfer bandwidth for respective transfer size (cudaMemcpy host to device).
  3. A set of benchmarks both with the copy-then-execute model (in Unmanaged under benchmarks folder) and unified virtual memory (in Managed under benchmarks folder).
  4. Specification of the working set, iterations, and the number of kernels launched for managed versions of the benchmarks.
- 5. Output log, scripts for plotting, and the derived plots for ISCA and IPDPS papers in Results under benchmarks folder.
+ 5. Output log, scripts for plotting, and the derived plots for ISCA'19, IPDPS'20, and DATE'21 papers in Results under benchmarks folder.
 
 ## Copyright Notice
 
